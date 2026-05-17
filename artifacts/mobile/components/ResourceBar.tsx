@@ -21,14 +21,15 @@ function fmt(n: number): string {
   return Math.floor(n).toString();
 }
 
-interface ResourcePillProps { icon: string; value: number; color: string; perHour?: number; }
+interface ResourcePillProps { icon: string; label: string; value: number; color: string; perHour?: number; }
 
-function ResourcePill({ icon, value, color, perHour }: ResourcePillProps) {
+function ResourcePill({ icon, label, value, color, perHour }: ResourcePillProps) {
   const colors = useColors();
   return (
     <View style={[styles.pill, { backgroundColor: colors.surface }]}>
-      <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+      <MaterialCommunityIcons name={icon as any} size={13} color={color} />
       <View style={styles.pillText}>
+        <Text style={[styles.pillLabel, { color }]}>{label}</Text>
         <Text style={[styles.pillValue, { color: colors.foreground }]}>{fmt(value)}</Text>
         {perHour !== undefined && perHour > 0 && (
           <Text style={[styles.pillRate, { color: colors.textSecondary }]}>+{fmt(perHour)}/h</Text>
@@ -46,10 +47,10 @@ export default function ResourceBar({ gold, food, wood, stone, goldPerHour, food
   return (
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topPad + 6, borderBottomColor: colors.border }]}>
       <View style={styles.row}>
-        <ResourcePill icon="gold" value={gold} color={colors.gold} perHour={goldPerHour} />
-        <ResourcePill icon="food-apple" value={food} color={colors.food} perHour={foodPerHour} />
-        <ResourcePill icon="tree" value={wood} color={colors.wood} perHour={woodPerHour} />
-        <ResourcePill icon="cube-outline" value={stone} color={colors.stone} perHour={stonePerHour} />
+        <ResourcePill icon="gold" label="GOLD" value={gold} color={colors.gold} perHour={goldPerHour} />
+        <ResourcePill icon="food-apple" label="FOOD" value={food} color={colors.food} perHour={foodPerHour} />
+        <ResourcePill icon="axe" label="WOOD" value={wood} color={colors.wood} perHour={woodPerHour} />
+        <ResourcePill icon="wall" label="STONE" value={stone} color={colors.stone} perHour={stonePerHour} />
       </View>
     </View>
   );
@@ -77,12 +78,18 @@ const styles = StyleSheet.create({
   pillText: {
     flex: 1,
   },
+  pillLabel: {
+    fontSize: 8,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+  },
   pillValue: {
     fontSize: 12,
     fontFamily: "Inter_600SemiBold",
+    lineHeight: 14,
   },
   pillRate: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: "Inter_400Regular",
   },
 });

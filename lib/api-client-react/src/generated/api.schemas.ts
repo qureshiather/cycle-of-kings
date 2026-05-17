@@ -66,6 +66,7 @@ export const GridCellBuildingType = {
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',
+  lumberMill: 'lumberMill',
   barracks: 'barracks',
   market: 'market',
   tavern: 'tavern',
@@ -92,6 +93,7 @@ export const BuildingPlacementBuildingType = {
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',
+  lumberMill: 'lumberMill',
   barracks: 'barracks',
   market: 'market',
   tavern: 'tavern',
@@ -324,6 +326,14 @@ export interface LeaderboardEntry {
   gold: number;
   population: number;
   militaryPower: number;
+}
+
+export interface ResetResult {
+  success: boolean;
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
 }
 
 export type GameStateSeason = typeof GameStateSeason[keyof typeof GameStateSeason];

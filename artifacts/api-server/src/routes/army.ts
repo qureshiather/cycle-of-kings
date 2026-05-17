@@ -72,4 +72,55 @@ router.post("/towns/:townId/army/recruit", async (req, res) => {
   res.json({ ...updated, capacity });
 });
 
+const DISBAND_REFUND_RATIO = 0.25;
+
+router.post("/towns/:townId/army/disband", async (req, res) => {
+  const townId = parseInt(req.params["townId"] ?? "");
+  const { infantry = 0, archers = 0, cavalry = 0, catapults = 0 } = req.body as { infantry?: number; archers?: number; cavalry?: number; catapults?: number };
+
+  const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
+  if (!town) return void res.status(404).json({ error: "Town not found" });
+
+  const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
+  if (!armyRows.length) return void res.status(400).json({ error: "No army" });
+  const army = armyRows[0];
+
+  const availInfantry  = army.infantry  - army.onMissionInfantry;
+  const availArchers   = army.archers   - army.onMissionArchers;
+  const availCavalry   = army.cavalry   - army.onMissionCavalry;
+  const availCatapults = army.catapults - army.onMissionCatapults;
+
+  if (infantry > availInfantry || archers > availArchers || cavalry > availCavalry || catapults > availCatapults) {
+    return void res.status(400).json({ error: "Cannot disband units currently on missions" });
+  }
+
+  const refund = {
+    gold:  (infantry * RECRUIT_COSTS.infantry.gold  + archers * RECRUIT_COSTS.archers.gold  + cavalry * RECRUIT_COSTS.cavalry.gold  + catapults * RECRUIT_COSTS.catapults.gold)  * DISBAND_REFUND_RATIO,
+    food:  (infantry * RECRUIT_COSTS.infantry.food  + archers * RECRUIT_COSTS.archers.food  + cavalry * RECRUIT_COSTS.cavalry.food  + catapults * RECRUIT_COSTS.catapults.food)  * DISBAND_REFUND_RATIO,
+    wood:  (infantry * RECRUIT_COSTS.infantry.wood  + archers * RECRUIT_COSTS.archers.wood  + cavalry * RECRUIT_COSTS.cavalry.wood  + catapults * RECRUIT_COSTS.catapults.wood)  * DISBAND_REFUND_RATIO,
+    stone: (infantry * RECRUIT_COSTS.infantry.stone + archers * RECRUIT_COSTS.archers.stone + cavalry * RECRUIT_COSTS.cavalry.stone + catapults * RECRUIT_COSTS.catapults.stone) * DISBAND_REFUND_RATIO,
+  };
+
+  await db.update(townsTable).set({
+    gold:  town.gold  + refund.gold,
+    food:  town.food  + refund.food,
+    wood:  town.wood  + refund.wood,
+    stone: town.stone + refund.stone,
+  }).where(eq(townsTable.id, townId));
+
+  const cells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, townId));
+  const capacity = calculateArmyCapacity(cells);
+
+  const [updated] = await db.update(armyTable).set({
+    infantry:  army.infantry  - infantry,
+    archers:   army.archers   - archers,
+    cavalry:   army.cavalry   - cavalry,
+    catapults: army.catapults - catapults,
+    capacity,
+    updatedAt: new Date(),
+  }).where(eq(armyTable.townId, townId)).returning();
+
+  res.json({ ...updated, capacity, refund });
+});
+
 export default router;

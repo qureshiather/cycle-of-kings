@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, Dimensions } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
-export type BuildingType = "farm" | "mine" | "quarry" | "barracks" | "market" | "tavern" | "house" | "empty";
+export type BuildingType = "farm" | "mine" | "quarry" | "lumberMill" | "barracks" | "market" | "tavern" | "house" | "empty";
 
 export interface GridCellData {
   id: number;
@@ -28,26 +28,28 @@ interface TownGridProps {
 const GRID_SIZE = 9;
 
 const BUILDING_META: Record<BuildingType, { icon: string; color: string; label: string; desc: string; }> = {
-  farm:     { icon: "corn",              color: "#3d7a35", label: "Farm",     desc: "Food +5/hr per level" },
-  mine:     { icon: "pickaxe",           color: "#c4a820", label: "Mine",     desc: "Gold +3/hr per level" },
-  quarry:   { icon: "hammer",            color: "#7a7a6a", label: "Quarry",   desc: "Wood +4/hr, Stone +2/hr" },
-  barracks: { icon: "sword-cross",       color: "#8a3030", label: "Barracks", desc: "Army capacity +20 per level" },
-  market:   { icon: "store",             color: "#7a4a9a", label: "Market",   desc: "Gold +2/hr per level" },
-  tavern:   { icon: "beer",              color: "#9a5a20", label: "Tavern",   desc: "Boosts barracks training speed" },
-  house:    { icon: "home",              color: "#2a5a8a", label: "House",    desc: "Population +10 per level" },
-  empty:    { icon: "plus",              color: "#444438", label: "Empty",    desc: "Tap to build" },
+  farm:       { icon: "corn",         color: "#3d7a35", label: "Farm",        desc: "Food +5/hr per level" },
+  mine:       { icon: "pickaxe",      color: "#c4a820", label: "Mine",        desc: "Gold +3/hr per level" },
+  quarry:     { icon: "hammer",       color: "#7a7a6a", label: "Quarry",      desc: "Stone +4/hr per level" },
+  lumberMill: { icon: "axe",          color: "#6b4423", label: "Lumber Mill", desc: "Wood +8/hr per level" },
+  barracks:   { icon: "sword-cross",  color: "#8a3030", label: "Barracks",    desc: "Army capacity +20 per level" },
+  market:     { icon: "store",        color: "#7a4a9a", label: "Market",      desc: "Gold +2/hr per level" },
+  tavern:     { icon: "beer",         color: "#9a5a20", label: "Tavern",      desc: "Boosts barracks training speed" },
+  house:      { icon: "home",         color: "#2a5a8a", label: "House",       desc: "Population +10 per level" },
+  empty:      { icon: "plus",         color: "#444438", label: "Empty",       desc: "Tap to build" },
 };
 
-const BUILDING_TYPES: BuildingType[] = ["farm", "mine", "quarry", "barracks", "market", "tavern", "house"];
+const BUILDING_TYPES: BuildingType[] = ["farm", "mine", "quarry", "lumberMill", "barracks", "market", "tavern", "house"];
 const BUILDING_COSTS: Record<BuildingType, string> = {
-  farm:     "50 Wood, 20 Stone",
-  mine:     "30 Wood, 50 Stone",
-  quarry:   "20 Wood, 30 Stone",
-  barracks: "60 Wood, 40 Stone, 30 Gold",
-  market:   "40 Wood, 20 Gold",
-  tavern:   "50 Wood, 20 Stone, 10 Gold",
-  house:    "30 Wood, 20 Stone",
-  empty:    "",
+  farm:       "50 Wood, 20 Stone",
+  mine:       "30 Wood, 50 Stone",
+  quarry:     "20 Wood, 30 Stone",
+  lumberMill: "30 Stone",
+  barracks:   "60 Wood, 40 Stone, 30 Gold",
+  market:     "40 Wood, 20 Gold",
+  tavern:     "50 Wood, 20 Stone, 10 Gold",
+  house:      "30 Wood, 20 Stone",
+  empty:      "",
 };
 
 function getCellsMap(cells: GridCellData[]): Map<string, GridCellData> {

@@ -34,6 +34,7 @@ export * from './raid';
 export * from './raidOrder';
 export * from './raidResult';
 export * from './recruitOrder';
+export * from './resetResult';
 export * from './town';
 export * from './townSummary';
 export * from './tradeRoute';

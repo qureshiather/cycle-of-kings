@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetTownArmy, useRecruitUnits, getGetTownArmyQueryKey, getGetTownQueryKey } from "@workspace/api-client-react";
+import { useGetTownArmy, useRecruitUnits, useDisbandUnits, getGetTownArmyQueryKey, getGetTownQueryKey } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
 
@@ -16,7 +16,7 @@ const UNIT_META = {
 
 type UnitType = keyof typeof UNIT_META;
 
-function UnitCard({ type, total, onMission, onRecruit }: { type: UnitType; total: number; onMission: number; onRecruit: (type: UnitType, count: number) => void }) {
+function UnitCard({ type, total, onMission, onRecruit, onDisband }: { type: UnitType; total: number; onMission: number; onRecruit: (type: UnitType, count: number) => void; onDisband: (type: UnitType, count: number) => void }) {
   const colors = useColors();
   const meta = UNIT_META[type];
   const available = total - onMission;
@@ -41,11 +41,20 @@ function UnitCard({ type, total, onMission, onRecruit }: { type: UnitType; total
         <View style={styles.recruitBtns}>
           {[1, 5, 10].map(n => (
             <TouchableOpacity
-              key={n}
+              key={`r${n}`}
               style={[styles.recruitBtn, { backgroundColor: colors.gold + "22", borderColor: colors.gold + "44" }]}
               onPress={() => onRecruit(type, n)}
             >
               <Text style={[styles.recruitBtnText, { color: colors.gold }]}>+{n}</Text>
+            </TouchableOpacity>
+          ))}
+          {available > 0 && [1, 5, 10].map(n => n <= available && (
+            <TouchableOpacity
+              key={`d${n}`}
+              style={[styles.recruitBtn, { backgroundColor: colors.destructive + "15", borderColor: colors.destructive + "44" }]}
+              onPress={() => onDisband(type, n)}
+            >
+              <Text style={[styles.recruitBtnText, { color: colors.destructive }]}>−{n}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -61,24 +70,43 @@ export default function ArmyScreen() {
 
   const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
   const recruitUnits = useRecruitUnits();
+  const disbandUnits = useDisbandUnits();
   const [error, setError] = useState<string | null>(null);
+
+  const invalidateArmy = () => {
+    if (!townId) return;
+    qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
+    qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+  };
 
   const handleRecruit = (type: UnitType, count: number) => {
     if (!townId) return;
     const order: Record<string, number> = { infantry: 0, archers: 0, cavalry: 0, catapults: 0 };
     order[type] = count;
     setError(null);
-
     recruitUnits.mutate(
       { townId, data: order },
       {
-        onSuccess: () => {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
-          qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
-        },
+        onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); invalidateArmy(); },
         onError: (e: any) => {
           setError(e?.data?.error ?? "Insufficient resources or capacity");
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        },
+      }
+    );
+  };
+
+  const handleDisband = (type: UnitType, count: number) => {
+    if (!townId) return;
+    const order: Record<string, number> = { infantry: 0, archers: 0, cavalry: 0, catapults: 0 };
+    order[type] = count;
+    setError(null);
+    disbandUnits.mutate(
+      { townId, data: order },
+      {
+        onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); invalidateArmy(); },
+        onError: (e: any) => {
+          setError(e?.data?.error ?? "Cannot disband");
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         },
       }
@@ -137,6 +165,7 @@ export default function ArmyScreen() {
               total={(army as any)?.[type] ?? 0}
               onMission={(army as any)?.[`onMission${type.charAt(0).toUpperCase() + type.slice(1)}`] ?? 0}
               onRecruit={handleRecruit}
+              onDisband={handleDisband}
             />
           ))}
 

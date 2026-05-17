@@ -1,28 +1,32 @@
 export const BUILDING_COSTS: Record<string, { wood: number; stone: number; gold: number; food: number }> = {
-  farm:     { wood: 50,  stone: 20,  gold: 0,  food: 0 },
-  mine:     { wood: 30,  stone: 50,  gold: 0,  food: 0 },
-  quarry:   { wood: 20,  stone: 30,  gold: 0,  food: 0 },
-  barracks: { wood: 60,  stone: 40,  gold: 30, food: 0 },
-  market:   { wood: 40,  stone: 0,   gold: 20, food: 0 },
-  tavern:   { wood: 50,  stone: 20,  gold: 10, food: 0 },
-  house:    { wood: 30,  stone: 20,  gold: 0,  food: 0 },
-  wall:     { wood: 0,   stone: 30,  gold: 0,  food: 0 },
-  tower:    { wood: 20,  stone: 50,  gold: 10, food: 0 },
+  farm:        { wood: 50,  stone: 20,  gold: 0,  food: 0 },
+  mine:        { wood: 30,  stone: 50,  gold: 0,  food: 0 },
+  quarry:      { wood: 20,  stone: 30,  gold: 0,  food: 0 },
+  lumberMill:  { wood: 0,   stone: 30,  gold: 0,  food: 0 },
+  barracks:    { wood: 60,  stone: 40,  gold: 30, food: 0 },
+  market:      { wood: 40,  stone: 0,   gold: 20, food: 0 },
+  tavern:      { wood: 50,  stone: 20,  gold: 10, food: 0 },
+  house:       { wood: 30,  stone: 20,  gold: 0,  food: 0 },
+  wall:        { wood: 0,   stone: 30,  gold: 0,  food: 0 },
+  tower:       { wood: 20,  stone: 50,  gold: 10, food: 0 },
 };
 
 export const UPGRADE_COST_MULTIPLIER = 1.8;
 export const REFUND_RATIO = 0.75;
 export const GRID_SIZE = 9;
 
+export const BASE_PRODUCTION = { gold: 5, food: 5, wood: 5, stone: 5 };
+
 export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood: number; stone: number }> = {
-  farm:     { food: 5,  gold: 0, wood: 0, stone: 0 },
-  mine:     { food: 0,  gold: 3, wood: 0, stone: 0 },
-  quarry:   { food: 0,  gold: 0, wood: 4, stone: 2 },
-  market:   { food: 0,  gold: 2, wood: 0, stone: 0 },
-  barracks: { food: 0,  gold: 0, wood: 0, stone: 0 },
-  tavern:   { food: 0,  gold: 0, wood: 0, stone: 0 },
-  house:    { food: 0,  gold: 0, wood: 0, stone: 0 },
-  empty:    { food: 0,  gold: 0, wood: 0, stone: 0 },
+  farm:       { food: 5,  gold: 0, wood: 0,  stone: 0 },
+  mine:       { food: 0,  gold: 3, wood: 0,  stone: 0 },
+  quarry:     { food: 0,  gold: 0, wood: 0,  stone: 4 },
+  lumberMill: { food: 0,  gold: 0, wood: 8,  stone: 0 },
+  market:     { food: 0,  gold: 2, wood: 0,  stone: 0 },
+  barracks:   { food: 0,  gold: 0, wood: 0,  stone: 0 },
+  tavern:     { food: 0,  gold: 0, wood: 0,  stone: 0 },
+  house:      { food: 0,  gold: 0, wood: 0,  stone: 0 },
+  empty:      { food: 0,  gold: 0, wood: 0,  stone: 0 },
 };
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
@@ -86,7 +90,10 @@ export interface CellLike { buildingType: string; level: number; row?: number; c
 
 export function calculateProduction(cells: CellLike[], season: Season): { gold: number; food: number; wood: number; stone: number } {
   const mods = getSeasonModifiers(season);
-  let gold = 0, food = 0, wood = 0, stone = 0;
+  let gold = BASE_PRODUCTION.gold * mods.gold;
+  let food = BASE_PRODUCTION.food * mods.food;
+  let wood = BASE_PRODUCTION.wood * mods.wood;
+  let stone = BASE_PRODUCTION.stone * mods.stone;
   for (const cell of cells) {
     if (cell.buildingType === "empty") continue;
     const rates = PRODUCTION_RATES[cell.buildingType];
@@ -147,7 +154,7 @@ export function calculateBuildingCost(buildingType: string, targetLevel: number)
 
 export function getUpgradeDurationMs(buildingType: string, currentLevel: number): number {
   const baseMins: Record<string, number> = {
-    farm: 5, mine: 8, quarry: 6, barracks: 15, market: 10, tavern: 12, house: 7,
+    farm: 5, mine: 8, quarry: 6, lumberMill: 6, barracks: 15, market: 10, tavern: 12, house: 7,
   };
   const base = baseMins[buildingType] ?? 10;
   return base * Math.pow(2, currentLevel - 1) * 60 * 1000;

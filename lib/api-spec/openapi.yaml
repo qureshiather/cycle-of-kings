@@ -367,6 +367,52 @@ paths:
         "400":
           description: Insufficient resources or capacity
 
+  /towns/{townId}/army/disband:
+    post:
+      operationId: disbandUnits
+      tags: [army]
+      summary: Disband units (returns 25% resource refund)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitOrder"
+      responses:
+        "200":
+          description: Units disbanded, refund returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Army"
+        "400":
+          description: Not enough available units
+
+  /towns/{townId}/reset:
+    post:
+      operationId: resetTown
+      tags: [towns]
+      summary: Hard reset - wipe all buildings, army, missions and restore starting resources
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Kingdom reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetResult"
+        "404":
+          description: Town not found
+
   /missions:
     get:
       operationId: getMissions
@@ -655,7 +701,7 @@ components:
         col: { type: integer }
         buildingType:
           type: string
-          enum: [farm, mine, quarry, barracks, market, tavern, house, empty]
+          enum: [farm, mine, quarry, lumberMill, barracks, market, tavern, house, empty]
         level: { type: integer }
         upgrading: { type: boolean }
         upgradeEndsAt: { type: ["string", "null"] }
@@ -668,7 +714,7 @@ components:
         col: { type: integer }
         buildingType:
           type: string
-          enum: [farm, mine, quarry, barracks, market, tavern, house]
+          enum: [farm, mine, quarry, lumberMill, barracks, market, tavern, house]
 
     BuildingMove:
       type: object
@@ -853,6 +899,16 @@ components:
         gold: { type: number }
         population: { type: integer }
         militaryPower: { type: integer }
+
+    ResetResult:
+      type: object
+      required: [success, gold, food, wood, stone]
+      properties:
+        success: { type: boolean }
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
 
     GameState:
       type: object

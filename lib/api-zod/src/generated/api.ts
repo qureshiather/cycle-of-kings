@@ -107,7 +107,7 @@ export const GetTownGridResponseItem = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -125,7 +125,7 @@ export const PlaceBuildingParams = zod.object({
 export const PlaceBuildingBody = zod.object({
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'barracks', 'market', 'tavern', 'house'])
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house'])
 })
 
 
@@ -148,7 +148,7 @@ export const MoveBuildingResponse = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -197,7 +197,7 @@ export const UpgradeBuildingResponse = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -316,6 +316,55 @@ export const RecruitUnitsResponse = zod.object({
   "onMissionCavalry": zod.number(),
   "onMissionCatapults": zod.number(),
   "capacity": zod.number()
+})
+
+
+/**
+ * @summary Disband units (returns 25% resource refund)
+ */
+export const DisbandUnitsParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const disbandUnitsBodyInfantryDefault = 0;
+export const disbandUnitsBodyArchersDefault = 0;
+export const disbandUnitsBodyCavalryDefault = 0;
+export const disbandUnitsBodyCatapultsDefault = 0;
+
+export const DisbandUnitsBody = zod.object({
+  "infantry": zod.number().default(disbandUnitsBodyInfantryDefault),
+  "archers": zod.number().default(disbandUnitsBodyArchersDefault),
+  "cavalry": zod.number().default(disbandUnitsBodyCavalryDefault),
+  "catapults": zod.number().default(disbandUnitsBodyCatapultsDefault)
+})
+
+export const DisbandUnitsResponse = zod.object({
+  "townId": zod.number(),
+  "infantry": zod.number(),
+  "archers": zod.number(),
+  "cavalry": zod.number(),
+  "catapults": zod.number(),
+  "onMissionInfantry": zod.number(),
+  "onMissionArchers": zod.number(),
+  "onMissionCavalry": zod.number(),
+  "onMissionCatapults": zod.number(),
+  "capacity": zod.number()
+})
+
+
+/**
+ * @summary Hard reset - wipe all buildings, army, missions and restore starting resources
+ */
+export const ResetTownParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const ResetTownResponse = zod.object({
+  "success": zod.boolean(),
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
 })
 
 

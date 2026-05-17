@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { townsTable, gridCellsTable, fortificationsTable, playersTable } from "@workspace/db";
+import { townsTable, gridCellsTable, fortificationsTable, playersTable, armyTable, missionsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateArmyCapacity, calculatePopulation,
@@ -231,6 +231,25 @@ router.post("/towns/:townId/fortifications", async (req, res) => {
 
   const [fort] = await db.insert(fortificationsTable).values({ townId, row, col, type, level: 1, borderBonus }).returning();
   res.status(201).json(fort);
+});
+
+router.post("/towns/:townId/reset", async (req, res) => {
+  const townId = parseInt(req.params["townId"] ?? "");
+  const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
+  if (!town) return void res.status(404).json({ error: "Town not found" });
+
+  await db.delete(gridCellsTable).where(eq(gridCellsTable.townId, townId));
+  await db.delete(fortificationsTable).where(eq(fortificationsTable.townId, townId));
+  await db.delete(armyTable).where(eq(armyTable.townId, townId));
+  await db.delete(missionsTable).where(eq(missionsTable.townId, townId));
+
+  await db.update(townsTable).set({
+    gold: 200, food: 200, wood: 150, stone: 100,
+    defenseRating: 10, population: 8, populationCap: 10,
+    lastTickAt: new Date(),
+  }).where(eq(townsTable.id, townId));
+
+  res.json({ success: true, gold: 200, food: 200, wood: 150, stone: 100 });
 });
 
 router.delete("/towns/:townId/fortifications/:row/:col", async (req, res) => {

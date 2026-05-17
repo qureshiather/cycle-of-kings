@@ -38,6 +38,7 @@ import type {
   Raid,
   RaidOrder,
   RecruitOrder,
+  ResetResult,
   Town,
   TownSummary,
   TradeRoute,
@@ -1179,6 +1180,148 @@ export const useRecruitUnits = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getRecruitUnitsMutationOptions(options));
+    }
+
+export const getDisbandUnitsUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/army/disband`
+}
+
+/**
+ * @summary Disband units (returns 25% resource refund)
+ */
+export const disbandUnits = async (townId: number,
+    recruitOrder: RecruitOrder, options?: RequestInit): Promise<Army> => {
+
+  return customFetch<Army>(getDisbandUnitsUrl(townId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      recruitOrder,)
+  }
+);}
+
+
+
+
+export const getDisbandUnitsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disbandUnits>>, TError,{townId: number;data: BodyType<RecruitOrder>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof disbandUnits>>, TError,{townId: number;data: BodyType<RecruitOrder>}, TContext> => {
+
+const mutationKey = ['disbandUnits'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof disbandUnits>>, {townId: number;data: BodyType<RecruitOrder>}> = (props) => {
+          const {townId,data} = props ?? {};
+
+          return  disbandUnits(townId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DisbandUnitsMutationResult = NonNullable<Awaited<ReturnType<typeof disbandUnits>>>
+    export type DisbandUnitsMutationBody = BodyType<RecruitOrder>
+    export type DisbandUnitsMutationError = ErrorType<void>
+
+    /**
+ * @summary Disband units (returns 25% resource refund)
+ */
+export const useDisbandUnits = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof disbandUnits>>, TError,{townId: number;data: BodyType<RecruitOrder>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof disbandUnits>>,
+        TError,
+        {townId: number;data: BodyType<RecruitOrder>},
+        TContext
+      > => {
+      return useMutation(getDisbandUnitsMutationOptions(options));
+    }
+
+export const getResetTownUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/reset`
+}
+
+/**
+ * @summary Hard reset - wipe all buildings, army, missions and restore starting resources
+ */
+export const resetTown = async (townId: number, options?: RequestInit): Promise<ResetResult> => {
+
+  return customFetch<ResetResult>(getResetTownUrl(townId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getResetTownMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTown>>, TError,{townId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resetTown>>, TError,{townId: number}, TContext> => {
+
+const mutationKey = ['resetTown'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resetTown>>, {townId: number}> = (props) => {
+          const {townId} = props ?? {};
+
+          return  resetTown(townId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResetTownMutationResult = NonNullable<Awaited<ReturnType<typeof resetTown>>>
+
+    export type ResetTownMutationError = ErrorType<void>
+
+    /**
+ * @summary Hard reset - wipe all buildings, army, missions and restore starting resources
+ */
+export const useResetTown = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resetTown>>, TError,{townId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resetTown>>,
+        TError,
+        {townId: number},
+        TContext
+      > => {
+      return useMutation(getResetTownMutationOptions(options));
     }
 
 export const getGetMissionsUrl = (params: GetMissionsParams,) => {
