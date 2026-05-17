@@ -1,22 +1,37 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Cycle of Kings game API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Player management
+  - name: towns
+    description: Town and grid management
+  - name: army
+    description: Army recruitment and management
+  - name: missions
+    description: Mission cards and dispatches
+  - name: raids
+    description: PvP raids
+  - name: trade
+    description: Trade routes
+  - name: leaderboard
+    description: Rankings
+  - name: game
+    description: Global game state
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +39,839 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /players:
+    post:
+      operationId: createPlayer
+      tags: [players]
+      summary: Create or find a player by device ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlayerInput"
+      responses:
+        "200":
+          description: Player found or created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{playerId}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get player by ID
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "404":
+          description: Not found
+
+  /players/{playerId}/trophies:
+    get:
+      operationId: getPlayerTrophies
+      tags: [players]
+      summary: Get permanent trophies for a player
+      parameters:
+        - name: playerId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: List of trophies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trophy"
+
+  /towns/{townId}:
+    get:
+      operationId: getTown
+      tags: [towns]
+      summary: Get town details including resources
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Town
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Town"
+        "404":
+          description: Not found
+
+  /towns/{townId}/grid:
+    get:
+      operationId: getTownGrid
+      tags: [towns]
+      summary: Get the 9x9 building grid for a town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Grid cells
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GridCell"
+
+  /towns/{townId}/buildings:
+    post:
+      operationId: placeBuilding
+      tags: [towns]
+      summary: Place a new building on the grid
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildingPlacement"
+      responses:
+        "201":
+          description: Building placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridCell"
+        "400":
+          description: Invalid placement or insufficient resources
+
+  /towns/{townId}/buildings/{row}/{col}:
+    patch:
+      operationId: moveBuilding
+      tags: [towns]
+      summary: Move building to a new position
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: row
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: col
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildingMove"
+      responses:
+        "200":
+          description: Building moved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridCell"
+        "400":
+          description: Invalid move
+    delete:
+      operationId: removeBuilding
+      tags: [towns]
+      summary: Remove/refund a building (75% resource refund)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: row
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: col
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Building removed, refund granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Town"
+        "404":
+          description: No building at that position
+
+  /towns/{townId}/buildings/{row}/{col}/upgrade:
+    post:
+      operationId: upgradeBuilding
+      tags: [towns]
+      summary: Start an upgrade on a building
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: row
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: col
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Upgrade started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GridCell"
+        "400":
+          description: Cannot upgrade (insufficient resources, already upgrading, max level)
+
+  /towns/{townId}/fortifications:
+    get:
+      operationId: getFortifications
+      tags: [towns]
+      summary: Get all fortifications for a town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Fortifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Fortification"
+    post:
+      operationId: placeFortification
+      tags: [towns]
+      summary: Place a wall segment or tower
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FortificationPlacement"
+      responses:
+        "201":
+          description: Fortification placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fortification"
+        "400":
+          description: Invalid placement
+
+  /towns/{townId}/fortifications/{row}/{col}:
+    delete:
+      operationId: removeFortification
+      tags: [towns]
+      summary: Remove a fortification
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: row
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: col
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Town"
+
+  /towns/{townId}/army:
+    get:
+      operationId: getTownArmy
+      tags: [army]
+      summary: Get army composition for a town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Army
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Army"
+
+  /towns/{townId}/army/recruit:
+    post:
+      operationId: recruitUnits
+      tags: [army]
+      summary: Recruit units (costs resources)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitOrder"
+      responses:
+        "200":
+          description: Units recruited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Army"
+        "400":
+          description: Insufficient resources or capacity
+
+  /missions:
+    get:
+      operationId: getMissions
+      tags: [missions]
+      summary: Get the 5 mission cards available this hour
+      parameters:
+        - name: townId
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Mission cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MissionCard"
+
+  /towns/{townId}/missions:
+    get:
+      operationId: getTownMissions
+      tags: [missions]
+      summary: Get active and recent missions for a town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Missions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActiveMission"
+    post:
+      operationId: dispatchMission
+      tags: [missions]
+      summary: Dispatch troops on a mission
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MissionDispatch"
+      responses:
+        "201":
+          description: Mission dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActiveMission"
+        "400":
+          description: Insufficient troops or invalid mission
+
+  /towns/{townId}/trades:
+    get:
+      operationId: getTownTrades
+      tags: [trade]
+      summary: Get active trade routes for a town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Trade routes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TradeRoute"
+    post:
+      operationId: createTradeRoute
+      tags: [trade]
+      summary: Create a trade route with another town
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TradeRouteInput"
+      responses:
+        "201":
+          description: Trade route created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradeRoute"
+        "400":
+          description: Invalid trade route
+
+  /towns/{townId}/trades/{tradeId}:
+    delete:
+      operationId: cancelTradeRoute
+      tags: [trade]
+      summary: Cancel a trade route
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: tradeId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Cancelled
+
+  /towns/{townId}/raids:
+    get:
+      operationId: getTownRaids
+      tags: [raids]
+      summary: Get raid history (as attacker and defender)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Raids
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Raid"
+
+  /raids:
+    post:
+      operationId: launchRaid
+      tags: [raids]
+      summary: Launch a raid against another town
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RaidOrder"
+      responses:
+        "201":
+          description: Raid result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Raid"
+        "400":
+          description: Insufficient troops or invalid target
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get the current cycle leaderboard
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /towns:
+    get:
+      operationId: listTowns
+      tags: [towns]
+      summary: List all towns (for raiding / trade target selection)
+      responses:
+        "200":
+          description: Towns
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TownSummary"
+
+  /game/state:
+    get:
+      operationId: getGameState
+      tags: [game]
+      summary: Get current game state (season, cycle, weather events)
+      responses:
+        "200":
+          description: Game state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameState"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
+        status: { type: string }
+
+    Player:
+      type: object
+      required: [id, deviceId, name, townId, createdAt]
+      properties:
+        id: { type: integer }
+        deviceId: { type: string }
+        name: { type: string }
+        townId: { type: integer }
+        trophyPoints: { type: integer }
+        createdAt: { type: string }
+
+    PlayerInput:
+      type: object
+      required: [deviceId, name]
+      properties:
+        deviceId: { type: string }
+        name: { type: string }
+
+    Trophy:
+      type: object
+      required: [id, playerId, type, cycleNumber, description, earnedAt]
+      properties:
+        id: { type: integer }
+        playerId: { type: integer }
+        type: { type: string }
+        cycleNumber: { type: integer }
+        description: { type: string }
+        earnedAt: { type: string }
+
+    Town:
+      type: object
+      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, defenseRating, population, populationCap, lastTickAt]
+      properties:
+        id: { type: integer }
+        playerId: { type: integer }
+        name: { type: string }
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
+        goldPerHour: { type: number }
+        foodPerHour: { type: number }
+        woodPerHour: { type: number }
+        stonePerHour: { type: number }
+        defenseRating: { type: number }
+        population: { type: integer }
+        populationCap: { type: integer }
+        lastTickAt: { type: string }
+
+    TownSummary:
+      type: object
+      required: [id, name, playerId, playerName, defenseRating, population]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        playerId: { type: integer }
+        playerName: { type: string }
+        defenseRating: { type: number }
+        population: { type: integer }
+
+    GridCell:
+      type: object
+      required: [id, townId, row, col, buildingType, level, upgrading, upgradeEndsAt]
+      properties:
+        id: { type: integer }
+        townId: { type: integer }
+        row: { type: integer }
+        col: { type: integer }
+        buildingType:
+          type: string
+          enum: [farm, mine, quarry, barracks, market, tavern, house, empty]
+        level: { type: integer }
+        upgrading: { type: boolean }
+        upgradeEndsAt: { type: ["string", "null"] }
+
+    BuildingPlacement:
+      type: object
+      required: [row, col, buildingType]
+      properties:
+        row: { type: integer }
+        col: { type: integer }
+        buildingType:
+          type: string
+          enum: [farm, mine, quarry, barracks, market, tavern, house]
+
+    BuildingMove:
+      type: object
+      required: [newRow, newCol]
+      properties:
+        newRow: { type: integer }
+        newCol: { type: integer }
+
+    Fortification:
+      type: object
+      required: [id, townId, row, col, type, level]
+      properties:
+        id: { type: integer }
+        townId: { type: integer }
+        row: { type: integer }
+        col: { type: integer }
+        type:
+          type: string
+          enum: [wall, tower]
+        level: { type: integer }
+        borderBonus: { type: boolean }
+
+    FortificationPlacement:
+      type: object
+      required: [row, col, type]
+      properties:
+        row: { type: integer }
+        col: { type: integer }
+        type:
+          type: string
+          enum: [wall, tower]
+
+    Army:
+      type: object
+      required: [townId, infantry, archers, cavalry, catapults, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionCatapults, capacity]
+      properties:
+        townId: { type: integer }
+        infantry: { type: integer }
+        archers: { type: integer }
+        cavalry: { type: integer }
+        catapults: { type: integer }
+        onMissionInfantry: { type: integer }
+        onMissionArchers: { type: integer }
+        onMissionCavalry: { type: integer }
+        onMissionCatapults: { type: integer }
+        capacity: { type: integer }
+
+    RecruitOrder:
+      type: object
+      properties:
+        infantry: { type: integer, default: 0 }
+        archers: { type: integer, default: 0 }
+        cavalry: { type: integer, default: 0 }
+        catapults: { type: integer, default: 0 }
+
+    MissionCard:
+      type: object
+      required: [id, type, difficulty, title, description, minTroops, baseSuccessRate, lootGold, lootFood, lootWood, lootStone, durationMinutes]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [explore, patrol, raid, siege]
+        difficulty:
+          type: string
+          enum: [safe, moderate, risky, deadly]
+        title: { type: string }
+        description: { type: string }
+        minTroops: { type: integer }
+        baseSuccessRate: { type: number }
+        lootGold: { type: number }
+        lootFood: { type: number }
+        lootWood: { type: number }
+        lootStone: { type: number }
+        durationMinutes: { type: integer }
+
+    MissionDispatch:
+      type: object
+      required: [missionCardId, infantry, archers, cavalry]
+      properties:
+        missionCardId: { type: string }
+        infantry: { type: integer }
+        archers: { type: integer }
+        cavalry: { type: integer }
+
+    ActiveMission:
+      type: object
+      required: [id, townId, missionCardId, missionTitle, missionType, infantry, archers, cavalry, successRate, status, dispatchedAt, returnsAt]
+      properties:
+        id: { type: integer }
+        townId: { type: integer }
+        missionCardId: { type: string }
+        missionTitle: { type: string }
+        missionType: { type: string }
+        infantry: { type: integer }
+        archers: { type: integer }
+        cavalry: { type: integer }
+        successRate: { type: number }
         status:
           type: string
-      required:
-        - status
+          enum: [active, returned, failed]
+        dispatchedAt: { type: string }
+        returnsAt: { type: string }
+        result: { type: ["string", "null"] }
+        lootGold: { type: ["number", "null"] }
+        lootFood: { type: ["number", "null"] }
+        lootWood: { type: ["number", "null"] }
+        lootStone: { type: ["number", "null"] }
+        casualties: { type: ["integer", "null"] }
 
+    TradeRoute:
+      type: object
+      required: [id, fromTownId, toTownId, fromTownName, toTownName, resourceType, amountPerHour, active, createdAt]
+      properties:
+        id: { type: integer }
+        fromTownId: { type: integer }
+        toTownId: { type: integer }
+        fromTownName: { type: string }
+        toTownName: { type: string }
+        resourceType:
+          type: string
+          enum: [gold, food, wood, stone]
+        amountPerHour: { type: number }
+        active: { type: boolean }
+        createdAt: { type: string }
+
+    TradeRouteInput:
+      type: object
+      required: [toTownId, resourceType, amountPerHour]
+      properties:
+        toTownId: { type: integer }
+        resourceType:
+          type: string
+          enum: [gold, food, wood, stone]
+        amountPerHour: { type: number }
+
+    Raid:
+      type: object
+      required: [id, attackerTownId, attackerTownName, defenderTownId, defenderTownName, result, attackerInfantry, attackerArchers, attackerCavalry, attackerCatapults, defenderStrength, lootGold, lootFood, lootWood, lootStone, attackerCasualties, createdAt]
+      properties:
+        id: { type: integer }
+        attackerTownId: { type: integer }
+        attackerTownName: { type: string }
+        defenderTownId: { type: integer }
+        defenderTownName: { type: string }
+        result:
+          type: string
+          enum: [victory, defeat]
+        attackerInfantry: { type: integer }
+        attackerArchers: { type: integer }
+        attackerCavalry: { type: integer }
+        attackerCatapults: { type: integer }
+        defenderStrength: { type: number }
+        lootGold: { type: number }
+        lootFood: { type: number }
+        lootWood: { type: number }
+        lootStone: { type: number }
+        attackerCasualties: { type: integer }
+        createdAt: { type: string }
+
+    RaidOrder:
+      type: object
+      required: [attackerTownId, defenderTownId, infantry, archers, cavalry, catapults]
+      properties:
+        attackerTownId: { type: integer }
+        defenderTownId: { type: integer }
+        infantry: { type: integer }
+        archers: { type: integer }
+        cavalry: { type: integer }
+        catapults: { type: integer }
+
+    LeaderboardEntry:
+      type: object
+      required: [rank, townId, townName, playerId, playerName, score, gold, population, militaryPower]
+      properties:
+        rank: { type: integer }
+        townId: { type: integer }
+        townName: { type: string }
+        playerId: { type: integer }
+        playerName: { type: string }
+        score: { type: number }
+        gold: { type: number }
+        population: { type: integer }
+        militaryPower: { type: integer }
+
+    GameState:
+      type: object
+      required: [cycleNumber, season, seasonName, cycleStartedAt, nextWipeAt, currentHour, weatherEvent, weatherActive]
+      properties:
+        cycleNumber: { type: integer }
+        season:
+          type: string
+          enum: [spring, summer, autumn, winter]
+        seasonName: { type: string }
+        cycleStartedAt: { type: string }
+        nextWipeAt: { type: string }
+        currentHour: { type: integer }
+        weatherEvent: { type: ["string", "null"] }
+        weatherActive: { type: boolean }
+        seasonModifiers:
+          type: object
+          properties:
+            gold: { type: number }
+            food: { type: number }
+            wood: { type: number }
+            stone: { type: number }

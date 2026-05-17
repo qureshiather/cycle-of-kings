@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Cycle of Kings",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-bg.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0e0c08"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "UIUserInterfaceStyle": "Dark"
+      }
+    },
+    "android": {
+      "userInterfaceStyle": "dark"
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "origin": "https://replit.com/"
+        }
+      ],
+      "expo-font",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
