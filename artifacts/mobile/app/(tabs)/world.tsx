@@ -92,8 +92,8 @@ export default function WorldScreen() {
                   <Text style={[styles.rankPlayer, { color: colors.textSecondary }]}>{entry.playerName}</Text>
                 </View>
                 <View style={styles.rankStats}>
-                  <Text style={[styles.rankScore, { color: colors.gold }]}>{entry.score.toLocaleString()}</Text>
-                  <Text style={[styles.rankMil, { color: colors.textSecondary }]}>⚔ {entry.militaryPower}</Text>
+                  <Text style={[styles.rankScore, { color: colors.gold }]}>{(entry.score ?? 0).toLocaleString()}</Text>
+                  <Text style={[styles.rankMil, { color: colors.textSecondary }]}>⚔ {entry.militaryPower ?? 0}</Text>
                 </View>
                 {entry.townId !== townId && (
                   <TouchableOpacity
