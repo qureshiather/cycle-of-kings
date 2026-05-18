@@ -43,23 +43,25 @@ const ECONOMY_WEIGHTS: Record<string, number> = {
 export type Season = "spring" | "summer" | "autumn" | "winter";
 
 const SEASON_EPOCH = new Date("2024-01-01T00:00:00Z");
-const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30;
+const MS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
+const SEASONS_PER_CYCLE = 4;
+const MS_PER_CYCLE = MS_PER_WEEK * SEASONS_PER_CYCLE;
 
-export function getCurrentSeasonInfo(): { season: Season; cycleNumber: number; monthIndex: number; cycleStartedAt: string; nextWipeAt: string } {
+export function getCurrentSeasonInfo(): { season: Season; cycleNumber: number; seasonIndex: number; cycleStartedAt: string; nextWipeAt: string } {
   const now = new Date();
-  const monthsSinceEpoch = Math.floor((now.getTime() - SEASON_EPOCH.getTime()) / MS_PER_MONTH);
-  const monthIndex = ((monthsSinceEpoch % 4) + 4) % 4;
-  const cycleNumber = Math.floor(monthsSinceEpoch / 4) + 1;
+  const weeksSinceEpoch = Math.floor((now.getTime() - SEASON_EPOCH.getTime()) / MS_PER_WEEK);
+  const seasonIndex = ((weeksSinceEpoch % SEASONS_PER_CYCLE) + SEASONS_PER_CYCLE) % SEASONS_PER_CYCLE;
+  const cycleNumber = Math.floor(weeksSinceEpoch / SEASONS_PER_CYCLE) + 1;
   const seasons: Season[] = ["spring", "summer", "autumn", "winter"];
-  const season = seasons[monthIndex];
+  const season = seasons[seasonIndex];
 
-  const cycleStartMs = SEASON_EPOCH.getTime() + (cycleNumber - 1) * 4 * MS_PER_MONTH;
-  const nextWipeMs = cycleStartMs + 4 * MS_PER_MONTH;
+  const cycleStartMs = SEASON_EPOCH.getTime() + (cycleNumber - 1) * MS_PER_CYCLE;
+  const nextWipeMs = cycleStartMs + MS_PER_CYCLE;
 
   return {
     season,
     cycleNumber,
-    monthIndex,
+    seasonIndex,
     cycleStartedAt: new Date(cycleStartMs).toISOString(),
     nextWipeAt: new Date(nextWipeMs).toISOString(),
   };
