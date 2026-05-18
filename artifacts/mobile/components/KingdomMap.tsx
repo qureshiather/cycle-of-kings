@@ -42,6 +42,7 @@ import {
   type ResourceAmounts,
 } from "@/lib/buildingMeta";
 import ResourceCostRow from "@/components/ResourceCostRow";
+import BuildingProgressionModal from "@/components/BuildingProgressionModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
@@ -81,6 +82,7 @@ export default function KingdomMap({
     production: false,
     army: false,
   });
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const toggleSection = (category: BuildingCategory) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -205,11 +207,30 @@ export default function KingdomMap({
           ) : undefined
         }
       >
-        <View style={styles.legend}>
-          <LegendChip label="Built" dotColor={colors.success} colors={colors} />
-          <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
-          <LegendChip label="Locked" dotColor={colors.textMuted} colors={colors} />
-          <LegendChip label="Upgrading" dotColor={colors.warning} colors={colors} />
+        <View style={styles.legendRow}>
+          <View style={styles.legend}>
+            <LegendChip label="Built" dotColor={colors.success} colors={colors} />
+            <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
+            <LegendChip label="Locked" dotColor={colors.textMuted} colors={colors} />
+            <LegendChip label="Upgrading" dotColor={colors.warning} colors={colors} />
+          </View>
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setGuideOpen(true);
+            }}
+            style={({ pressed }) => [
+              styles.guideBtn,
+              {
+                backgroundColor: withAlpha(colors.gold, pressed ? 0.18 : 0.1),
+                borderColor: withAlpha(colors.gold, 0.35),
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open building guide"
+          >
+            <MaterialCommunityIcons name="map-legend" size={18} color={colors.gold} />
+          </Pressable>
         </View>
 
         {BUILDING_CATEGORY_ORDER.map((category) => {
@@ -293,6 +314,12 @@ export default function KingdomMap({
           );
         })}
       </ScrollView>
+
+      <BuildingProgressionModal
+        visible={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        slots={slots}
+      />
 
       <Modal
         visible={!!selectedSlotType}
@@ -677,7 +704,22 @@ function ActionButton({
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
   scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 8 },
-  legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, marginBottom: 12 },
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    marginBottom: 12,
+  },
+  legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, flexShrink: 1 },
+  guideBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   legendChip: { flexDirection: "row", alignItems: "center", gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 10, fontFamily: "Inter_500Medium" },

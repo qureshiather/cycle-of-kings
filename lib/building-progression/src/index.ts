@@ -124,7 +124,7 @@ export function getBuildBlockReason(
 
   const th = getTownHallLevel(slots);
   if (th < req.townHallLevel) {
-    return `Requires Town Hall level ${req.townHallLevel}`;
+    return `Requires Town Hall ${req.townHallLevel}`;
   }
 
   for (const r of req.requires ?? []) {
@@ -144,10 +144,35 @@ export function canFirstTimeBuild(slotType: string, slots: SlotLike[]): boolean 
 }
 
 export function formatRequirementHint(slotType: SlotType): string {
+  return formatRequirementParts(slotType).join(" · ");
+}
+
+/** Ordered requirement parts for UI (Town Hall first, then building prereqs). */
+export function formatRequirementParts(slotType: SlotType): string[] {
   const req = BUILD_REQUIREMENTS[slotType];
   const parts: string[] = [`Town Hall ${req.townHallLevel}`];
   for (const r of req.requires ?? []) {
     parts.push(`${SLOT_LABELS[r.slot]} ${r.minLevel}`);
   }
-  return parts.join(" · ");
+  return parts;
+}
+
+/** Parts of {@link formatRequirementParts} the player has not satisfied yet (empty if buildable). */
+export function getUnmetRequirementParts(slotType: SlotType, slots: SlotLike[]): string[] {
+  const req = BUILD_REQUIREMENTS[slotType];
+  const missing: string[] = [];
+  const th = getTownHallLevel(slots);
+  if (th < req.townHallLevel) {
+    missing.push(`Town Hall ${req.townHallLevel}`);
+  }
+  for (const r of req.requires ?? []) {
+    if (slotLevel(slots, r.slot) < r.minLevel) {
+      missing.push(`${SLOT_LABELS[r.slot]} ${r.minLevel}`);
+    }
+  }
+  return missing;
+}
+
+export function getSlotLabel(slotType: SlotType): string {
+  return SLOT_LABELS[slotType];
 }

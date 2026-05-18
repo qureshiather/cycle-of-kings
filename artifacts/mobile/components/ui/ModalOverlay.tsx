@@ -1,25 +1,36 @@
 import React from "react";
-import { StyleSheet, TouchableOpacity, type TouchableOpacityProps } from "react-native";
+import { Pressable, StyleSheet, View, type ViewProps } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 
-type ModalOverlayProps = TouchableOpacityProps;
+type ModalOverlayProps = ViewProps & {
+  onPress?: () => void;
+};
 
-export default function ModalOverlay({ style, children, ...rest }: ModalOverlayProps) {
+/** Full-screen modal backdrop; sheet children receive touches (scroll works). */
+export default function ModalOverlay({ style, children, onPress, ...rest }: ModalOverlayProps) {
   const { colors } = useTheme();
 
   return (
-    <TouchableOpacity
-      style={[styles.overlay, { backgroundColor: colors.overlay }, style]}
-      activeOpacity={1}
-      {...rest}
-    >
-      {children}
-    </TouchableOpacity>
+    <View style={[styles.overlay, style]} {...rest}>
+      <Pressable
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: colors.overlay }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      />
+      <View style={styles.content} pointerEvents="box-none">
+        {children}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  content: {
     flex: 1,
     justifyContent: "flex-end",
   },
