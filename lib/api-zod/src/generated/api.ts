@@ -107,7 +107,7 @@ export const GetTownGridResponseItem = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -125,7 +125,7 @@ export const PlaceBuildingParams = zod.object({
 export const PlaceBuildingBody = zod.object({
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house'])
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house'])
 })
 
 
@@ -148,7 +148,7 @@ export const MoveBuildingResponse = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -197,7 +197,7 @@ export const UpgradeBuildingResponse = zod.object({
   "townId": zod.number(),
   "row": zod.number(),
   "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'market', 'tavern', 'house', 'empty']),
+  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -277,77 +277,17 @@ export const GetTownArmyResponse = zod.object({
   "infantry": zod.number(),
   "archers": zod.number(),
   "cavalry": zod.number(),
-  "catapults": zod.number(),
   "onMissionInfantry": zod.number(),
   "onMissionArchers": zod.number(),
   "onMissionCavalry": zod.number(),
-  "onMissionCatapults": zod.number(),
-  "capacity": zod.number()
-})
-
-
-/**
- * @summary Recruit units (costs resources)
- */
-export const RecruitUnitsParams = zod.object({
-  "townId": zod.coerce.number()
-})
-
-export const recruitUnitsBodyInfantryDefault = 0;
-export const recruitUnitsBodyArchersDefault = 0;
-export const recruitUnitsBodyCavalryDefault = 0;
-export const recruitUnitsBodyCatapultsDefault = 0;
-
-export const RecruitUnitsBody = zod.object({
-  "infantry": zod.number().default(recruitUnitsBodyInfantryDefault),
-  "archers": zod.number().default(recruitUnitsBodyArchersDefault),
-  "cavalry": zod.number().default(recruitUnitsBodyCavalryDefault),
-  "catapults": zod.number().default(recruitUnitsBodyCatapultsDefault)
-})
-
-export const RecruitUnitsResponse = zod.object({
-  "townId": zod.number(),
-  "infantry": zod.number(),
-  "archers": zod.number(),
-  "cavalry": zod.number(),
-  "catapults": zod.number(),
-  "onMissionInfantry": zod.number(),
-  "onMissionArchers": zod.number(),
-  "onMissionCavalry": zod.number(),
-  "onMissionCatapults": zod.number(),
-  "capacity": zod.number()
-})
-
-
-/**
- * @summary Disband units (returns 25% resource refund)
- */
-export const DisbandUnitsParams = zod.object({
-  "townId": zod.coerce.number()
-})
-
-export const disbandUnitsBodyInfantryDefault = 0;
-export const disbandUnitsBodyArchersDefault = 0;
-export const disbandUnitsBodyCavalryDefault = 0;
-export const disbandUnitsBodyCatapultsDefault = 0;
-
-export const DisbandUnitsBody = zod.object({
-  "infantry": zod.number().default(disbandUnitsBodyInfantryDefault),
-  "archers": zod.number().default(disbandUnitsBodyArchersDefault),
-  "cavalry": zod.number().default(disbandUnitsBodyCavalryDefault),
-  "catapults": zod.number().default(disbandUnitsBodyCatapultsDefault)
-})
-
-export const DisbandUnitsResponse = zod.object({
-  "townId": zod.number(),
-  "infantry": zod.number(),
-  "archers": zod.number(),
-  "cavalry": zod.number(),
-  "catapults": zod.number(),
-  "onMissionInfantry": zod.number(),
-  "onMissionArchers": zod.number(),
-  "onMissionCavalry": zod.number(),
-  "onMissionCatapults": zod.number(),
+  "availableInfantry": zod.number(),
+  "availableArchers": zod.number(),
+  "availableCavalry": zod.number(),
+  "infantryAttackMult": zod.number().optional(),
+  "archerAttackMult": zod.number().optional(),
+  "cavalryAttackMult": zod.number().optional(),
+  "totalTroops": zod.number(),
+  "totalPower": zod.number(),
   "capacity": zod.number()
 })
 
@@ -377,8 +317,8 @@ export const GetMissionsQueryParams = zod.object({
 
 export const GetMissionsResponseItem = zod.object({
   "id": zod.string(),
-  "type": zod.enum(['explore', 'patrol', 'raid', 'siege']),
-  "difficulty": zod.enum(['safe', 'moderate', 'risky', 'deadly']),
+  "type": zod.enum(['explore', 'patrol', 'raid']),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "title": zod.string(),
   "description": zod.string(),
   "minTroops": zod.number(),
@@ -408,6 +348,7 @@ export const GetTownMissionsResponseItem = zod.object({
   "infantry": zod.number(),
   "archers": zod.number(),
   "cavalry": zod.number(),
+  "mercenaries": zod.number(),
   "successRate": zod.number(),
   "status": zod.enum(['active', 'returned', 'failed']),
   "dispatchedAt": zod.string(),
@@ -429,11 +370,17 @@ export const DispatchMissionParams = zod.object({
   "townId": zod.coerce.number()
 })
 
+export const dispatchMissionBodyInfantryDefault = 0;
+export const dispatchMissionBodyArchersDefault = 0;
+export const dispatchMissionBodyCavalryDefault = 0;
+export const dispatchMissionBodyMercenariesDefault = 0;
+
 export const DispatchMissionBody = zod.object({
   "missionCardId": zod.string(),
-  "infantry": zod.number(),
-  "archers": zod.number(),
-  "cavalry": zod.number()
+  "infantry": zod.number().default(dispatchMissionBodyInfantryDefault),
+  "archers": zod.number().default(dispatchMissionBodyArchersDefault),
+  "cavalry": zod.number().default(dispatchMissionBodyCavalryDefault),
+  "mercenaries": zod.number().default(dispatchMissionBodyMercenariesDefault)
 })
 
 

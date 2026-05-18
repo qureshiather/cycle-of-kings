@@ -15,6 +15,8 @@ export const BuildingPlacementBuildingType = {
   quarry: 'quarry',
   lumberMill: 'lumberMill',
   barracks: 'barracks',
+  archeryRange: 'archeryRange',
+  stables: 'stables',
   market: 'market',
   tavern: 'tavern',
   house: 'house',

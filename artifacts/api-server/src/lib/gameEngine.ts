@@ -1,14 +1,16 @@
 export const BUILDING_COSTS: Record<string, { wood: number; stone: number; gold: number; food: number }> = {
-  farm:        { wood: 50,  stone: 20,  gold: 0,  food: 0 },
-  mine:        { wood: 30,  stone: 50,  gold: 0,  food: 0 },
-  quarry:      { wood: 20,  stone: 30,  gold: 0,  food: 0 },
-  lumberMill:  { wood: 0,   stone: 30,  gold: 0,  food: 0 },
-  barracks:    { wood: 60,  stone: 40,  gold: 30, food: 0 },
-  market:      { wood: 40,  stone: 0,   gold: 20, food: 0 },
-  tavern:      { wood: 50,  stone: 20,  gold: 10, food: 0 },
-  house:       { wood: 30,  stone: 20,  gold: 0,  food: 0 },
-  wall:        { wood: 0,   stone: 30,  gold: 0,  food: 0 },
-  tower:       { wood: 20,  stone: 50,  gold: 10, food: 0 },
+  farm:         { wood: 50,  stone: 20,  gold: 0,  food: 0 },
+  mine:         { wood: 30,  stone: 50,  gold: 0,  food: 0 },
+  quarry:       { wood: 20,  stone: 30,  gold: 0,  food: 0 },
+  lumberMill:   { wood: 0,   stone: 30,  gold: 0,  food: 0 },
+  barracks:     { wood: 60,  stone: 40,  gold: 30, food: 0 },
+  archeryRange: { wood: 50,  stone: 30,  gold: 20, food: 0 },
+  stables:      { wood: 70,  stone: 20,  gold: 40, food: 10 },
+  market:       { wood: 40,  stone: 0,   gold: 20, food: 0 },
+  tavern:       { wood: 50,  stone: 20,  gold: 10, food: 0 },
+  house:        { wood: 30,  stone: 20,  gold: 0,  food: 0 },
+  wall:         { wood: 0,   stone: 30,  gold: 0,  food: 0 },
+  tower:        { wood: 20,  stone: 50,  gold: 10, food: 0 },
 };
 
 export const UPGRADE_COST_MULTIPLIER = 1.8;
@@ -18,15 +20,17 @@ export const GRID_SIZE = 9;
 export const BASE_PRODUCTION = { gold: 5, food: 5, wood: 5, stone: 5 };
 
 export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood: number; stone: number }> = {
-  farm:       { food: 5,  gold: 0, wood: 0,  stone: 0 },
-  mine:       { food: 0,  gold: 3, wood: 0,  stone: 0 },
-  quarry:     { food: 0,  gold: 0, wood: 0,  stone: 4 },
-  lumberMill: { food: 0,  gold: 0, wood: 8,  stone: 0 },
-  market:     { food: 0,  gold: 2, wood: 0,  stone: 0 },
-  barracks:   { food: 0,  gold: 0, wood: 0,  stone: 0 },
-  tavern:     { food: 0,  gold: 0, wood: 0,  stone: 0 },
-  house:      { food: 0,  gold: 0, wood: 0,  stone: 0 },
-  empty:      { food: 0,  gold: 0, wood: 0,  stone: 0 },
+  farm:         { food: 5,  gold: 0, wood: 0, stone: 0 },
+  mine:         { food: 0,  gold: 3, wood: 0, stone: 0 },
+  quarry:       { food: 0,  gold: 0, wood: 0, stone: 4 },
+  lumberMill:   { food: 0,  gold: 0, wood: 8, stone: 0 },
+  market:       { food: 0,  gold: 2, wood: 0, stone: 0 },
+  barracks:     { food: 0,  gold: 0, wood: 0, stone: 0 },
+  archeryRange: { food: 0,  gold: 0, wood: 0, stone: 0 },
+  stables:      { food: 0,  gold: 0, wood: 0, stone: 0 },
+  tavern:       { food: 0,  gold: 0, wood: 0, stone: 0 },
+  house:        { food: 0,  gold: 0, wood: 0, stone: 0 },
+  empty:        { food: 0,  gold: 0, wood: 0, stone: 0 },
 };
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
@@ -106,11 +110,61 @@ export function calculateProduction(cells: CellLike[], season: Season): { gold: 
   return { gold, food, wood, stone };
 }
 
-export function calculateArmyCapacity(cells: CellLike[]): number {
-  let cap = 20;
+export interface ArmyComposition {
+  infantry: number;
+  archers: number;
+  cavalry: number;
+  infantryAttackMult: number;
+  archerAttackMult: number;
+  cavalryAttackMult: number;
+  totalTroops: number;
+  totalPower: number;
+}
+
+export function calculateArmyComposition(cells: CellLike[]): ArmyComposition {
+  let infantry = 0, archers = 0, cavalry = 0;
+  let barracksLevelSum = 0, barracksCount = 0;
+  let archeryLevelSum = 0, archeryCount = 0;
+  let stablesLevelSum = 0, stablesCount = 0;
+
   for (const cell of cells) {
-    if (cell.buildingType === "barracks") cap += cell.level * 20;
-    if (cell.buildingType === "house") cap += cell.level * 5;
+    if (cell.buildingType === "barracks") {
+      infantry += cell.level * 5;
+      barracksLevelSum += cell.level;
+      barracksCount++;
+    } else if (cell.buildingType === "archeryRange") {
+      archers += cell.level * 5;
+      archeryLevelSum += cell.level;
+      archeryCount++;
+    } else if (cell.buildingType === "stables") {
+      cavalry += cell.level * 3;
+      stablesLevelSum += cell.level;
+      stablesCount++;
+    }
+  }
+
+  const avgBarracks = barracksCount > 0 ? barracksLevelSum / barracksCount : 1;
+  const avgArchery  = archeryCount  > 0 ? archeryLevelSum  / archeryCount  : 1;
+  const avgStables  = stablesCount  > 0 ? stablesLevelSum  / stablesCount  : 1;
+
+  const infantryAttackMult = 1 + (avgBarracks - 1) * 0.15;
+  const archerAttackMult   = 1 + (avgArchery  - 1) * 0.15;
+  const cavalryAttackMult  = 1 + (avgStables  - 1) * 0.15;
+
+  const totalTroops = infantry + archers + cavalry;
+  const totalPower  = Math.round(
+    infantry * 10 * infantryAttackMult +
+    archers  * 15 * archerAttackMult +
+    cavalry  * 12 * cavalryAttackMult
+  );
+
+  return { infantry, archers, cavalry, infantryAttackMult, archerAttackMult, cavalryAttackMult, totalTroops, totalPower };
+}
+
+export function calculateArmyCapacity(cells: CellLike[]): number {
+  let cap = 10;
+  for (const cell of cells) {
+    if (cell.buildingType === "house") cap += cell.level * 10;
   }
   return cap;
 }
@@ -154,16 +208,18 @@ export function calculateBuildingCost(buildingType: string, targetLevel: number)
 
 export function getUpgradeDurationMs(buildingType: string, currentLevel: number): number {
   const baseMins: Record<string, number> = {
-    farm: 5, mine: 8, quarry: 6, lumberMill: 6, barracks: 15, market: 10, tavern: 12, house: 7,
+    farm: 5, mine: 8, quarry: 6, lumberMill: 6,
+    barracks: 10, archeryRange: 10, stables: 12,
+    market: 10, tavern: 12, house: 7,
   };
   const base = baseMins[buildingType] ?? 10;
   return base * Math.pow(2, currentLevel - 1) * 60 * 1000;
 }
 
-export interface CombatForces { infantry: number; archers: number; cavalry: number; catapults: number; }
+export interface CombatForces { infantry: number; archers: number; cavalry: number; }
 
 export function simulateCombat(attacker: CombatForces, defenderStrength: number): { victory: boolean; casualties: number; attackPower: number } {
-  let attackPower = attacker.infantry * 10 + attacker.archers * 15 + attacker.cavalry * 12 + attacker.catapults * 30;
+  let attackPower = attacker.infantry * 10 + attacker.archers * 15 + attacker.cavalry * 12;
   if (attacker.infantry > 0 && attacker.archers > 0) attackPower += attacker.archers * 3;
   if (attacker.cavalry > 0) attackPower *= 1.1;
   const totalPower = attackPower + defenderStrength;
@@ -192,9 +248,8 @@ export function applyTick(
 
 const MISSION_TITLES: Record<string, string[]> = {
   explore: ["Scout the Dark Forest", "Map the Northern Ridges", "Investigate Old Ruins", "Survey the Valley"],
-  patrol:  ["Border Guard Duty",  "Road Patrol",             "Village Watch",          "Mountain Pass Guard"],
-  raid:    ["Strike Enemy Camp",  "Raid Merchant Convoy",    "Ambush the Scouts",       "Loot the Outpost"],
-  siege:   ["Assault Enemy Keep", "Breach the Stone Walls",  "Storm the Fortress",      "Lay Siege to the Castle"],
+  patrol:  ["Border Guard Duty",     "Road Patrol",             "Village Watch",          "Mountain Pass Guard"],
+  raid:    ["Strike Enemy Camp",     "Raid Merchant Convoy",    "Ambush the Scouts",       "Loot the Outpost"],
 };
 
 const MISSION_DESCS: Record<string, string[]> = {
@@ -216,18 +271,12 @@ const MISSION_DESCS: Record<string, string[]> = {
     "Ambush scouts before they can report back.",
     "Loot an enemy outpost for resources.",
   ],
-  siege: [
-    "Full assault on an enemy fortification.",
-    "Bring down the walls of the enemy keep.",
-    "Storm the fortress while its garrison is thin.",
-    "Lay a siege to force surrender.",
-  ],
 };
 
 export interface MissionCardData {
   id: string;
-  type: "explore" | "patrol" | "raid" | "siege";
-  difficulty: "safe" | "moderate" | "risky" | "deadly";
+  type: "explore" | "patrol" | "raid";
+  difficulty: "easy" | "medium" | "hard";
   title: string;
   description: string;
   minTroops: number;
@@ -244,36 +293,37 @@ export function getCurrentHourSeed(): number {
   return n.getUTCFullYear() * 1000000 + (n.getUTCMonth() + 1) * 10000 + n.getUTCDate() * 100 + n.getUTCHours();
 }
 
-export function generateMissionCards(hourSeed: number): MissionCardData[] {
+export function generateMissionCards(hourSeed: number, totalTroops: number = 5, armyPower: number = 50): MissionCardData[] {
   const rng = seededRandom(hourSeed);
-  const types = ["explore", "patrol", "raid", "siege"] as const;
-  const diffs = ["safe", "moderate", "risky", "deadly"] as const;
-  const cards: MissionCardData[] = [];
+  const types = ["explore", "patrol", "raid"] as const;
 
-  for (let i = 0; i < 5; i++) {
+  const powerBase = Math.max(30, armyPower);
+  const troopBase = Math.max(3, totalTroops);
+
+  const difficulties = [
+    { name: "easy"   as const, troopFrac: 0.2, successRate: 0.85, lootMult: 0.8,  durBase: 20 },
+    { name: "medium" as const, troopFrac: 0.5, successRate: 0.65, lootMult: 1.6,  durBase: 40 },
+    { name: "hard"   as const, troopFrac: 0.8, successRate: 0.45, lootMult: 2.8,  durBase: 70 },
+  ];
+
+  return difficulties.map((diff, i) => {
     const type = types[Math.floor(rng() * types.length)];
-    const difficulty = diffs[Math.floor(rng() * diffs.length)];
     const titleIdx = Math.floor(rng() * MISSION_TITLES[type].length);
-    const diffMult = { safe: 1, moderate: 1.5, risky: 2.5, deadly: 4 }[difficulty];
-    const successRate = { safe: 0.9, moderate: 0.7, risky: 0.55, deadly: 0.35 }[difficulty];
-    const minBase = { safe: 5, moderate: 15, risky: 30, deadly: 60 }[difficulty];
-    const durBase = { safe: 30, moderate: 60, risky: 90, deadly: 120 }[difficulty];
+    const minTroops = Math.max(1, Math.round(troopBase * diff.troopFrac));
 
-    cards.push({
+    return {
       id: `mission-${hourSeed}-${i}`,
       type,
-      difficulty,
+      difficulty: diff.name,
       title: MISSION_TITLES[type][titleIdx],
       description: MISSION_DESCS[type][titleIdx],
-      minTroops: Math.ceil(minBase * (1 + rng() * 0.5)),
-      baseSuccessRate: successRate,
-      lootGold:  Math.ceil(rng() * 50 * diffMult),
-      lootFood:  Math.ceil(rng() * 40 * diffMult),
-      lootWood:  Math.ceil(rng() * 30 * diffMult),
-      lootStone: Math.ceil(rng() * 20 * diffMult),
-      durationMinutes: Math.ceil(durBase * (1 + rng() * 0.5)),
-    });
-  }
-
-  return cards;
+      minTroops,
+      baseSuccessRate: diff.successRate,
+      lootGold:  Math.ceil(rng() * 40 * diff.lootMult * (powerBase / 50)),
+      lootFood:  Math.ceil(rng() * 30 * diff.lootMult * (powerBase / 50)),
+      lootWood:  Math.ceil(rng() * 25 * diff.lootMult * (powerBase / 50)),
+      lootStone: Math.ceil(rng() * 15 * diff.lootMult * (powerBase / 50)),
+      durationMinutes: Math.ceil(diff.durBase * (1 + rng() * 0.4)),
+    };
+  });
 }

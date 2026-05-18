@@ -11,10 +11,16 @@ export interface Army {
   infantry: number;
   archers: number;
   cavalry: number;
-  catapults: number;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;
-  onMissionCatapults: number;
+  availableInfantry: number;
+  availableArchers: number;
+  availableCavalry: number;
+  infantryAttackMult?: number;
+  archerAttackMult?: number;
+  cavalryAttackMult?: number;
+  totalTroops: number;
+  totalPower: number;
   capacity: number;
 }

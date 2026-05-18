@@ -10,8 +10,7 @@ export type MissionCardDifficulty = typeof MissionCardDifficulty[keyof typeof Mi
 
 
 export const MissionCardDifficulty = {
-  safe: 'safe',
-  moderate: 'moderate',
-  risky: 'risky',
-  deadly: 'deadly',
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
 } as const;

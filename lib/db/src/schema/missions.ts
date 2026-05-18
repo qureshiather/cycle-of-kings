@@ -11,6 +11,7 @@ export const missionsTable = pgTable("missions", {
   infantry: integer("infantry").notNull().default(0),
   archers: integer("archers").notNull().default(0),
   cavalry: integer("cavalry").notNull().default(0),
+  mercenaries: integer("mercenaries").notNull().default(0),
   successRate: real("success_rate").notNull(),
   status: text("status").notNull().default("active"),
   dispatchedAt: timestamp("dispatched_at", { withTimezone: true }).notNull().defaultNow(),

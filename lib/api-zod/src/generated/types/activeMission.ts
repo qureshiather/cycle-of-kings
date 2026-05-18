@@ -16,6 +16,7 @@ export interface ActiveMission {
   infantry: number;
   archers: number;
   cavalry: number;
+  mercenaries: number;
   successRate: number;
   status: ActiveMissionStatus;
   dispatchedAt: string;

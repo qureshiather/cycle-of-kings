@@ -13,5 +13,4 @@ export const MissionCardType = {
   explore: 'explore',
   patrol: 'patrol',
   raid: 'raid',
-  siege: 'siege',
 } as const;

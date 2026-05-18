@@ -341,57 +341,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/Army"
 
-  /towns/{townId}/army/recruit:
-    post:
-      operationId: recruitUnits
-      tags: [army]
-      summary: Recruit units (costs resources)
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RecruitOrder"
-      responses:
-        "200":
-          description: Units recruited
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Army"
-        "400":
-          description: Insufficient resources or capacity
-
-  /towns/{townId}/army/disband:
-    post:
-      operationId: disbandUnits
-      tags: [army]
-      summary: Disband units (returns 25% resource refund)
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RecruitOrder"
-      responses:
-        "200":
-          description: Units disbanded, refund returned
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Army"
-        "400":
-          description: Not enough available units
 
   /towns/{townId}/reset:
     post:
@@ -701,7 +650,7 @@ components:
         col: { type: integer }
         buildingType:
           type: string
-          enum: [farm, mine, quarry, lumberMill, barracks, market, tavern, house, empty]
+          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, empty]
         level: { type: integer }
         upgrading: { type: boolean }
         upgradeEndsAt: { type: ["string", "null"] }
@@ -714,7 +663,7 @@ components:
         col: { type: integer }
         buildingType:
           type: string
-          enum: [farm, mine, quarry, lumberMill, barracks, market, tavern, house]
+          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house]
 
     BuildingMove:
       type: object
@@ -749,26 +698,24 @@ components:
 
     Army:
       type: object
-      required: [townId, infantry, archers, cavalry, catapults, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionCatapults, capacity]
+      required: [townId, infantry, archers, cavalry, onMissionInfantry, onMissionArchers, onMissionCavalry, availableInfantry, availableArchers, availableCavalry, totalTroops, totalPower, capacity]
       properties:
         townId: { type: integer }
         infantry: { type: integer }
         archers: { type: integer }
         cavalry: { type: integer }
-        catapults: { type: integer }
         onMissionInfantry: { type: integer }
         onMissionArchers: { type: integer }
         onMissionCavalry: { type: integer }
-        onMissionCatapults: { type: integer }
+        availableInfantry: { type: integer }
+        availableArchers: { type: integer }
+        availableCavalry: { type: integer }
+        infantryAttackMult: { type: number }
+        archerAttackMult: { type: number }
+        cavalryAttackMult: { type: number }
+        totalTroops: { type: integer }
+        totalPower: { type: integer }
         capacity: { type: integer }
-
-    RecruitOrder:
-      type: object
-      properties:
-        infantry: { type: integer, default: 0 }
-        archers: { type: integer, default: 0 }
-        cavalry: { type: integer, default: 0 }
-        catapults: { type: integer, default: 0 }
 
     MissionCard:
       type: object
@@ -777,10 +724,10 @@ components:
         id: { type: string }
         type:
           type: string
-          enum: [explore, patrol, raid, siege]
+          enum: [explore, patrol, raid]
         difficulty:
           type: string
-          enum: [safe, moderate, risky, deadly]
+          enum: [easy, medium, hard]
         title: { type: string }
         description: { type: string }
         minTroops: { type: integer }
@@ -793,16 +740,17 @@ components:
 
     MissionDispatch:
       type: object
-      required: [missionCardId, infantry, archers, cavalry]
+      required: [missionCardId]
       properties:
         missionCardId: { type: string }
-        infantry: { type: integer }
-        archers: { type: integer }
-        cavalry: { type: integer }
+        infantry: { type: integer, default: 0 }
+        archers: { type: integer, default: 0 }
+        cavalry: { type: integer, default: 0 }
+        mercenaries: { type: integer, default: 0 }
 
     ActiveMission:
       type: object
-      required: [id, townId, missionCardId, missionTitle, missionType, infantry, archers, cavalry, successRate, status, dispatchedAt, returnsAt]
+      required: [id, townId, missionCardId, missionTitle, missionType, infantry, archers, cavalry, mercenaries, successRate, status, dispatchedAt, returnsAt]
       properties:
         id: { type: integer }
         townId: { type: integer }
@@ -812,6 +760,7 @@ components:
         infantry: { type: integer }
         archers: { type: integer }
         cavalry: { type: integer }
+        mercenaries: { type: integer }
         successRate: { type: number }
         status:
           type: string

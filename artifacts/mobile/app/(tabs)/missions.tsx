@@ -10,8 +10,10 @@ import {
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
 
-const DIFF_COLORS: Record<string, string> = { safe: "#3d7a35", moderate: "#d4a520", risky: "#c4673a", deadly: "#b03020" };
-const TYPE_ICONS: Record<string, string> = { explore: "compass", patrol: "shield-half-full", raid: "sword", siege: "castle" };
+const DIFF_COLORS: Record<string, string> = { easy: "#3d7a35", medium: "#d4a520", hard: "#b03020" };
+const DIFF_LABELS: Record<string, string> = { easy: "EASY", medium: "MEDIUM", hard: "HARD" };
+const TYPE_ICONS: Record<string, string> = { explore: "compass", patrol: "shield-half-full", raid: "sword" };
+const MERC_COST = 10;
 
 function timeLeft(returnsAt: string): string {
   const ms = new Date(returnsAt).getTime() - Date.now();
@@ -31,7 +33,7 @@ export default function MissionsScreen() {
     { townId: townId ?? 0 },
     { query: { enabled: !!townId, refetchInterval: 60_000 } }
   );
-  const { data: activeMissions, isLoading: activeLoading, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } });
+  const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
   const dispatchMission = useDispatchMission();
 
@@ -39,25 +41,34 @@ export default function MissionsScreen() {
   const [infantry, setInfantry] = useState(0);
   const [archers, setArchers] = useState(0);
   const [cavalry, setCavalry] = useState(0);
+  const [mercenaries, setMercenaries] = useState(0);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
 
-  const availableInfantry = (army?.infantry ?? 0) - (army?.onMissionInfantry ?? 0);
-  const availableArchers  = (army?.archers  ?? 0) - (army?.onMissionArchers  ?? 0);
-  const availableCavalry  = (army?.cavalry  ?? 0) - (army?.onMissionCavalry  ?? 0);
-  const totalDeployed = infantry + archers + cavalry;
+  const availableInfantry = army?.availableInfantry ?? 0;
+  const availableArchers  = army?.availableArchers  ?? 0;
+  const availableCavalry  = army?.availableCavalry  ?? 0;
+
+  const totalDeployed = infantry + archers + cavalry + mercenaries;
+  const mercCost = mercenaries * MERC_COST;
   const successRate = selected
-    ? Math.min(0.95, selected.baseSuccessRate + Math.max(0, totalDeployed - selected.minTroops) * 0.005)
+    ? Math.min(0.95, selected.baseSuccessRate + Math.max(0, totalDeployed - selected.minTroops) * 0.01)
     : 0;
+
+  const openMission = (card: any) => {
+    setSelected(card);
+    setInfantry(0); setArchers(0); setCavalry(0); setMercenaries(0);
+    setDispatchError(null);
+  };
 
   const handleDispatch = () => {
     if (!townId || !selected) return;
     setDispatchError(null);
     dispatchMission.mutate(
-      { townId, data: { missionCardId: selected.id, infantry, archers, cavalry } },
+      { townId, data: { missionCardId: selected.id, infantry, archers, cavalry, mercenaries } },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          setSelected(null); setInfantry(0); setArchers(0); setCavalry(0);
+          setSelected(null);
           qc.invalidateQueries({ queryKey: getGetTownMissionsQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
@@ -72,18 +83,17 @@ export default function MissionsScreen() {
 
   const activeMissionsList = (activeMissions ?? []).filter((m: any) => m.status === "active");
   const completedMissions = (activeMissions ?? []).filter((m: any) => m.status !== "active").slice(0, 5);
+  const hasTroops = (army?.totalTroops ?? 0) > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         <MaterialCommunityIcons name="map-legend" size={20} color={colors.gold} />
         <Text style={[styles.topTitle, { color: colors.foreground }]}>Missions</Text>
-        <Text style={[styles.hourNote, { color: colors.textSecondary }]}>5 cards / hour</Text>
+        <Text style={[styles.hourNote, { color: colors.textSecondary }]}>3 cards / hour</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}
-        refreshControl={<View />}>
-
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {activeMissionsList.length > 0 && (
           <>
             <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACTIVE</Text>
@@ -93,16 +103,26 @@ export default function MissionsScreen() {
                 <View style={styles.activeInfo}>
                   <Text style={[styles.activeName, { color: colors.foreground }]}>{m.missionTitle}</Text>
                   <Text style={[styles.activeTime, { color: colors.textSecondary }]}>
-                    {m.infantry + m.archers + m.cavalry} troops — returns in {timeLeft(m.returnsAt)}
+                    {m.infantry + m.archers + m.cavalry + (m.mercenaries ?? 0)} troops — returns in {timeLeft(m.returnsAt)}
                   </Text>
                 </View>
-                <View style={[styles.activeDot, { backgroundColor: colors.food }]} />
+                <View style={[styles.activeDot, { backgroundColor: "#3d7a35" }]} />
               </View>
             ))}
           </>
         )}
 
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AVAILABLE MISSIONS</Text>
+
+        {!hasTroops && (
+          <View style={[styles.noTroopsBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="castle" size={20} color={colors.textSecondary} />
+            <Text style={[styles.noTroopsText, { color: colors.textSecondary }]}>
+              Build Barracks, Archery Ranges, or Stables to raise troops. You can still hire mercenaries for small missions.
+            </Text>
+          </View>
+        )}
+
         {cardsLoading ? (
           <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
         ) : (
@@ -112,30 +132,37 @@ export default function MissionsScreen() {
               <TouchableOpacity
                 key={card.id}
                 style={[styles.missionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: diffColor, borderLeftWidth: 3 }]}
-                onPress={() => { setSelected(card); setInfantry(0); setArchers(0); setCavalry(0); }}
+                onPress={() => openMission(card)}
               >
                 <View style={styles.cardTop}>
                   <View style={styles.cardLeft}>
-                    <MaterialCommunityIcons name={TYPE_ICONS[card.type] as any ?? "map"} size={18} color={diffColor} />
+                    <View style={[styles.typeIcon, { backgroundColor: diffColor + "22" }]}>
+                      <MaterialCommunityIcons name={TYPE_ICONS[card.type] as any ?? "map"} size={16} color={diffColor} />
+                    </View>
                     <View>
                       <Text style={[styles.cardTitle, { color: colors.foreground }]}>{card.title}</Text>
-                      <Text style={[styles.cardType, { color: diffColor }]}>{card.type.toUpperCase()} · {card.difficulty.toUpperCase()}</Text>
+                      <Text style={[styles.cardType, { color: diffColor }]}>
+                        {card.type.toUpperCase()} · {DIFF_LABELS[card.difficulty] ?? card.difficulty.toUpperCase()}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.cardRight}>
                     <Text style={[styles.cardSuccessRate, { color: diffColor }]}>{Math.round(card.baseSuccessRate * 100)}%</Text>
-                    <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>base success</Text>
+                    <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>base</Text>
                   </View>
                 </View>
                 <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{card.description}</Text>
-                <View style={styles.cardLoot}>
-                  {card.lootGold  > 0 && <Text style={[styles.loot, { color: colors.gold  }]}>+{card.lootGold} gold</Text>}
-                  {card.lootFood  > 0 && <Text style={[styles.loot, { color: colors.food  }]}>+{card.lootFood} food</Text>}
-                  {card.lootWood  > 0 && <Text style={[styles.loot, { color: colors.wood  }]}>+{card.lootWood} wood</Text>}
-                  {card.lootStone > 0 && <Text style={[styles.loot, { color: colors.stone }]}>+{card.lootStone} stone</Text>}
-                  <Text style={[styles.loot, { color: colors.textSecondary }]}>{card.durationMinutes}m</Text>
+                <View style={styles.cardFooter}>
+                  <View style={styles.cardLoot}>
+                    {card.lootGold  > 0 && <Text style={[styles.loot, { color: colors.gold  }]}>+{card.lootGold}g</Text>}
+                    {card.lootFood  > 0 && <Text style={[styles.loot, { color: colors.food  }]}>+{card.lootFood}f</Text>}
+                    {card.lootWood  > 0 && <Text style={[styles.loot, { color: colors.wood  }]}>+{card.lootWood}w</Text>}
+                    {card.lootStone > 0 && <Text style={[styles.loot, { color: colors.stone }]}>+{card.lootStone}s</Text>}
+                  </View>
+                  <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
+                    {card.minTroops} troops min · {card.durationMinutes}m
+                  </Text>
                 </View>
-                <Text style={[styles.cardMinTroops, { color: colors.textSecondary }]}>Min {card.minTroops} troops</Text>
               </TouchableOpacity>
             );
           })
@@ -143,7 +170,7 @@ export default function MissionsScreen() {
 
         {completedMissions.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 16 }]}>RECENT</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 8 }]}>RECENT</Text>
             {completedMissions.map((m: any) => (
               <View key={m.id} style={[styles.completedCard, { backgroundColor: colors.surface, borderColor: m.result === "victory" ? colors.food + "44" : colors.destructive + "44" }]}>
                 <MaterialCommunityIcons
@@ -154,10 +181,12 @@ export default function MissionsScreen() {
                   <Text style={[styles.completedName, { color: colors.foreground }]}>{m.missionTitle}</Text>
                   {m.result === "victory" && (
                     <Text style={[styles.completedLoot, { color: colors.gold }]}>
-                      +{[m.lootGold&&`${Math.round(m.lootGold)}g`, m.lootFood&&`${Math.round(m.lootFood)}f`, m.lootWood&&`${Math.round(m.lootWood)}w`].filter(Boolean).join(" ")}
+                      +{[m.lootGold && `${Math.round(m.lootGold)}g`, m.lootFood && `${Math.round(m.lootFood)}f`, m.lootWood && `${Math.round(m.lootWood)}w`].filter(Boolean).join(" ")}
                     </Text>
                   )}
-                  {m.casualties > 0 && <Text style={[styles.completedCas, { color: colors.destructive }]}>{m.casualties} casualties</Text>}
+                  {(m.casualties ?? 0) > 0 && (
+                    <Text style={[styles.completedCas, { color: colors.destructive }]}>{m.casualties} casualties</Text>
+                  )}
                 </View>
               </View>
             ))}
@@ -170,42 +199,56 @@ export default function MissionsScreen() {
           <View style={[styles.deploySheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             {selected && (
               <>
-                <Text style={[styles.deployTitle, { color: colors.foreground }]}>Deploy Troops</Text>
-                <Text style={[styles.deployMission, { color: colors.gold }]}>{selected.title}</Text>
-                <Text style={[styles.deployDesc, { color: colors.textSecondary }]}>Min {selected.minTroops} troops · {selected.durationMinutes}min duration</Text>
+                <Text style={[styles.deployTitle, { color: colors.foreground }]}>Deploy Forces</Text>
+                <Text style={[styles.deployMission, { color: DIFF_COLORS[selected.difficulty] ?? colors.gold }]}>{selected.title}</Text>
+                <Text style={[styles.deployDesc, { color: colors.textSecondary }]}>
+                  Min {selected.minTroops} troops · {selected.durationMinutes}min
+                </Text>
 
                 {([
-                  { key: "infantry",  label: "Infantry",  available: availableInfantry, val: infantry, set: setInfantry },
-                  { key: "archers",   label: "Archers",   available: availableArchers,  val: archers,  set: setArchers },
-                  { key: "cavalry",   label: "Cavalry",   available: availableCavalry,  val: cavalry,  set: setCavalry },
+                  { key: "infantry", label: "Infantry",  available: availableInfantry, val: infantry, set: setInfantry },
+                  { key: "archers",  label: "Archers",   available: availableArchers,  val: archers,  set: setArchers },
+                  { key: "cavalry",  label: "Cavalry",   available: availableCavalry,  val: cavalry,  set: setCavalry },
                 ] as const).map(({ key, label, available, val, set }) => (
-                  <View key={key} style={styles.sliderRow}>
-                    <View style={styles.sliderLabel}>
-                      <Text style={[styles.sliderLabelText, { color: colors.foreground }]}>{label}</Text>
-                      <Text style={[styles.sliderCount, { color: colors.gold }]}>{val} / {available}</Text>
-                    </View>
-                    {available > 0 ? (
-                      <View style={styles.sliderBtns}>
-                        <TouchableOpacity style={[styles.sliderBtn, { backgroundColor: colors.surface }]} onPress={() => (set as any)(Math.max(0, val - 1))}>
-                          <Text style={{ color: colors.foreground, fontSize: 16 }}>−</Text>
+                  available > 0 ? (
+                    <View key={key} style={styles.troopRow}>
+                      <Text style={[styles.troopLabel, { color: colors.foreground }]}>{label}</Text>
+                      <View style={styles.troopControls}>
+                        <TouchableOpacity style={[styles.stepBtn, { backgroundColor: colors.surface }]} onPress={() => (set as any)(Math.max(0, val - 1))}>
+                          <Text style={{ color: colors.foreground }}>−</Text>
                         </TouchableOpacity>
-                        <View style={[styles.sliderTrack, { backgroundColor: colors.border }]}>
-                          <View style={[styles.sliderFill, { width: `${available > 0 ? (val / available) * 100 : 0}%`, backgroundColor: colors.gold }]} />
-                        </View>
-                        <TouchableOpacity style={[styles.sliderBtn, { backgroundColor: colors.surface }]} onPress={() => (set as any)(Math.min(available, val + 1))}>
-                          <Text style={{ color: colors.foreground, fontSize: 16 }}>+</Text>
+                        <Text style={[styles.troopVal, { color: colors.gold }]}>{val}/{available}</Text>
+                        <TouchableOpacity style={[styles.stepBtn, { backgroundColor: colors.surface }]} onPress={() => (set as any)(Math.min(available, val + 1))}>
+                          <Text style={{ color: colors.foreground }}>+</Text>
                         </TouchableOpacity>
                       </View>
-                    ) : (
-                      <Text style={[styles.noTroops, { color: colors.textSecondary }]}>None available</Text>
-                    )}
-                  </View>
+                    </View>
+                  ) : null
                 ))}
 
+                <View style={[styles.mercRow, { borderColor: colors.gold + "44", backgroundColor: colors.gold + "0d" }]}>
+                  <View style={styles.mercLeft}>
+                    <MaterialCommunityIcons name="account-multiple-plus" size={16} color={colors.gold} />
+                    <View>
+                      <Text style={[styles.mercLabel, { color: colors.foreground }]}>Mercenaries</Text>
+                      <Text style={[styles.mercCostText, { color: colors.gold }]}>{MERC_COST} gold each · {mercCost} total</Text>
+                    </View>
+                  </View>
+                  <View style={styles.troopControls}>
+                    <TouchableOpacity style={[styles.stepBtn, { backgroundColor: colors.surface }]} onPress={() => setMercenaries(Math.max(0, mercenaries - 1))}>
+                      <Text style={{ color: colors.foreground }}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.troopVal, { color: colors.gold }]}>{mercenaries}</Text>
+                    <TouchableOpacity style={[styles.stepBtn, { backgroundColor: colors.surface }]} onPress={() => setMercenaries(mercenaries + 1)}>
+                      <Text style={{ color: colors.foreground }}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 <View style={[styles.successPreview, { backgroundColor: colors.surface }]}>
-                  <Text style={[styles.successLabel, { color: colors.textSecondary }]}>Deployed: {totalDeployed} troops</Text>
-                  <Text style={[styles.successRate, { color: totalDeployed >= selected.minTroops ? colors.food : colors.destructive }]}>
-                    Success: {Math.round(successRate * 100)}%
+                  <Text style={[styles.successLabel, { color: colors.textSecondary }]}>{totalDeployed} troops deployed</Text>
+                  <Text style={[styles.successRate, { color: totalDeployed >= selected.minTroops ? "#3d7a35" : colors.destructive }]}>
+                    {Math.round(successRate * 100)}% success
                   </Text>
                 </View>
 
@@ -244,18 +287,22 @@ const styles = StyleSheet.create({
   activeName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   activeTime: { fontSize: 11, fontFamily: "Inter_400Regular" },
   activeDot: { width: 8, height: 8, borderRadius: 4 },
+  noTroopsBanner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
+  noTroopsText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
   missionCard: { padding: 12, borderRadius: 10, borderWidth: 1, gap: 8 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   cardLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  typeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   cardRight: { alignItems: "flex-end" },
   cardTitle: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   cardType: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   cardSuccessRate: { fontSize: 18, fontFamily: "Inter_700Bold" },
   cardLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
   cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   cardLoot: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   loot: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  cardMinTroops: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  cardMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   completedCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 8, borderWidth: 1 },
   completedInfo: { flex: 1 },
   completedName: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
@@ -266,15 +313,15 @@ const styles = StyleSheet.create({
   deployTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   deployMission: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   deployDesc: { fontSize: 12, fontFamily: "Inter_400Regular" },
-  sliderRow: { gap: 6 },
-  sliderLabel: { flexDirection: "row", justifyContent: "space-between" },
-  sliderLabelText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  sliderCount: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  sliderBtns: { flexDirection: "row", alignItems: "center", gap: 8 },
-  sliderBtn: { width: 32, height: 32, borderRadius: 6, alignItems: "center", justifyContent: "center" },
-  sliderTrack: { flex: 1, height: 6, borderRadius: 3, overflow: "hidden" },
-  sliderFill: { height: "100%", borderRadius: 3 },
-  noTroops: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  troopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  troopLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  troopControls: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  troopVal: { fontSize: 14, fontFamily: "Inter_700Bold", minWidth: 48, textAlign: "center" },
+  mercRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 10, borderRadius: 8, borderWidth: 1 },
+  mercLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  mercLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  mercCostText: { fontSize: 10, fontFamily: "Inter_400Regular" },
   successPreview: { flexDirection: "row", justifyContent: "space-between", padding: 12, borderRadius: 8 },
   successLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
   successRate: { fontSize: 14, fontFamily: "Inter_700Bold" },

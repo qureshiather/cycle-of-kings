@@ -68,6 +68,8 @@ export const GridCellBuildingType = {
   quarry: 'quarry',
   lumberMill: 'lumberMill',
   barracks: 'barracks',
+  archeryRange: 'archeryRange',
+  stables: 'stables',
   market: 'market',
   tavern: 'tavern',
   house: 'house',
@@ -95,6 +97,8 @@ export const BuildingPlacementBuildingType = {
   quarry: 'quarry',
   lumberMill: 'lumberMill',
   barracks: 'barracks',
+  archeryRange: 'archeryRange',
+  stables: 'stables',
   market: 'market',
   tavern: 'tavern',
   house: 'house',
@@ -148,19 +152,18 @@ export interface Army {
   infantry: number;
   archers: number;
   cavalry: number;
-  catapults: number;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;
-  onMissionCatapults: number;
+  availableInfantry: number;
+  availableArchers: number;
+  availableCavalry: number;
+  infantryAttackMult?: number;
+  archerAttackMult?: number;
+  cavalryAttackMult?: number;
+  totalTroops: number;
+  totalPower: number;
   capacity: number;
-}
-
-export interface RecruitOrder {
-  infantry?: number;
-  archers?: number;
-  cavalry?: number;
-  catapults?: number;
 }
 
 export type MissionCardType = typeof MissionCardType[keyof typeof MissionCardType];
@@ -170,17 +173,15 @@ export const MissionCardType = {
   explore: 'explore',
   patrol: 'patrol',
   raid: 'raid',
-  siege: 'siege',
 } as const;
 
 export type MissionCardDifficulty = typeof MissionCardDifficulty[keyof typeof MissionCardDifficulty];
 
 
 export const MissionCardDifficulty = {
-  safe: 'safe',
-  moderate: 'moderate',
-  risky: 'risky',
-  deadly: 'deadly',
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
 } as const;
 
 export interface MissionCard {
@@ -200,9 +201,10 @@ export interface MissionCard {
 
 export interface MissionDispatch {
   missionCardId: string;
-  infantry: number;
-  archers: number;
-  cavalry: number;
+  infantry?: number;
+  archers?: number;
+  cavalry?: number;
+  mercenaries?: number;
 }
 
 export type ActiveMissionStatus = typeof ActiveMissionStatus[keyof typeof ActiveMissionStatus];
@@ -223,6 +225,7 @@ export interface ActiveMission {
   infantry: number;
   archers: number;
   cavalry: number;
+  mercenaries: number;
   successRate: number;
   status: ActiveMissionStatus;
   dispatchedAt: string;

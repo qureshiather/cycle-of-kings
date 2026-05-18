@@ -8,7 +8,8 @@
 
 export interface MissionDispatch {
   missionCardId: string;
-  infantry: number;
-  archers: number;
-  cavalry: number;
+  infantry?: number;
+  archers?: number;
+  cavalry?: number;
+  mercenaries?: number;
 }
