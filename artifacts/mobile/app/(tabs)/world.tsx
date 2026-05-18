@@ -1,11 +1,12 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetLeaderboard, useListTowns, useLaunchRaid, useGetTownArmy, useGetTownRaids,
+  useGetLeaderboard, useListTowns, useLaunchRaid, useGetTownArmy, useGetTownRaids, useResetTown,
   getGetTownRaidsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
+  getGetTownGridQueryKey, getGetFortificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
@@ -15,7 +16,7 @@ export default function WorldScreen() {
   const { townId } = useGame();
   const qc = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState<"leaderboard" | "raids">("leaderboard");
+  const [activeTab, setActiveTab] = useState<"leaderboard" | "raids" | "settings">("leaderboard");
   const [selectedTarget, setSelectedTarget] = useState<any | null>(null);
   const [infantry, setInfantry] = useState(0);
   const [archers, setArchers] = useState(0);
@@ -27,6 +28,7 @@ export default function WorldScreen() {
   const { data: raids, isLoading: raidsLoading, refetch: refetchRaids } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
   const launchRaid = useLaunchRaid();
+  const resetTown = useResetTown();
 
   const availableInfantry = army?.availableInfantry ?? 0;
   const availableArchers  = army?.availableArchers  ?? 0;
@@ -55,6 +57,37 @@ export default function WorldScreen() {
 
   const otherTowns = (towns ?? []).filter((t: any) => t.id !== townId);
 
+  const handleReset = () => {
+    if (!townId) return;
+    Alert.alert(
+      "Start Fresh?",
+      "This will demolish all buildings, disband your army, and cancel all missions. You'll restart with 200 Gold, 200 Food, 150 Wood, and 100 Stone. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Start Fresh",
+          style: "destructive",
+          onPress: () => {
+            resetTown.mutate({ townId }, {
+              onSuccess: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+                qc.invalidateQueries({ queryKey: getGetTownGridQueryKey(townId) });
+                qc.invalidateQueries({ queryKey: getGetFortificationsQueryKey(townId) });
+                qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
+                qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(townId) });
+              },
+              onError: (e: any) => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Alert.alert("Reset Failed", e?.error ?? e?.message ?? "Something went wrong. Try again.");
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -63,14 +96,14 @@ export default function WorldScreen() {
       </View>
 
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        {(["leaderboard", "raids"] as const).map(tab => (
+        {(["leaderboard", "raids", "settings"] as const).map(tab => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, { color: activeTab === tab ? colors.gold : colors.textSecondary }]}>
-              {tab === "leaderboard" ? "Leaderboard" : "Raids"}
+              {tab === "leaderboard" ? "Leaderboard" : tab === "raids" ? "Raids" : "Settings"}
             </Text>
           </TouchableOpacity>
         ))}
@@ -145,6 +178,40 @@ export default function WorldScreen() {
               );
             })
           )}
+        </ScrollView>
+      )}
+
+      {activeTab === "settings" && (
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.settingsHeader}>
+              <MaterialCommunityIcons name="cog-outline" size={16} color={colors.textSecondary} />
+              <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Kingdom Settings</Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.resetSection}>
+              <View style={styles.resetInfo}>
+                <MaterialCommunityIcons name="restore" size={20} color={colors.destructive} />
+                <View style={styles.resetText}>
+                  <Text style={[styles.resetLabel, { color: colors.foreground }]}>Start Fresh</Text>
+                  <Text style={[styles.resetDesc, { color: colors.textSecondary }]}>
+                    Demolishes all buildings, disbands your army, and cancels all missions. Restores starting resources: 200G · 200F · 150W · 100St.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.resetBtn, { borderColor: colors.destructive + "55", backgroundColor: colors.destructive + "11" }]}
+                onPress={handleReset}
+                disabled={resetTown.isPending}
+                activeOpacity={0.7}
+              >
+                {resetTown.isPending
+                  ? <ActivityIndicator size="small" color={colors.destructive} />
+                  : <Text style={[styles.resetBtnText, { color: colors.destructive }]}>Start Fresh</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
         </ScrollView>
       )}
 
@@ -236,4 +303,15 @@ const styles = StyleSheet.create({
   raidError: { fontSize: 12, fontFamily: "Inter_400Regular" },
   launchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 10 },
   launchText: { fontSize: 16, fontFamily: "Inter_700Bold" },
+  settingsCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  settingsHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 14 },
+  settingsTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  divider: { height: 1, marginHorizontal: 0 },
+  resetSection: { padding: 14, gap: 14 },
+  resetInfo: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  resetText: { flex: 1, gap: 4 },
+  resetLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  resetDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
+  resetBtn: { borderRadius: 8, borderWidth: 1, paddingVertical: 12, alignItems: "center" },
+  resetBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
 });

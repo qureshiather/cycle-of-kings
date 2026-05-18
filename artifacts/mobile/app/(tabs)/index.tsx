@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetTown, useGetTownGrid, usePlaceBuilding, useRemoveBuilding, useUpgradeBuilding, useResetTown,
+  useGetTown, useGetTownGrid, usePlaceBuilding, useRemoveBuilding, useUpgradeBuilding,
   useGetFortifications, usePlaceFortification, useRemoveFortification,
   useGetGameState,
   getGetTownQueryKey, getGetTownGridQueryKey, getGetFortificationsQueryKey,
@@ -62,11 +62,9 @@ export default function KingdomScreen() {
   const placeBuilding = usePlaceBuilding();
   const removeBuilding = useRemoveBuilding();
   const upgradeBuilding = useUpgradeBuilding();
-  const resetTown = useResetTown();
   const placeFortification = usePlaceFortification();
   const removeFortification = useRemoveFortification();
 
-  const [resetting, setResetting] = useState(false);
   const [showProduction, setShowProduction] = useState(false);
 
   const invalidate = useCallback(() => {
@@ -78,32 +76,6 @@ export default function KingdomScreen() {
   const onRefresh = useCallback(async () => {
     await Promise.all([refetchTown(), refetchGrid(), refetchForts()]);
   }, [refetchTown, refetchGrid, refetchForts]);
-
-  const handleReset = useCallback(() => {
-    if (!townId) return;
-    Alert.alert(
-      "Reset Kingdom",
-      "This will demolish all buildings, disband your army, cancel all missions, and restore your starting resources. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: () => {
-            setResetting(true);
-            resetTown.mutate({ townId }, {
-              onSuccess: () => {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                invalidate();
-                setResetting(false);
-              },
-              onError: () => setResetting(false),
-            });
-          },
-        },
-      ]
-    );
-  }, [townId, resetTown, invalidate]);
 
   const cells: GridCellData[] = (gridRaw ?? []).map((c: any) => ({
     id: c.id, townId: c.townId, row: c.row, col: c.col,
@@ -413,22 +385,6 @@ export default function KingdomScreen() {
           )}
         </View>
 
-        {/* ── Danger Zone ── */}
-        <View style={[styles.dangerZone, { borderColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.resetBtn, { borderColor: colors.destructive + "44" }]}
-            onPress={handleReset}
-            disabled={resetting}
-            activeOpacity={0.7}
-          >
-            {resetting
-              ? <ActivityIndicator size="small" color={colors.destructive} />
-              : <MaterialCommunityIcons name="restore" size={14} color={colors.destructive} />
-            }
-            <Text style={[styles.resetBtnText, { color: colors.destructive }]}>Reset Kingdom</Text>
-          </TouchableOpacity>
-          <Text style={[styles.resetHint, { color: colors.textSecondary }]}>Demolishes all buildings · 75% refund</Text>
-        </View>
       </ScrollView>
     </View>
   );
@@ -518,16 +474,4 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1, marginRight: 6,
   },
 
-  dangerZone: {
-    marginHorizontal: 12, marginTop: 10,
-    borderRadius: 12, borderWidth: 1,
-    padding: 14, alignItems: "center", gap: 6,
-  },
-  resetBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderRadius: 8, borderWidth: 1,
-  },
-  resetBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  resetHint: { fontSize: 11, fontFamily: "Inter_400Regular" },
 });
