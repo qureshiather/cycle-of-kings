@@ -41,13 +41,15 @@ export default function ResourceCostRow({
       {items.map(({ key, amount }) => {
         const meta = RESOURCE_META[key];
         const resColor = colors[meta.colorKey] as string;
-        const canPay = owned ? floorResource(owned[key]) >= amount : true;
+        const ownedAmount = owned ? floorResource(owned[key as ResourceKey]) : null;
+        const canPay = ownedAmount !== null ? ownedAmount >= amount : true;
         const chipColor =
           variant === "refund"
             ? colors.textSecondary
             : variant === "reward" || canPay
               ? resColor
               : colors.destructive;
+        const showOwnedOverCost = owned && variant === "default";
 
         return (
           <View
@@ -72,13 +74,19 @@ export default function ResourceCostRow({
               size={compact ? 12 : 14}
               color={chipColor}
             />
-            <Text style={[compact ? styles.amountCompact : styles.amount, { color: chipColor }]}>
-              {variant === "reward" ? "+" : ""}
-              {formatResourceAmount(amount)}
-            </Text>
-            {owned && variant === "default" && (
-              <Text style={[styles.owned, { color: colors.textMuted }]}>
-                /{formatResourceAmount(owned[key as ResourceKey])}
+            {showOwnedOverCost ? (
+              <>
+                <Text style={[compact ? styles.amountCompact : styles.amount, { color: chipColor }]}>
+                  {formatResourceAmount(ownedAmount!)}
+                </Text>
+                <Text style={[styles.required, { color: colors.textMuted }]}>
+                  /{formatResourceAmount(amount)}
+                </Text>
+              </>
+            ) : (
+              <Text style={[compact ? styles.amountCompact : styles.amount, { color: chipColor }]}>
+                {variant === "reward" ? "+" : ""}
+                {formatResourceAmount(amount)}
               </Text>
             )}
           </View>
@@ -102,6 +110,6 @@ const styles = StyleSheet.create({
   chipCompact: { paddingHorizontal: 6, paddingVertical: 3, gap: 3 },
   amount: { fontSize: 13, fontFamily: "Inter_700Bold" },
   amountCompact: { fontSize: 11, fontFamily: "Inter_700Bold" },
-  owned: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  required: { fontSize: 10, fontFamily: "Inter_400Regular" },
   free: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
 });
