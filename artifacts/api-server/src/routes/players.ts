@@ -9,6 +9,8 @@ router.post("/players", async (req, res) => {
   const { deviceId, name } = req.body as { deviceId?: string; name?: string };
   if (!deviceId || !name) return void res.status(400).json({ error: "deviceId and name required" });
 
+  const trimmedName = name.trim();
+
   const existing = await db.select().from(playersTable).where(eq(playersTable.deviceId, deviceId)).limit(1);
   if (existing.length > 0) {
     const p = existing[0];
@@ -16,14 +18,19 @@ router.post("/players", async (req, res) => {
     return void res.json({ ...p, townId: towns[0]?.id ?? null, createdAt: p.createdAt.toISOString() });
   }
 
-  const [player] = await db.insert(playersTable).values({ deviceId, name }).returning();
+  const nameTaken = await db.select().from(playersTable).where(eq(playersTable.name, trimmedName)).limit(1);
+  if (nameTaken.length > 0) {
+    return void res.status(409).json({ error: "Name already taken. Choose a different ruler name." });
+  }
+
+  const [player] = await db.insert(playersTable).values({ deviceId, name: trimmedName }).returning();
   const [town] = await db.insert(townsTable).values({
     playerId: player.id,
-    name: `${name}'s Kingdom`,
+    name: `${trimmedName}'s Kingdom`,
     gold: 200, food: 200, wood: 100, stone: 100,
   }).returning();
 
-  await db.insert(armyTable).values({ townId: town.id, infantry: 0, archers: 0, cavalry: 0, catapults: 0, capacity: 20 });
+  await db.insert(armyTable).values({ townId: town.id });
 
   res.json({ ...player, townId: town.id, createdAt: player.createdAt.toISOString() });
 });
