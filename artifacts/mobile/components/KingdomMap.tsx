@@ -5,7 +5,6 @@ import {
   BUILDINGS_BY_CATEGORY,
   formatRequirementHint,
   getBuildBlockReason,
-  getTownHallLevel,
   type BuildingCategory,
   type SlotType,
 } from "@workspace/building-progression";
@@ -90,7 +89,6 @@ export default function KingdomMap({
 
   const slots = slotsRaw as SlotData[];
   const slotMap = new Map(slots.map((s) => [s.slotType, s]));
-  const townHallLevel = getTownHallLevel(slots);
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetBuildingSlotsQueryKey(townId) });
@@ -207,10 +205,6 @@ export default function KingdomMap({
           ) : undefined
         }
       >
-        <Text style={[styles.hint, { color: colors.textSecondary }]}>
-          Town Hall level {townHallLevel} · Tap a building to build or upgrade
-        </Text>
-
         <View style={styles.legend}>
           <LegendChip label="Built" dotColor={colors.success} colors={colors} />
           <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
@@ -683,7 +677,6 @@ function ActionButton({
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
   scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 8 },
-  hint: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 8 },
   legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, marginBottom: 12 },
   legendChip: { flexDirection: "row", alignItems: "center", gap: 5 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
