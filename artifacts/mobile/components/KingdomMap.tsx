@@ -32,13 +32,15 @@ import {
 import {
   BASE_COSTS,
   SLOT_BONUS,
-  SLOT_COLORS,
+  getSlotColor,
   SLOT_ICONS,
   SLOT_NAMES,
   formatCost,
   formatTimeRemaining,
 } from "@/lib/buildingMeta";
+import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 
 type SlotData = {
   slotType: string;
@@ -57,6 +59,7 @@ export default function KingdomMap({
   onRefresh?: () => void;
 }) {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const qc = useQueryClient();
 
   const { data: slotsRaw = [], isLoading } = useGetBuildingSlots(townId, {
@@ -207,7 +210,7 @@ export default function KingdomMap({
             };
             const built = slot.level > 0;
             const locked = !built && getBuildBlockReason(slotType, slots) !== null;
-            const color = SLOT_COLORS[slotType] ?? colors.gold;
+            const color = getSlotColor(slotType, colors);
             const icon = SLOT_ICONS[slotType] ?? "help";
             const name = SLOT_NAMES[slotType] ?? slotType;
 
@@ -240,15 +243,11 @@ export default function KingdomMap({
         animationType="slide"
         onRequestClose={() => setSelectedSlotType(null)}
       >
-        <TouchableOpacity
-          style={styles.overlay}
-          activeOpacity={1}
-          onPress={() => setSelectedSlotType(null)}
-        >
+        <ModalOverlay onPress={() => setSelectedSlotType(null)}>
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
             <View style={[styles.sheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               {selectedSlotType && (() => {
-                const color = SLOT_COLORS[selectedSlotType] ?? "#d4a520";
+                const color = getSlotColor(selectedSlotType, colors);
                 const icon = SLOT_ICONS[selectedSlotType] ?? "help";
                 const name = SLOT_NAMES[selectedSlotType] ?? selectedSlotType;
                 const level = selectedSlot?.level ?? 0;
@@ -257,7 +256,7 @@ export default function KingdomMap({
                 return (
                   <>
                     <View style={styles.sheetHeader}>
-                      <View style={[styles.sheetIcon, { backgroundColor: color + "22" }]}>
+                      <View style={[styles.sheetIcon, { backgroundColor: withAlpha(color, 0.12) }]}>
                         <MaterialCommunityIcons name={icon as any} size={28} color={color} />
                       </View>
                       <View style={{ flex: 1 }}>
@@ -327,11 +326,11 @@ export default function KingdomMap({
                           label="Demolish"
                           sub={`Refund ~${formatCost(selectedSlotType, level)}`}
                           icon="delete-outline"
-                          color="#cc4040"
+                          color={colors.destructive}
                           disabled={demolishSlot.isPending}
                           muted={colors.muted}
                           border={colors.border}
-                          fg="#cc4040"
+                          fg={colors.destructive}
                           onPress={handleDemolish}
                           loading={demolishSlot.isPending}
                         />
@@ -342,7 +341,7 @@ export default function KingdomMap({
               })()}
             </View>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </ModalOverlay>
       </Modal>
     </>
   );
@@ -373,6 +372,7 @@ function BuildingCard({
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
+  const { withAlpha } = useTheme();
   const [timeLeft, setTimeLeft] = useState(0);
   useEffect(() => {
     if (!upgrading || !upgradeEndsAt) {
@@ -394,12 +394,12 @@ function BuildingCard({
         styles.card,
         {
           backgroundColor: built ? colors.surfaceElevated : colors.surface,
-          borderColor: locked ? colors.border : built ? color + "66" : colors.border,
+          borderColor: locked ? colors.border : built ? withAlpha(color, 0.4) : colors.border,
           opacity: locked ? 0.55 : 1,
         },
       ]}
     >
-      <View style={[styles.cardIcon, { backgroundColor: color + (built ? "28" : "14") }]}>
+      <View style={[styles.cardIcon, { backgroundColor: withAlpha(color, built ? 0.14 : 0.08) }]}>
         {locked ? (
           <MaterialCommunityIcons name="lock" size={20} color={colors.textSecondary} />
         ) : (
@@ -422,7 +422,7 @@ function BuildingCard({
         )}
       </View>
       {built && (
-        <View style={[styles.cardLv, { borderColor: color + "88", backgroundColor: color + "22" }]}>
+        <View style={[styles.cardLv, { borderColor: withAlpha(color, 0.5), backgroundColor: withAlpha(color, 0.12) }]}>
           <Text style={[styles.cardLvText, { color }]}>{level}</Text>
         </View>
       )}
@@ -453,6 +453,7 @@ function ActionButton({
   onPress: () => void;
   loading: boolean;
 }) {
+  const { withAlpha } = useTheme();
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -460,8 +461,8 @@ function ActionButton({
       style={[
         styles.actionBtn,
         {
-          backgroundColor: disabled ? muted : color + "18",
-          borderColor: disabled ? border : color + "44",
+          backgroundColor: disabled ? muted : withAlpha(color, 0.1),
+          borderColor: disabled ? border : withAlpha(color, 0.28),
         },
       ]}
     >
@@ -505,7 +506,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   cardLvText: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" },
   sheet: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

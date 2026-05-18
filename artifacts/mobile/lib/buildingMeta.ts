@@ -1,3 +1,5 @@
+import type { ColorPalette, SlotColorKey } from "@/constants/colors";
+
 export const SLOT_NAMES: Record<string, string> = {
   townHall: "Town Hall",
   farm: "Farm",
@@ -30,21 +32,12 @@ export const SLOT_ICONS: Record<string, string> = {
   tower: "chess-rook",
 };
 
-export const SLOT_COLORS: Record<string, string> = {
-  farm: "#3d7a35",
-  mine: "#d4a520",
-  quarry: "#7a7a6a",
-  lumberMill: "#7a4e20",
-  barracks: "#8a3030",
-  archeryRange: "#3d7a35",
-  stables: "#c4a820",
-  market: "#d4a520",
-  tavern: "#c4673a",
-  house: "#2a5a8a",
-  townHall: "#d4a520",
-  wall: "#5a5a5a",
-  tower: "#4a4a6a",
-};
+/** Theme-aware building accent color. */
+export function getSlotColor(slotType: string, palette: ColorPalette): string {
+  const key = slotType as SlotColorKey;
+  if (key in palette.slots) return palette.slots[key];
+  return palette.gold;
+}
 
 export const SLOT_BONUS: Record<string, (level: number) => string> = {
   farm: (l) => `+${l * 5} food/h`,

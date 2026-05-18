@@ -9,13 +9,16 @@ import {
   getGetTownRaidsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
   getGetBuildingSlotsQueryKey,
 } from "@workspace/api-client-react";
+import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
 
 export default function WorldScreen() {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const { townId } = useGame();
   const qc = useQueryClient();
   const { preference: schemePref, setPreference: setScheme } = useColorSchemePreference();
@@ -150,8 +153,8 @@ export default function WorldScreen() {
       {activeTab === "leaderboard" && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {isPeaceful && (
-            <View style={[styles.peacefulBanner, { backgroundColor: "#3d7a9a18", borderColor: "#3d7a9a44" }]}>
-              <MaterialCommunityIcons name="shield-check" size={16} color="#3d7a9a" />
+            <View style={[styles.peacefulBanner, { backgroundColor: withAlpha(colors.peaceful, 0.1), borderColor: withAlpha(colors.peaceful, 0.28) }]}>
+              <MaterialCommunityIcons name="shield-check" size={16} color={colors.peaceful} />
               <Text style={[styles.peacefulBannerText, { color: colors.textSecondary }]}>
                 Peaceful kingdoms are hidden from the leaderboard.
               </Text>
@@ -279,13 +282,13 @@ export default function WorldScreen() {
           {/* Peaceful Mode */}
           <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.settingsHeader}>
-              <MaterialCommunityIcons name="shield-check" size={16} color="#3d7a9a" />
+              <MaterialCommunityIcons name="shield-check" size={16} color={colors.peaceful} />
               <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Peaceful Mode</Text>
             </View>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.resetSection}>
               <View style={styles.resetInfo}>
-                <MaterialCommunityIcons name={isPeaceful ? "shield-check" : "shield-off-outline"} size={20} color={isPeaceful ? "#3d7a9a" : colors.textSecondary} />
+                <MaterialCommunityIcons name={isPeaceful ? "shield-check" : "shield-off-outline"} size={20} color={isPeaceful ? colors.peaceful : colors.textSecondary} />
                 <View style={styles.resetText}>
                   <Text style={[styles.resetLabel, { color: colors.foreground }]}>
                     {isPeaceful ? "Peaceful Mode On" : "Peaceful Mode Off"}
@@ -301,14 +304,14 @@ export default function WorldScreen() {
               </View>
               {!isPeaceful && !peacefulLocked && (
                 <TouchableOpacity
-                  style={[styles.resetBtn, { borderColor: "#3d7a9a55", backgroundColor: "#3d7a9a11" }]}
+                  style={[styles.resetBtn, { borderColor: withAlpha(colors.peaceful, 0.35), backgroundColor: withAlpha(colors.peaceful, 0.08) }]}
                   onPress={handleEnablePeaceful}
                   disabled={setPeacefulMode.isPending}
                   activeOpacity={0.7}
                 >
                   {setPeacefulMode.isPending
-                    ? <ActivityIndicator size="small" color="#3d7a9a" />
-                    : <Text style={[styles.resetBtnText, { color: "#3d7a9a" }]}>Enable Peaceful Mode</Text>
+                    ? <ActivityIndicator size="small" color={colors.peaceful} />
+                    : <Text style={[styles.resetBtnText, { color: colors.peaceful }]}>Enable Peaceful Mode</Text>
                   }
                 </TouchableOpacity>
               )}
@@ -349,7 +352,8 @@ export default function WorldScreen() {
       )}
 
       <Modal visible={!!selectedTarget} transparent animationType="slide" onRequestClose={() => setSelectedTarget(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSelectedTarget(null)}>
+        <ModalOverlay onPress={() => setSelectedTarget(null)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View style={[styles.raidSheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <Text style={[styles.raidSheetTitle, { color: colors.foreground }]}>Raid {selectedTarget?.name}</Text>
             <Text style={[styles.raidSheetDesc, { color: colors.textSecondary }]}>
@@ -384,13 +388,14 @@ export default function WorldScreen() {
               onPress={handleRaid}
               disabled={infantry + archers + cavalry === 0 || launchRaid.isPending}
             >
-              <MaterialCommunityIcons name="sword" size={16} color="#ffffff" />
-              <Text style={[styles.launchText, { color: "#ffffff" }]}>
+              <MaterialCommunityIcons name="sword" size={16} color={colors.destructiveForeground} />
+              <Text style={[styles.launchText, { color: colors.destructiveForeground }]}>
                 {launchRaid.isPending ? "Attacking..." : "Launch Raid"}
               </Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </ModalOverlay>
       </Modal>
     </View>
   );
@@ -431,7 +436,6 @@ const styles = StyleSheet.create({
   raidLoot: { fontSize: 12, fontFamily: "Inter_400Regular" },
   raidCas: { fontSize: 11, fontFamily: "Inter_400Regular" },
   raidDate: { fontSize: 10, fontFamily: "Inter_400Regular" },
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" },
   raidSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, borderWidth: 1, gap: 12, paddingBottom: 40 },
   raidSheetTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   raidSheetDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },

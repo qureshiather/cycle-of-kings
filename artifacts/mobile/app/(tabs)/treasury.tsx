@@ -54,7 +54,7 @@ export default function ActivityScreen() {
   const groupColor = (type: string) => {
     const g = TYPE_GROUPS[type] ?? "muted";
     if (g === "danger") return colors.destructive;
-    if (g === "success") return "#3d7a35";
+    if (g === "success") return colors.success;
     if (g === "info") return colors.gold;
     return colors.textSecondary;
   };
@@ -62,7 +62,7 @@ export default function ActivityScreen() {
   const groupBg = (type: string) => {
     const g = TYPE_GROUPS[type] ?? "muted";
     if (g === "danger") return colors.destructive + "18";
-    if (g === "success") return "#3d7a3518";
+    if (g === "success") return colors.success + "18";
     if (g === "info") return colors.gold + "18";
     return colors.surface;
   };

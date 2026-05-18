@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useTopInset } from "@/hooks/useTopInset";
 import ResourceBar from "@/components/ResourceBar";
 
@@ -46,6 +47,7 @@ export default function ScreenHeader({
   children,
 }: ScreenHeaderProps) {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const topInset = useTopInset(6);
 
   return (
@@ -65,7 +67,7 @@ export default function ScreenHeader({
           {title}
         </Text>
         {gold != null && (
-          <View style={[styles.goldPill, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "44" }]}>
+          <View style={[styles.goldPill, { backgroundColor: withAlpha(colors.gold, 0.1), borderColor: withAlpha(colors.gold, 0.28) }]}>
             <MaterialCommunityIcons name="gold" size={14} color={colors.gold} />
             <Text style={[styles.goldValue, { color: colors.gold }]}>{fmt(gold)}</Text>
           </View>

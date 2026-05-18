@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 
 interface ResourceBarProps {
   gold: number;
@@ -33,6 +34,7 @@ interface ResourceCellProps {
 
 function ResourceCell({ icon, label, value, color, perHour, showDivider }: ResourceCellProps) {
   const colors = useColors();
+  const { withAlpha } = useTheme();
 
   return (
     <View
@@ -41,7 +43,7 @@ function ResourceCell({ icon, label, value, color, perHour, showDivider }: Resou
         showDivider && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border },
       ]}
     >
-      <View style={[styles.iconRing, { backgroundColor: color + "1a", borderColor: color + "55" }]}>
+      <View style={[styles.iconRing, { backgroundColor: withAlpha(color, 0.1), borderColor: withAlpha(color, 0.35) }]}>
         <MaterialCommunityIcons name={icon as any} size={15} color={color} />
       </View>
       <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>

@@ -2,14 +2,16 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useGetTownArmy, getGetTownArmyQueryKey } from "@workspace/api-client-react";
+import type { ColorPalette } from "@/constants/colors";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 
-const UNIT_META = {
+const unitMeta = (palette: ColorPalette) => ({
   infantry: {
     icon: "shield-sword",
-    color: "#8a3030",
+    color: palette.slots.barracks,
     label: "Infantry",
     building: "Barracks",
     buildingIcon: "shield-sword",
@@ -20,7 +22,7 @@ const UNIT_META = {
   },
   archers: {
     icon: "bow-arrow",
-    color: "#3d7a35",
+    color: palette.slots.archeryRange,
     label: "Archers",
     building: "Archery Range",
     buildingIcon: "bow-arrow",
@@ -31,7 +33,7 @@ const UNIT_META = {
   },
   cavalry: {
     icon: "horse",
-    color: "#c4a820",
+    color: palette.slots.stables,
     label: "Cavalry",
     building: "Stables",
     buildingIcon: "horse",
@@ -40,9 +42,9 @@ const UNIT_META = {
     defense: 8,
     perLevel: 3,
   },
-};
+});
 
-type UnitType = keyof typeof UNIT_META;
+type UnitType = keyof ReturnType<typeof unitMeta>;
 
 function UnitRow({ type, total, onMission, attackMult }: {
   type: UnitType;
@@ -51,13 +53,14 @@ function UnitRow({ type, total, onMission, attackMult }: {
   attackMult: number;
 }) {
   const colors = useColors();
-  const meta = UNIT_META[type];
+  const { withAlpha } = useTheme();
+  const meta = unitMeta(colors)[type];
   const available = Math.max(0, total - onMission);
   const effectiveAttack = Math.round(meta.attackPower * attackMult * 10) / 10;
 
   return (
     <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-      <View style={[styles.unitIcon, { backgroundColor: meta.color + "22" }]}>
+      <View style={[styles.unitIcon, { backgroundColor: withAlpha(meta.color, 0.12) }]}>
         <MaterialCommunityIcons name={meta.icon as any} size={28} color={meta.color} />
       </View>
       <View style={styles.unitBody}>
@@ -73,11 +76,11 @@ function UnitRow({ type, total, onMission, attackMult }: {
         <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>{meta.desc}</Text>
         <View style={styles.unitStats}>
           <Text style={[styles.stat, { color: colors.foreground }]}>
-            ATK <Text style={{ color: attackMult > 1 ? "#4aaa44" : colors.foreground }}>{effectiveAttack}</Text>
+            ATK <Text style={{ color: attackMult > 1 ? colors.success : colors.foreground }}>{effectiveAttack}</Text>
           </Text>
           <Text style={[styles.stat, { color: colors.foreground }]}>DEF {meta.defense}</Text>
           {attackMult > 1 && (
-            <Text style={[styles.statBonus, { color: "#4aaa44" }]}>
+            <Text style={[styles.statBonus, { color: colors.success }]}>
               +{Math.round((attackMult - 1) * 100)}% upgrades
             </Text>
           )}
@@ -88,8 +91,8 @@ function UnitRow({ type, total, onMission, attackMult }: {
         <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>TOTAL</Text>
         {onMission > 0 && (
           <>
-            <Text style={[styles.unitOnMission, { color: "#c4673a" }]}>{onMission}</Text>
-            <Text style={[styles.unitLabel, { color: "#c4673a" }]}>OUT</Text>
+            <Text style={[styles.unitOnMission, { color: colors.raid }]}>{onMission}</Text>
+            <Text style={[styles.unitLabel, { color: colors.raid }]}>OUT</Text>
           </>
         )}
         {available !== total && (
@@ -105,6 +108,7 @@ function UnitRow({ type, total, onMission, attackMult }: {
 
 export default function ArmyScreen() {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const { townId } = useGame();
   const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
 
@@ -133,7 +137,7 @@ export default function ArmyScreen() {
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>ON MISSION</Text>
-              <Text style={[styles.summaryValue, { color: totalOnMission > 0 ? "#c4673a" : colors.textSecondary }]}>{totalOnMission}</Text>
+              <Text style={[styles.summaryValue, { color: totalOnMission > 0 ? colors.raid : colors.textSecondary }]}>{totalOnMission}</Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
@@ -182,13 +186,13 @@ export default function ArmyScreen() {
 
           <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 8 }]}>BUILDING GUIDE</Text>
           {[
-            { building: "Barracks",      icon: "shield-sword", color: "#8a3030", unit: "Infantry", formula: "5 troops per level" },
-            { building: "Archery Range", icon: "bow-arrow",    color: "#3d7a35", unit: "Archers",  formula: "5 troops per level" },
-            { building: "Stables",       icon: "horse",        color: "#c4a820", unit: "Cavalry",  formula: "3 troops per level" },
-            { building: "House",         icon: "home",         color: "#2a5a8a", unit: "Capacity", formula: "+10 capacity per level" },
+            { building: "Barracks",      icon: "shield-sword", color: colors.slots.barracks, unit: "Infantry", formula: "5 troops per level" },
+            { building: "Archery Range", icon: "bow-arrow",    color: colors.slots.archeryRange, unit: "Archers",  formula: "5 troops per level" },
+            { building: "Stables",       icon: "horse",        color: colors.slots.stables, unit: "Cavalry",  formula: "3 troops per level" },
+            { building: "House",         icon: "home",         color: colors.slots.house, unit: "Capacity", formula: "+10 capacity per level" },
           ].map(({ building, icon, color, unit, formula }) => (
             <View key={building} style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.guideIcon, { backgroundColor: color + "22" }]}>
+              <View style={[styles.guideIcon, { backgroundColor: withAlpha(color, 0.12) }]}>
                 <MaterialCommunityIcons name={icon as any} size={18} color={color} />
               </View>
               <View style={styles.guideText}>

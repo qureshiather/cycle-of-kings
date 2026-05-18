@@ -63,14 +63,14 @@ export default function KingdomScreen() {
             <View style={[styles.scoreDivider, { backgroundColor: colors.border }]} />
             <View style={styles.scoreItem}>
               <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>ARMY</Text>
-              <Text style={[styles.scoreValue, { color: "#c45a5a" }]}>
+              <Text style={[styles.scoreValue, { color: colors.military }]}>
                 {(town as any).armyScore ?? 0}
               </Text>
             </View>
             <View style={[styles.scoreDivider, { backgroundColor: colors.border }]} />
             <View style={styles.scoreItem}>
               <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>DEFENSE</Text>
-              <Text style={[styles.scoreValue, { color: "#6a9ac4" }]}>
+              <Text style={[styles.scoreValue, { color: colors.defense }]}>
                 {(town as any).totalDefense ?? 0}
               </Text>
             </View>

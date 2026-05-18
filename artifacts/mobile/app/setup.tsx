@@ -6,6 +6,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, Te
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCreatePlayer } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
@@ -33,6 +34,7 @@ function formatConnectError(err: unknown): string {
 
 export default function SetupScreen() {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
   const { setPlayer } = useGame();
   const [name, setName] = useState("");
@@ -78,7 +80,7 @@ export default function SetupScreen() {
       <View style={[styles.inner, { paddingTop: topPad + 32, paddingBottom: insets.bottom + 32 }]}>
 
         <View style={styles.heroSection}>
-          <View style={[styles.crownRing, { borderColor: colors.gold + "40", backgroundColor: colors.gold + "12" }]}>
+          <View style={[styles.crownRing, { borderColor: withAlpha(colors.gold, 0.28), backgroundColor: withAlpha(colors.gold, 0.08) }]}>
             <MaterialCommunityIcons name="crown" size={56} color={colors.gold} />
           </View>
           <Text style={[styles.title, { color: colors.gold }]}>Cycle of Kings</Text>
@@ -105,7 +107,7 @@ export default function SetupScreen() {
           </View>
           <Text style={[styles.inputHint, { color: colors.textSecondary }]}>Must be unique — no two rulers share the same name</Text>
           {!!error && (
-            <View style={[styles.errorBox, { backgroundColor: colors.destructive + "18", borderColor: colors.destructive + "44" }]}>
+            <View style={[styles.errorBox, { backgroundColor: withAlpha(colors.destructive, 0.1), borderColor: withAlpha(colors.destructive, 0.28) }]}>
               <MaterialCommunityIcons name="alert-circle-outline" size={14} color={colors.destructive} />
               <Text style={[styles.errorText, { color: colors.destructive }]}>{error}</Text>
             </View>
@@ -118,11 +120,11 @@ export default function SetupScreen() {
             activeOpacity={0.8}
           >
             {createPlayer.isPending ? (
-              <ActivityIndicator color={colors.background} />
+              <ActivityIndicator color={colors.onPrimary} />
             ) : (
               <>
-                <MaterialCommunityIcons name="castle" size={20} color={colors.background} />
-                <Text style={[styles.buttonText, { color: colors.background }]}>Begin Your Reign</Text>
+                <MaterialCommunityIcons name="castle" size={20} color={colors.onPrimary} />
+                <Text style={[styles.buttonText, { color: colors.onPrimary }]}>Begin Your Reign</Text>
               </>
             )}
           </TouchableOpacity>

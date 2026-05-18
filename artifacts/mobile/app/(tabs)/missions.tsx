@@ -7,11 +7,18 @@ import {
   useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy, useGetTown,
   getGetTownMissionsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
 } from "@workspace/api-client-react";
+import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 
-const DIFF_COLORS: Record<string, string> = { easy: "#3d7a35", medium: "#d4a520", hard: "#b03020" };
+function diffColor(difficulty: string, colors: ReturnType<typeof useColors>): string {
+  if (difficulty === "easy") return colors.difficultyEasy;
+  if (difficulty === "medium") return colors.difficultyMedium;
+  if (difficulty === "hard") return colors.difficultyHard;
+  return colors.textSecondary;
+}
 const DIFF_LABELS: Record<string, string> = { easy: "EASY", medium: "MEDIUM", hard: "HARD" };
 const TYPE_ICONS: Record<string, string> = { explore: "compass", patrol: "shield-half-full", raid: "sword" };
 const MERC_COST = 10;
@@ -27,6 +34,7 @@ function timeLeft(returnsAt: string): string {
 
 export default function MissionsScreen() {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const { townId } = useGame();
   const qc = useQueryClient();
 
@@ -109,7 +117,7 @@ export default function MissionsScreen() {
                     {m.infantry + m.archers + m.cavalry + (m.mercenaries ?? 0)} troops — returns in {timeLeft(m.returnsAt)}
                   </Text>
                 </View>
-                <View style={[styles.activeDot, { backgroundColor: "#3d7a35" }]} />
+                <View style={[styles.activeDot, { backgroundColor: colors.success }]} />
               </View>
             ))}
           </>
@@ -130,27 +138,27 @@ export default function MissionsScreen() {
           <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
         ) : (
           (missionCards ?? []).map((card: any) => {
-            const diffColor = DIFF_COLORS[card.difficulty] ?? colors.textSecondary;
+            const diff = diffColor(card.difficulty, colors);
             return (
               <TouchableOpacity
                 key={card.id}
-                style={[styles.missionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: diffColor, borderLeftWidth: 3 }]}
+                style={[styles.missionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: diff, borderLeftWidth: 3 }]}
                 onPress={() => openMission(card)}
               >
                 <View style={styles.cardTop}>
                   <View style={styles.cardLeft}>
-                    <View style={[styles.typeIcon, { backgroundColor: diffColor + "22" }]}>
-                      <MaterialCommunityIcons name={TYPE_ICONS[card.type] as any ?? "map"} size={16} color={diffColor} />
+                    <View style={[styles.typeIcon, { backgroundColor: withAlpha(diff, 0.12) }]}>
+                      <MaterialCommunityIcons name={TYPE_ICONS[card.type] as any ?? "map"} size={16} color={diff} />
                     </View>
                     <View>
                       <Text style={[styles.cardTitle, { color: colors.foreground }]}>{card.title}</Text>
-                      <Text style={[styles.cardType, { color: diffColor }]}>
+                      <Text style={[styles.cardType, { color: diff }]}>
                         {card.type.toUpperCase()} · {DIFF_LABELS[card.difficulty] ?? card.difficulty.toUpperCase()}
                       </Text>
                     </View>
                   </View>
                   <View style={styles.cardRight}>
-                    <Text style={[styles.cardSuccessRate, { color: diffColor }]}>{Math.round(card.baseSuccessRate * 100)}%</Text>
+                    <Text style={[styles.cardSuccessRate, { color: diff }]}>{Math.round(card.baseSuccessRate * 100)}%</Text>
                     <Text style={[styles.cardLabel, { color: colors.textSecondary }]}>base</Text>
                   </View>
                 </View>
@@ -198,12 +206,13 @@ export default function MissionsScreen() {
       </ScrollView>
 
       <Modal visible={!!selected} transparent animationType="slide" onRequestClose={() => setSelected(null)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setSelected(null)}>
+        <ModalOverlay onPress={() => setSelected(null)}>
+          <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
           <View style={[styles.deploySheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             {selected && (
               <>
                 <Text style={[styles.deployTitle, { color: colors.foreground }]}>Deploy Forces</Text>
-                <Text style={[styles.deployMission, { color: DIFF_COLORS[selected.difficulty] ?? colors.gold }]}>{selected.title}</Text>
+                <Text style={[styles.deployMission, { color: diffColor(selected.difficulty, colors) }]}>{selected.title}</Text>
                 <Text style={[styles.deployDesc, { color: colors.textSecondary }]}>
                   Min {selected.minTroops} troops · {selected.durationMinutes}min
                 </Text>
@@ -250,7 +259,7 @@ export default function MissionsScreen() {
 
                 <View style={[styles.successPreview, { backgroundColor: colors.surface }]}>
                   <Text style={[styles.successLabel, { color: colors.textSecondary }]}>{totalDeployed} troops deployed</Text>
-                  <Text style={[styles.successRate, { color: totalDeployed >= selected.minTroops ? "#3d7a35" : colors.destructive }]}>
+                  <Text style={[styles.successRate, { color: totalDeployed >= selected.minTroops ? colors.success : colors.destructive }]}>
                     {Math.round(successRate * 100)}% success
                   </Text>
                 </View>
@@ -264,15 +273,16 @@ export default function MissionsScreen() {
                   onPress={handleDispatch}
                   disabled={totalDeployed < selected.minTroops || dispatchMission.isPending}
                 >
-                  <MaterialCommunityIcons name="send" size={16} color={totalDeployed >= selected.minTroops ? colors.background : colors.textSecondary} />
-                  <Text style={[styles.dispatchText, { color: totalDeployed >= selected.minTroops ? colors.background : colors.textSecondary }]}>
+                  <MaterialCommunityIcons name="send" size={16} color={totalDeployed >= selected.minTroops ? colors.onPrimary : colors.textSecondary} />
+                  <Text style={[styles.dispatchText, { color: totalDeployed >= selected.minTroops ? colors.onPrimary : colors.textSecondary }]}>
                     {dispatchMission.isPending ? "Dispatching..." : "Dispatch"}
                   </Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </ModalOverlay>
       </Modal>
     </View>
   );
@@ -308,7 +318,6 @@ const styles = StyleSheet.create({
   completedName: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   completedLoot: { fontSize: 11, fontFamily: "Inter_400Regular" },
   completedCas: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" },
   deploySheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, borderWidth: 1, gap: 12, paddingBottom: 40 },
   deployTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   deployMission: { fontSize: 14, fontFamily: "Inter_600SemiBold" },

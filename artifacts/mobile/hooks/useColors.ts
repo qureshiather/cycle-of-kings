@@ -1,8 +1,7 @@
-import colors from "@/constants/colors";
-import { useColorSchemePreference } from "@/context/ColorSchemeContext";
+import { useTheme } from "@/hooks/useTheme";
 
+/** Semantic palette for the active color scheme (light or dark). */
 export function useColors() {
-  const { resolved } = useColorSchemePreference();
-  const palette = resolved === "light" ? colors.light : colors.dark;
-  return { ...palette, radius: colors.radius };
+  const { colors, radius } = useTheme();
+  return { ...colors, radius };
 }

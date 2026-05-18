@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 
 type Season = "spring" | "summer" | "autumn" | "winter";
 
@@ -20,12 +21,13 @@ interface SeasonBadgeProps {
 
 export default function SeasonBadge({ season, cycleNumber, compact }: SeasonBadgeProps) {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const meta = SEASON_META[season];
   const seasonColor = colors[season as keyof typeof colors] as string;
 
   if (compact) {
     return (
-      <View style={[styles.badge, { backgroundColor: seasonColor + "22", borderColor: seasonColor + "55" }]}>
+      <View style={[styles.badge, { backgroundColor: withAlpha(seasonColor, 0.12), borderColor: withAlpha(seasonColor, 0.35) }]}>
         <MaterialCommunityIcons name={meta.icon as any} size={12} color={seasonColor} />
         <Text style={[styles.label, { color: seasonColor }]}>{meta.label}</Text>
       </View>
@@ -33,7 +35,7 @@ export default function SeasonBadge({ season, cycleNumber, compact }: SeasonBadg
   }
 
   return (
-    <View style={[styles.badgeLarge, { backgroundColor: seasonColor + "22", borderColor: seasonColor + "55" }]}>
+    <View style={[styles.badgeLarge, { backgroundColor: withAlpha(seasonColor, 0.12), borderColor: withAlpha(seasonColor, 0.35) }]}>
       <MaterialCommunityIcons name={meta.icon as any} size={18} color={seasonColor} />
       <View>
         <Text style={[styles.labelLarge, { color: seasonColor }]}>{meta.label}</Text>
