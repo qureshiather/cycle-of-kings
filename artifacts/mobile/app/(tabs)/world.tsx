@@ -20,7 +20,6 @@ export default function WorldScreen() {
   const [infantry, setInfantry] = useState(0);
   const [archers, setArchers] = useState(0);
   const [cavalry, setCavalry] = useState(0);
-  const [catapults, setCatapults] = useState(0);
   const [raidError, setRaidError] = useState<string | null>(null);
 
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ query: { refetchInterval: 120_000 } });
@@ -29,20 +28,19 @@ export default function WorldScreen() {
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
   const launchRaid = useLaunchRaid();
 
-  const availableInfantry = (army?.infantry ?? 0) - (army?.onMissionInfantry ?? 0);
-  const availableArchers  = (army?.archers  ?? 0) - (army?.onMissionArchers  ?? 0);
-  const availableCavalry  = (army?.cavalry  ?? 0) - (army?.onMissionCavalry  ?? 0);
-  const availableCatapults = (army?.catapults ?? 0) - (army?.onMissionCatapults ?? 0);
+  const availableInfantry = army?.availableInfantry ?? 0;
+  const availableArchers  = army?.availableArchers  ?? 0;
+  const availableCavalry  = army?.availableCavalry  ?? 0;
 
   const handleRaid = () => {
     if (!townId || !selectedTarget) return;
     setRaidError(null);
     launchRaid.mutate(
-      { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry, catapults } },
+      { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry } },
       {
         onSuccess: (result) => {
           Haptics.notificationAsync(result.result === "victory" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
-          setSelectedTarget(null); setInfantry(0); setArchers(0); setCavalry(0); setCatapults(0);
+          setSelectedTarget(null); setInfantry(0); setArchers(0); setCavalry(0);
           qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
@@ -100,7 +98,7 @@ export default function WorldScreen() {
                 {entry.townId !== townId && (
                   <TouchableOpacity
                     style={[styles.raidBtn, { backgroundColor: colors.destructive + "22", borderColor: colors.destructive + "44" }]}
-                    onPress={() => { setSelectedTarget({ id: entry.townId, name: entry.townName }); setInfantry(0); setArchers(0); setCavalry(0); setCatapults(0); }}
+                    onPress={() => { setSelectedTarget({ id: entry.townId, name: entry.townName }); setInfantry(0); setArchers(0); setCavalry(0); }}
                   >
                     <MaterialCommunityIcons name="sword" size={14} color={colors.destructive} />
                   </TouchableOpacity>
@@ -159,10 +157,9 @@ export default function WorldScreen() {
             </Text>
 
             {([
-              { key: "infantry",  label: "Infantry",  available: availableInfantry,  val: infantry,  set: setInfantry },
-              { key: "archers",   label: "Archers",   available: availableArchers,   val: archers,   set: setArchers },
-              { key: "cavalry",   label: "Cavalry",   available: availableCavalry,   val: cavalry,   set: setCavalry },
-              { key: "catapults", label: "Catapults", available: availableCatapults, val: catapults, set: setCatapults },
+              { key: "infantry", label: "Infantry", available: availableInfantry, val: infantry, set: setInfantry },
+              { key: "archers",  label: "Archers",  available: availableArchers,  val: archers,  set: setArchers },
+              { key: "cavalry",  label: "Cavalry",  available: availableCavalry,  val: cavalry,  set: setCavalry },
             ] as const).map(({ key, label, available, val, set }) => (
               <View key={key} style={styles.raidSlider}>
                 <Text style={[styles.raidSliderLabel, { color: colors.foreground }]}>{label}: {val} / {available}</Text>
@@ -183,9 +180,9 @@ export default function WorldScreen() {
             {raidError && <Text style={[styles.raidError, { color: colors.destructive }]}>{raidError}</Text>}
 
             <TouchableOpacity
-              style={[styles.launchBtn, { backgroundColor: infantry + archers + cavalry + catapults > 0 ? colors.destructive : colors.muted }]}
+              style={[styles.launchBtn, { backgroundColor: infantry + archers + cavalry > 0 ? colors.destructive : colors.muted }]}
               onPress={handleRaid}
-              disabled={infantry + archers + cavalry + catapults === 0 || launchRaid.isPending}
+              disabled={infantry + archers + cavalry === 0 || launchRaid.isPending}
             >
               <MaterialCommunityIcons name="sword" size={16} color="#ffffff" />
               <Text style={[styles.launchText, { color: "#ffffff" }]}>
