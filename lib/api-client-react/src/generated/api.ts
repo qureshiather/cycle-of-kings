@@ -34,6 +34,8 @@ import type {
   LeaderboardEntry,
   MissionCard,
   MissionDispatch,
+  PeacefulModeInput,
+  PeacefulModeResult,
   Player,
   PlayerInput,
   Raid,
@@ -1109,6 +1111,78 @@ export function useGetTownArmy<TData = Awaited<ReturnType<typeof getTownArmy>>, 
 
 
 
+
+export const getSetPeacefulModeUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/peaceful`
+}
+
+/**
+ * @summary Enable or disable peaceful mode (opt out of PvP)
+ */
+export const setPeacefulMode = async (townId: number,
+    peacefulModeInput: PeacefulModeInput, options?: RequestInit): Promise<PeacefulModeResult> => {
+
+  return customFetch<PeacefulModeResult>(getSetPeacefulModeUrl(townId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      peacefulModeInput,)
+  }
+);}
+
+
+
+
+export const getSetPeacefulModeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPeacefulMode>>, TError,{townId: number;data: BodyType<PeacefulModeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPeacefulMode>>, TError,{townId: number;data: BodyType<PeacefulModeInput>}, TContext> => {
+
+const mutationKey = ['setPeacefulMode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPeacefulMode>>, {townId: number;data: BodyType<PeacefulModeInput>}> = (props) => {
+          const {townId,data} = props ?? {};
+
+          return  setPeacefulMode(townId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPeacefulModeMutationResult = NonNullable<Awaited<ReturnType<typeof setPeacefulMode>>>
+    export type SetPeacefulModeMutationBody = BodyType<PeacefulModeInput>
+    export type SetPeacefulModeMutationError = ErrorType<void>
+
+    /**
+ * @summary Enable or disable peaceful mode (opt out of PvP)
+ */
+export const useSetPeacefulMode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPeacefulMode>>, TError,{townId: number;data: BodyType<PeacefulModeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setPeacefulMode>>,
+        TError,
+        {townId: number;data: BodyType<PeacefulModeInput>},
+        TContext
+      > => {
+      return useMutation(getSetPeacefulModeMutationOptions(options));
+    }
 
 export const getResetTownUrl = (townId: number,) => {
 

@@ -342,6 +342,32 @@ paths:
                 $ref: "#/components/schemas/Army"
 
 
+  /towns/{townId}/peaceful:
+    patch:
+      operationId: setPeacefulMode
+      tags: [towns]
+      summary: Enable or disable peaceful mode (opt out of PvP)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PeacefulModeInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PeacefulModeResult"
+        "404":
+          description: Town not found
+
   /towns/{townId}/reset:
     post:
       operationId: resetTown
@@ -630,7 +656,7 @@ components:
 
     Town:
       type: object
-      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, defenseRating, population, populationCap, lastTickAt]
+      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, defenseRating, population, populationCap, peacefulMode, lastTickAt]
       properties:
         id: { type: integer }
         playerId: { type: integer }
@@ -646,11 +672,24 @@ components:
         defenseRating: { type: number }
         population: { type: integer }
         populationCap: { type: integer }
+        peacefulMode: { type: boolean }
         lastTickAt: { type: string }
+
+    PeacefulModeInput:
+      type: object
+      required: [peaceful]
+      properties:
+        peaceful: { type: boolean }
+
+    PeacefulModeResult:
+      type: object
+      required: [peacefulMode]
+      properties:
+        peacefulMode: { type: boolean }
 
     TownSummary:
       type: object
-      required: [id, name, playerId, playerName, defenseRating, population]
+      required: [id, name, playerId, playerName, defenseRating, population, peacefulMode]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -658,6 +697,7 @@ components:
         playerName: { type: string }
         defenseRating: { type: number }
         population: { type: integer }
+        peacefulMode: { type: boolean }
 
     GridCell:
       type: object

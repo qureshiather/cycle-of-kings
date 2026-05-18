@@ -60,6 +60,7 @@ router.get("/towns", async (_req, res) => {
     playerId: townsTable.playerId,
     defenseRating: townsTable.defenseRating,
     population: townsTable.population,
+    peacefulMode: townsTable.peacefulMode,
   }).from(townsTable);
 
   const playerIds = [...new Set(towns.map(t => t.playerId))];
@@ -279,6 +280,18 @@ router.post("/towns/:townId/fortifications", async (req, res) => {
 
   const [fort] = await db.insert(fortificationsTable).values({ townId, row, col, type, level: 1, borderBonus }).returning();
   res.status(201).json(fort);
+});
+
+router.patch("/towns/:townId/peaceful", async (req, res) => {
+  const townId = parseInt(req.params["townId"] ?? "");
+  const { peaceful } = req.body as { peaceful?: boolean };
+  if (peaceful === undefined) return void res.status(400).json({ error: "peaceful boolean required" });
+
+  const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
+  if (!town) return void res.status(404).json({ error: "Town not found" });
+
+  await db.update(townsTable).set({ peacefulMode: peaceful }).where(eq(townsTable.id, townId));
+  res.json({ peacefulMode: peaceful });
 });
 
 router.post("/towns/:townId/reset", async (req, res) => {

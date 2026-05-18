@@ -41,6 +41,12 @@ router.post("/raids", async (req, res) => {
   if (!attackerTownId || !defenderTownId) return void res.status(400).json({ error: "attackerTownId and defenderTownId required" });
   if (attackerTownId === defenderTownId) return void res.status(400).json({ error: "Cannot raid yourself" });
 
+  const [attTownCheck] = await db.select({ peacefulMode: townsTable.peacefulMode }).from(townsTable).where(eq(townsTable.id, attackerTownId)).limit(1);
+  if (attTownCheck?.peacefulMode) return void res.status(403).json({ error: "Peaceful Mode is enabled — disable it in Settings to raid." });
+
+  const [defTownCheck] = await db.select({ peacefulMode: townsTable.peacefulMode }).from(townsTable).where(eq(townsTable.id, defenderTownId)).limit(1);
+  if (defTownCheck?.peacefulMode) return void res.status(403).json({ error: "That kingdom has Peaceful Mode enabled and cannot be raided." });
+
   const attCells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, attackerTownId));
   const attComposition = calculateArmyComposition(attCells);
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, attackerTownId)).limit(1);

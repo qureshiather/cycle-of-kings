@@ -47,7 +47,16 @@ export interface Town {
   defenseRating: number;
   population: number;
   populationCap: number;
+  peacefulMode: boolean;
   lastTickAt: string;
+}
+
+export interface PeacefulModeInput {
+  peaceful: boolean;
+}
+
+export interface PeacefulModeResult {
+  peacefulMode: boolean;
 }
 
 export interface TownSummary {
@@ -57,6 +66,7 @@ export interface TownSummary {
   playerName: string;
   defenseRating: number;
   population: number;
+  peacefulMode: boolean;
 }
 
 export type GridCellBuildingType = typeof GridCellBuildingType[keyof typeof GridCellBuildingType];

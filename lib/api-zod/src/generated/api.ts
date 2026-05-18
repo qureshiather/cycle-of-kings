@@ -91,6 +91,7 @@ export const GetTownResponse = zod.object({
   "defenseRating": zod.number(),
   "population": zod.number(),
   "populationCap": zod.number(),
+  "peacefulMode": zod.boolean(),
   "lastTickAt": zod.string()
 })
 
@@ -179,6 +180,7 @@ export const RemoveBuildingResponse = zod.object({
   "defenseRating": zod.number(),
   "population": zod.number(),
   "populationCap": zod.number(),
+  "peacefulMode": zod.boolean(),
   "lastTickAt": zod.string()
 })
 
@@ -261,6 +263,7 @@ export const RemoveFortificationResponse = zod.object({
   "defenseRating": zod.number(),
   "population": zod.number(),
   "populationCap": zod.number(),
+  "peacefulMode": zod.boolean(),
   "lastTickAt": zod.string()
 })
 
@@ -289,6 +292,22 @@ export const GetTownArmyResponse = zod.object({
   "totalTroops": zod.number(),
   "totalPower": zod.number(),
   "capacity": zod.number()
+})
+
+
+/**
+ * @summary Enable or disable peaceful mode (opt out of PvP)
+ */
+export const SetPeacefulModeParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const SetPeacefulModeBody = zod.object({
+  "peaceful": zod.boolean()
+})
+
+export const SetPeacefulModeResponse = zod.object({
+  "peacefulMode": zod.boolean()
 })
 
 
@@ -516,7 +535,8 @@ export const ListTownsResponseItem = zod.object({
   "playerId": zod.number(),
   "playerName": zod.string(),
   "defenseRating": zod.number(),
-  "population": zod.number()
+  "population": zod.number(),
+  "peacefulMode": zod.boolean()
 })
 export const ListTownsResponse = zod.array(ListTownsResponseItem)
 

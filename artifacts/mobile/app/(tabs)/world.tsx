@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, Touchabl
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetLeaderboard, useListTowns, useLaunchRaid, useGetTownArmy, useGetTownRaids, useResetTown,
+  useGetTown, useSetPeacefulMode,
   getGetTownRaidsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
   getGetTownGridQueryKey, getGetFortificationsQueryKey,
 } from "@workspace/api-client-react";
@@ -29,8 +30,43 @@ export default function WorldScreen() {
   const { data: towns } = useListTowns({ query: { staleTime: 60_000 } as any });
   const { data: raids, isLoading: raidsLoading, refetch: refetchRaids } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: myTown } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
   const launchRaid = useLaunchRaid();
   const resetTown = useResetTown();
+  const setPeacefulMode = useSetPeacefulMode();
+
+  const isPeaceful = myTown?.peacefulMode ?? false;
+
+  const handleTogglePeaceful = (value: boolean) => {
+    if (!townId) return;
+    if (value) {
+      Alert.alert(
+        "Enable Peaceful Mode?",
+        "You won't be able to raid others or be raided. You can turn this off any time.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Enable",
+            onPress: () => setPeacefulMode.mutate(
+              { townId, data: { peaceful: true } },
+              {
+                onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) }); },
+                onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+              }
+            ),
+          },
+        ]
+      );
+    } else {
+      setPeacefulMode.mutate(
+        { townId, data: { peaceful: false } },
+        {
+          onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) }); },
+          onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+        }
+      );
+    }
+  };
 
   const availableInfantry = army?.availableInfantry ?? 0;
   const availableArchers  = army?.availableArchers  ?? 0;
@@ -132,14 +168,26 @@ export default function WorldScreen() {
                   <Text style={[styles.rankScore, { color: colors.gold }]}>{(entry.score ?? 0).toLocaleString()}</Text>
                   <Text style={[styles.rankMil, { color: colors.textSecondary }]}>⚔ {entry.militaryPower ?? 0}</Text>
                 </View>
-                {entry.townId !== townId && (
-                  <TouchableOpacity
-                    style={[styles.raidBtn, { backgroundColor: colors.destructive + "22", borderColor: colors.destructive + "44" }]}
-                    onPress={() => { setSelectedTarget({ id: entry.townId, name: entry.townName }); setInfantry(0); setArchers(0); setCavalry(0); }}
-                  >
-                    <MaterialCommunityIcons name="sword" size={14} color={colors.destructive} />
-                  </TouchableOpacity>
-                )}
+                {entry.townId !== townId && (() => {
+                  const targetTown = (towns ?? []).find((t: any) => t.id === entry.townId);
+                  const targetPeaceful = targetTown?.peacefulMode ?? false;
+                  if (targetPeaceful) {
+                    return (
+                      <View style={[styles.raidBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <MaterialCommunityIcons name="shield-check" size={14} color={colors.textSecondary} />
+                      </View>
+                    );
+                  }
+                  if (isPeaceful) return null;
+                  return (
+                    <TouchableOpacity
+                      style={[styles.raidBtn, { backgroundColor: colors.destructive + "22", borderColor: colors.destructive + "44" }]}
+                      onPress={() => { setSelectedTarget({ id: entry.townId, name: entry.townName }); setInfantry(0); setArchers(0); setCavalry(0); }}
+                    >
+                      <MaterialCommunityIcons name="sword" size={14} color={colors.destructive} />
+                    </TouchableOpacity>
+                  );
+                })()}
               </View>
             ))
           )}
@@ -219,6 +267,48 @@ export default function WorldScreen() {
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+
+          {/* Peaceful Mode */}
+          <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.settingsHeader}>
+              <MaterialCommunityIcons name="shield-check" size={16} color="#3d7a9a" />
+              <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Peaceful Mode</Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.resetSection}>
+              <View style={styles.resetInfo}>
+                <MaterialCommunityIcons name={isPeaceful ? "shield-check" : "shield-off-outline"} size={20} color={isPeaceful ? "#3d7a9a" : colors.textSecondary} />
+                <View style={styles.resetText}>
+                  <Text style={[styles.resetLabel, { color: colors.foreground }]}>
+                    {isPeaceful ? "Peaceful Mode On" : "Peaceful Mode Off"}
+                  </Text>
+                  <Text style={[styles.resetDesc, { color: colors.textSecondary }]}>
+                    {isPeaceful
+                      ? "Your kingdom is protected. You cannot raid others or be raided."
+                      : "PvP is active. You can raid and be raided by other kingdoms."}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[
+                  styles.resetBtn,
+                  isPeaceful
+                    ? { borderColor: colors.destructive + "55", backgroundColor: colors.destructive + "11" }
+                    : { borderColor: "#3d7a9a55", backgroundColor: "#3d7a9a11" },
+                ]}
+                onPress={() => handleTogglePeaceful(!isPeaceful)}
+                disabled={setPeacefulMode.isPending}
+                activeOpacity={0.7}
+              >
+                {setPeacefulMode.isPending
+                  ? <ActivityIndicator size="small" color={isPeaceful ? colors.destructive : "#3d7a9a"} />
+                  : <Text style={[styles.resetBtnText, { color: isPeaceful ? colors.destructive : "#3d7a9a" }]}>
+                      {isPeaceful ? "Disable Peaceful Mode" : "Enable Peaceful Mode"}
+                    </Text>
+                }
+              </TouchableOpacity>
             </View>
           </View>
 

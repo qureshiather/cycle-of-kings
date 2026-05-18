@@ -29,6 +29,8 @@ export * from './missionCard';
 export * from './missionCardDifficulty';
 export * from './missionCardType';
 export * from './missionDispatch';
+export * from './peacefulModeInput';
+export * from './peacefulModeResult';
 export * from './player';
 export * from './playerInput';
 export * from './raid';

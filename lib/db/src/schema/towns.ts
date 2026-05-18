@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, real, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, real, timestamp, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -13,6 +13,7 @@ export const townsTable = pgTable("towns", {
   defenseRating: real("defense_rating").notNull().default(10),
   population: integer("population").notNull().default(5),
   populationCap: integer("population_cap").notNull().default(20),
+  peacefulMode: boolean("peaceful_mode").notNull().default(false),
   lastTickAt: timestamp("last_tick_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

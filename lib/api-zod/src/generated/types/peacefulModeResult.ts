@@ -6,12 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TownSummary {
-  id: number;
-  name: string;
-  playerId: number;
-  playerName: string;
-  defenseRating: number;
-  population: number;
+export interface PeacefulModeResult {
   peacefulMode: boolean;
 }

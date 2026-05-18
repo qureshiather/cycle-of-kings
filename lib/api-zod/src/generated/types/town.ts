@@ -21,5 +21,6 @@ export interface Town {
   defenseRating: number;
   population: number;
   populationCap: number;
+  peacefulMode: boolean;
   lastTickAt: string;
 }
