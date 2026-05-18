@@ -1,16 +1,29 @@
 {
-  "name": "workspace",
+  "name": "medieval-empires",
   "version": "0.0.0",
   "license": "MIT",
+  "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
-    "build": "pnpm run typecheck && pnpm -r --if-present run build",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "build": "turbo run build --filter=@workspace/api-server",
+    "build:mobile": "turbo run build --filter=@workspace/mobile",
+    "typecheck": "turbo run typecheck --filter=!@workspace/mockup-sandbox",
+    "dev": "turbo run dev --filter=@workspace/api-server --filter=@workspace/mobile",
+    "dev:api": "turbo run dev --filter=@workspace/api-server",
+    "dev:mobile": "turbo run dev --filter=@workspace/mobile",
+    "codegen": "turbo run codegen && turbo run typecheck --filter=@workspace/api-client-react --filter=@workspace/api-zod",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:push": "turbo run push --filter=@workspace/db"
   },
-  "private": true,
   "devDependencies": {
+    "dotenv": "^16.4.7",
     "prettier": "^3.8.3",
+    "turbo": "^2.8.12",
     "typescript": "~5.9.3"
   }
 }

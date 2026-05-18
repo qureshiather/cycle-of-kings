@@ -1,0 +1,32 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".env"],
+  "globalEnv": ["DATABASE_URL", "PORT", "NODE_ENV"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^typecheck"],
+      "outputs": ["dist/**", "web-build/**"],
+      "env": ["DATABASE_URL", "PORT", "NODE_ENV", "EXPO_PUBLIC_*", "REPLIT_*"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "codegen": {
+      "cache": false,
+      "outputs": [
+        "src/generated/**",
+        "../api-client-react/src/generated/**",
+        "../api-zod/src/generated/**"
+      ]
+    },
+    "push": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    }
+  }
+}

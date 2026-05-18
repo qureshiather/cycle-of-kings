@@ -17,7 +17,10 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
 import { ColorSchemeProvider } from "@/context/ColorSchemeContext";
 
-if (process.env.EXPO_PUBLIC_DOMAIN) {
+const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
+if (apiUrl) {
+  setBaseUrl(apiUrl);
+} else if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
 
