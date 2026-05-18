@@ -7,3 +7,4 @@ export * from "./missions";
 export * from "./tradeRoutes";
 export * from "./raids";
 export * from "./trophies";
+export * from "./activities";

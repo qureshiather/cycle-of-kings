@@ -319,6 +319,17 @@ export interface RaidOrder {
   catapults: number;
 }
 
+export interface Activity {
+  id: number;
+  townId: number;
+  type: string;
+  title: string;
+  body: string;
+  icon: string;
+  iconColor: string;
+  createdAt: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   townId: number;

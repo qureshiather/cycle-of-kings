@@ -488,6 +488,25 @@ paths:
         "200":
           description: Cancelled
 
+  /towns/{townId}/activities:
+    get:
+      operationId: getActivities
+      summary: Get recent activity feed for a town
+      parameters:
+        - in: path
+          name: townId
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Activity feed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Activity"
+
   /towns/{townId}/raids:
     get:
       operationId: getTownRaids
@@ -834,6 +853,19 @@ components:
         archers: { type: integer }
         cavalry: { type: integer }
         catapults: { type: integer }
+
+    Activity:
+      type: object
+      required: [id, townId, type, title, body, icon, iconColor, createdAt]
+      properties:
+        id: { type: integer }
+        townId: { type: integer }
+        type: { type: string }
+        title: { type: string }
+        body: { type: string }
+        icon: { type: string }
+        iconColor: { type: string }
+        createdAt: { type: string }
 
     LeaderboardEntry:
       type: object

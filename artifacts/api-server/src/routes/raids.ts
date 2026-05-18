@@ -1,10 +1,19 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { raidsTable, townsTable, armyTable, gridCellsTable, fortificationsTable } from "@workspace/db";
+import { raidsTable, townsTable, armyTable, gridCellsTable, fortificationsTable, activitiesTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { simulateCombat, calculateDefenseRating, calculateArmyComposition } from "../lib/gameEngine.js";
 
 const router = Router();
+
+function fmtLoot(gold: number, food: number, wood: number, stone: number): string {
+  const parts: string[] = [];
+  if (gold > 0) parts.push(`${Math.floor(gold)}G`);
+  if (food > 0) parts.push(`${Math.floor(food)}F`);
+  if (wood > 0) parts.push(`${Math.floor(wood)}W`);
+  if (stone > 0) parts.push(`${Math.floor(stone)}St`);
+  return parts.join(" · ") || "nothing";
+}
 
 router.get("/towns/:townId/raids", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
@@ -89,6 +98,30 @@ router.post("/raids", async (req, res) => {
     lootGold, lootFood, lootWood, lootStone,
     attackerCasualties: casualties,
   }).returning();
+
+  // Activity for attacker
+  await db.insert(activitiesTable).values({
+    townId: attackerTownId,
+    type: victory ? "raid_outgoing_win" : "raid_outgoing_loss",
+    title: victory ? "Raid Victory!" : "Raid Defeated",
+    body: victory
+      ? `Raided ${defTown.name} — plundered ${fmtLoot(lootGold, lootFood, lootWood, lootStone)}. Lost ${casualties} troops.`
+      : `Attacked ${defTown.name} but were repelled. Lost ${casualties} troops.`,
+    icon: victory ? "sword" : "shield-off",
+    iconColor: victory ? "#d4a520" : "#cc4040",
+  });
+
+  // Activity for defender
+  await db.insert(activitiesTable).values({
+    townId: defenderTownId,
+    type: victory ? "raid_incoming_loss" : "raid_incoming_win",
+    title: victory ? "Your Kingdom Was Raided!" : "Raid Repelled!",
+    body: victory
+      ? `${attackerTown?.name ?? "An enemy"} raided your kingdom and took ${fmtLoot(lootGold, lootFood, lootWood, lootStone)}.`
+      : `${attackerTown?.name ?? "An enemy"} attacked your kingdom but your defenses held!`,
+    icon: victory ? "shield-alert" : "shield-check",
+    iconColor: victory ? "#cc4040" : "#3d7a35",
+  });
 
   res.status(201).json({
     ...raid,

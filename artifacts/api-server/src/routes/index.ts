@@ -8,6 +8,7 @@ import raidsRouter from "./raids.js";
 import tradeRouter from "./trade.js";
 import leaderboardRouter from "./leaderboard.js";
 import gameRouter from "./game.js";
+import activitiesRouter from "./activities.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(raidsRouter);
 router.use(tradeRouter);
 router.use(leaderboardRouter);
 router.use(gameRouter);
+router.use(activitiesRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { townsTable, gridCellsTable, fortificationsTable, playersTable, armyTable, missionsTable } from "@workspace/db";
+import { townsTable, gridCellsTable, fortificationsTable, playersTable, armyTable, missionsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateArmyCapacity, calculatePopulation,
@@ -10,12 +10,34 @@ import {
 
 const router = Router();
 
+const BUILDING_NAMES: Record<string, string> = {
+  farm: "Farm", mine: "Mine", quarry: "Quarry", lumberMill: "Lumber Mill",
+  barracks: "Barracks", archeryRange: "Archery Range", stables: "Stables",
+  market: "Market", tavern: "Tavern", house: "House",
+};
+
 async function getAndTickTown(townId: number) {
   const rows = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!rows.length) return null;
   const town = rows[0];
   const cells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, townId));
   const forts = await db.select().from(fortificationsTable).where(eq(fortificationsTable.townId, townId));
+
+  // Complete any finished upgrades
+  const now = new Date();
+  for (const cell of cells) {
+    if (cell.upgrading && cell.upgradeEndsAt && cell.upgradeEndsAt <= now) {
+      await db.update(gridCellsTable).set({ upgrading: false }).where(eq(gridCellsTable.id, cell.id));
+      await db.insert(activitiesTable).values({
+        townId,
+        type: "upgrade_complete",
+        title: "Building Upgraded",
+        body: `${BUILDING_NAMES[cell.buildingType] ?? cell.buildingType} reached level ${cell.level}`,
+        icon: "arrow-up-bold-circle",
+        iconColor: "#d4a520",
+      });
+    }
+  }
 
   const { season } = getCurrentSeasonInfo();
   const production = calculateProduction(cells, season);
@@ -106,6 +128,16 @@ router.post("/towns/:townId/buildings", async (req, res) => {
   }).where(eq(townsTable.id, townId));
 
   const [cell] = await db.insert(gridCellsTable).values({ townId, row, col, buildingType, level: 1, upgrading: false }).returning();
+
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "building_placed",
+    title: "Building Constructed",
+    body: `${BUILDING_NAMES[buildingType] ?? buildingType} placed at (${row},${col})`,
+    icon: "hammer-wrench",
+    iconColor: "#7a7a6a",
+  });
+
   res.status(201).json({ ...cell, upgradeEndsAt: null });
 });
 
@@ -185,7 +217,8 @@ router.post("/towns/:townId/buildings/:row/:col/upgrade", async (req, res) => {
   const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!town) return void res.status(404).json({ error: "Town not found" });
 
-  const cost = calculateBuildingCost(cell.buildingType, cell.level + 1);
+  const nextLevel = cell.level + 1;
+  const cost = calculateBuildingCost(cell.buildingType, nextLevel);
   if (town.gold < cost.gold || town.food < cost.food || town.wood < cost.wood || town.stone < cost.stone) {
     return void res.status(400).json({ error: "Insufficient resources", cost });
   }
@@ -196,9 +229,24 @@ router.post("/towns/:townId/buildings/:row/:col/upgrade", async (req, res) => {
   await db.update(townsTable).set({ gold: town.gold - cost.gold, food: town.food - cost.food, wood: town.wood - cost.wood, stone: town.stone - cost.stone }).where(eq(townsTable.id, townId));
 
   const [updated] = await db.update(gridCellsTable)
-    .set({ upgrading: true, upgradeEndsAt, level: cell.level + 1 })
+    .set({ upgrading: true, upgradeEndsAt, level: nextLevel })
     .where(eq(gridCellsTable.id, cell.id))
     .returning();
+
+  const durationStr = durationMs < 60000
+    ? `${Math.round(durationMs / 1000)}s`
+    : durationMs < 3600000
+      ? `${Math.round(durationMs / 60000)}m`
+      : `${Math.round(durationMs / 3600000)}h`;
+
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "upgrade_started",
+    title: "Upgrade Started",
+    body: `${BUILDING_NAMES[cell.buildingType] ?? cell.buildingType} upgrading to level ${nextLevel} — done in ${durationStr}`,
+    icon: "clock-outline",
+    iconColor: "#7a7a9a",
+  });
 
   res.json({ ...updated, upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null });
 });
@@ -248,6 +296,15 @@ router.post("/towns/:townId/reset", async (req, res) => {
     defenseRating: 10, population: 8, populationCap: 10,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));
+
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "kingdom_reset",
+    title: "Kingdom Reset",
+    body: "All buildings demolished. Your kingdom starts fresh.",
+    icon: "restore",
+    iconColor: "#cc4040",
+  });
 
   res.json({ success: true, gold: 200, food: 200, wood: 150, stone: 100 });
 });

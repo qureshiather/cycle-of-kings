@@ -1,12 +1,21 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { missionsTable, armyTable, townsTable, gridCellsTable } from "@workspace/db";
+import { missionsTable, armyTable, townsTable, gridCellsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { generateMissionCards, getCurrentHourSeed, calculateArmyComposition } from "../lib/gameEngine.js";
 
 const MERCENARY_GOLD_COST = 10;
 
 const router = Router();
+
+function fmtLoot(gold: number, food: number, wood: number, stone: number): string {
+  const parts: string[] = [];
+  if (gold > 0) parts.push(`${Math.floor(gold)}G`);
+  if (food > 0) parts.push(`${Math.floor(food)}F`);
+  if (wood > 0) parts.push(`${Math.floor(wood)}W`);
+  if (stone > 0) parts.push(`${Math.floor(stone)}St`);
+  return parts.join(" · ") || "no loot";
+}
 
 router.get("/missions", async (req, res) => {
   const townId = parseInt(String(req.query["townId"] ?? ""));
@@ -64,6 +73,17 @@ async function resolvePendingMissions(townId: number) {
           }).where(eq(townsTable.id, townId));
         }
       }
+
+      await db.insert(activitiesTable).values({
+        townId,
+        type: success ? "mission_success" : "mission_fail",
+        title: success ? `Mission Complete` : `Mission Failed`,
+        body: success
+          ? `"${m.missionTitle}" — Troops returned with ${fmtLoot(m.lootGold ?? 0, m.lootFood ?? 0, m.lootWood ?? 0, m.lootStone ?? 0)}`
+          : `"${m.missionTitle}" — Defeated. ${casualties} troops lost.`,
+        icon: success ? "flag-checkered" : "skull-crossbones",
+        iconColor: success ? "#3d7a35" : "#cc4040",
+      });
     }
   }
 }
@@ -147,6 +167,22 @@ router.post("/towns/:townId/missions", async (req, res) => {
     infantry, archers, cavalry, mercenaries, successRate, status: "active", returnsAt,
     lootGold: card.lootGold, lootFood: card.lootFood, lootWood: card.lootWood, lootStone: card.lootStone,
   }).returning();
+
+  const totalStr = [
+    infantry ? `${infantry} inf` : "",
+    archers ? `${archers} arch` : "",
+    cavalry ? `${cavalry} cav` : "",
+    mercenaries ? `${mercenaries} merc` : "",
+  ].filter(Boolean).join(", ");
+
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "mission_dispatched",
+    title: "Mission Dispatched",
+    body: `"${card.title}" — ${totalStr} sent out. Returns in ${card.durationMinutes}m.`,
+    icon: "map-marker-path",
+    iconColor: "#9a7a5a",
+  });
 
   res.status(201).json({ ...mission, dispatchedAt: mission.dispatchedAt.toISOString(), returnsAt: mission.returnsAt.toISOString() });
 });

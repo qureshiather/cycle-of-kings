@@ -21,6 +21,7 @@ import type {
 
 import type {
   ActiveMission,
+  Activity,
   Army,
   BuildingMove,
   BuildingPlacement,
@@ -1632,6 +1633,83 @@ export const useCancelTradeRoute = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCancelTradeRouteMutationOptions(options));
     }
+
+export const getGetActivitiesUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/activities`
+}
+
+/**
+ * @summary Get recent activity feed for a town
+ */
+export const getActivities = async (townId: number, options?: RequestInit): Promise<Activity[]> => {
+
+  return customFetch<Activity[]>(getGetActivitiesUrl(townId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetActivitiesQueryKey = (townId: number,) => {
+    return [
+    `/api/towns/${townId}/activities`
+    ] as const;
+    }
+
+
+export const getGetActivitiesQueryOptions = <TData = Awaited<ReturnType<typeof getActivities>>, TError = ErrorType<unknown>>(townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActivities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetActivitiesQueryKey(townId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getActivities>>> = ({ signal }) => getActivities(townId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(townId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getActivities>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetActivitiesQueryResult = NonNullable<Awaited<ReturnType<typeof getActivities>>>
+export type GetActivitiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get recent activity feed for a town
+ */
+
+export function useGetActivities<TData = Awaited<ReturnType<typeof getActivities>>, TError = ErrorType<unknown>>(
+ townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getActivities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetActivitiesQueryOptions(townId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetTownRaidsUrl = (townId: number,) => {
 

@@ -429,6 +429,26 @@ export const CancelTradeRouteParams = zod.object({
 
 
 /**
+ * @summary Get recent activity feed for a town
+ */
+export const GetActivitiesParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const GetActivitiesResponseItem = zod.object({
+  "id": zod.number(),
+  "townId": zod.number(),
+  "type": zod.string(),
+  "title": zod.string(),
+  "body": zod.string(),
+  "icon": zod.string(),
+  "iconColor": zod.string(),
+  "createdAt": zod.string()
+})
+export const GetActivitiesResponse = zod.array(GetActivitiesResponseItem)
+
+
+/**
  * @summary Get raid history (as attacker and defender)
  */
 export const GetTownRaidsParams = zod.object({

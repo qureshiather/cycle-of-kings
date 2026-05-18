@@ -8,6 +8,7 @@
 
 export * from './activeMission';
 export * from './activeMissionStatus';
+export * from './activity';
 export * from './army';
 export * from './buildingMove';
 export * from './buildingPlacement';

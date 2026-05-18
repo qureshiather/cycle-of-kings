@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTown, useGetTownGrid, usePlaceBuilding, useRemoveBuilding, useUpgradeBuilding, useResetTown,
   useGetFortifications, usePlaceFortification, useRemoveFortification,
+  useGetGameState,
   getGetTownQueryKey, getGetTownGridQueryKey, getGetFortificationsQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
@@ -17,7 +18,6 @@ import ResourceBar from "@/components/ResourceBar";
 import TownGrid from "@/components/TownGrid";
 import type { GridCellData, BuildingType } from "@/components/TownGrid";
 import SeasonBadge from "@/components/SeasonBadge";
-import { useGetGameState } from "@workspace/api-client-react";
 
 const BORDER_SEQUENCE: [number, number][] = [
   ...Array.from({ length: 9 }, (_, c) => [0, c] as [number, number]),
@@ -34,15 +34,30 @@ function nextBorderPos(forts: Array<{ row: number; col: number }>): [number, num
   return null;
 }
 
+type Season = "spring" | "summer" | "autumn" | "winter";
+const SEASON_TIPS: Record<Season, string> = {
+  spring: "Food & Wood boosted. Best time to expand.",
+  summer: "Gold peaks this season. Invest in mines.",
+  autumn: "Stock up on wood before winter.",
+  winter: "Production suffers. Guard your stockpiles.",
+};
+
+const MODIFIER_LABELS = [
+  { key: "gold",  icon: "gold",        label: "Gold",  color: "#d4a520" },
+  { key: "food",  icon: "food-apple",  label: "Food",  color: "#3d7a35" },
+  { key: "wood",  icon: "axe",         label: "Wood",  color: "#7a4e20" },
+  { key: "stone", icon: "cube-outline",label: "Stone", color: "#7a7a6a" },
+];
+
 export default function KingdomScreen() {
   const colors = useColors();
   const { townId, playerName } = useGame();
   const qc = useQueryClient();
 
-  const { data: town, isLoading: townLoading, refetch: refetchTown } = useGetTown(townId ?? 0, { query: { enabled: !!townId } });
-  const { data: gridRaw, isLoading: gridLoading, refetch: refetchGrid } = useGetTownGrid(townId ?? 0, { query: { enabled: !!townId } });
-  const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } });
-  const { data: forts = [], refetch: refetchForts } = useGetFortifications(townId ?? 0, { query: { enabled: !!townId } });
+  const { data: town, isLoading: townLoading, refetch: refetchTown } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: gridRaw, isLoading: gridLoading, refetch: refetchGrid } = useGetTownGrid(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
+  const { data: forts = [], refetch: refetchForts } = useGetFortifications(townId ?? 0, { query: { enabled: !!townId } as any });
 
   const placeBuilding = usePlaceBuilding();
   const removeBuilding = useRemoveBuilding();
@@ -52,6 +67,7 @@ export default function KingdomScreen() {
   const removeFortification = useRemoveFortification();
 
   const [resetting, setResetting] = useState(false);
+  const [showProduction, setShowProduction] = useState(false);
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId ?? 0) });
@@ -97,9 +113,13 @@ export default function KingdomScreen() {
 
   const handlePlace = useCallback((row: number, col: number, buildingType: BuildingType) => {
     if (!townId) return;
-    placeBuilding.mutate({ townId, data: { row, col, buildingType } }, {
+    placeBuilding.mutate({ townId, data: { row, col, buildingType: buildingType as any } }, {
       onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); invalidate(); },
-      onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+      onError: (err: any) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        const msg = err?.error ?? "Failed to place building";
+        Alert.alert("Cannot Build", msg);
+      },
     });
   }, [townId, placeBuilding, invalidate]);
 
@@ -114,7 +134,19 @@ export default function KingdomScreen() {
     if (!townId) return;
     upgradeBuilding.mutate({ townId, row, col }, {
       onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); invalidate(); },
-      onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+      onError: (err: any) => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        const msg: string = err?.error ?? "Failed to upgrade";
+        if (msg.includes("Insufficient")) {
+          const cost = err?.cost;
+          const costStr = cost
+            ? [cost.gold && `${Math.ceil(cost.gold)} Gold`, cost.food && `${Math.ceil(cost.food)} Food`, cost.wood && `${Math.ceil(cost.wood)} Wood`, cost.stone && `${Math.ceil(cost.stone)} Stone`].filter(Boolean).join(", ")
+            : "";
+          Alert.alert("Not Enough Resources", costStr ? `You need: ${costStr}` : "Insufficient resources to upgrade.");
+        } else {
+          Alert.alert("Upgrade Failed", msg);
+        }
+      },
     });
   }, [townId, upgradeBuilding, invalidate]);
 
@@ -124,9 +156,9 @@ export default function KingdomScreen() {
     if (!pos) { Alert.alert("No space", "All border cells are fortified."); return; }
     placeFortification.mutate({ townId, data: { row: pos[0], col: pos[1], type } }, {
       onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); invalidate(); },
-      onError: () => {
+      onError: (err: any) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Insufficient resources");
+        Alert.alert("Cannot Build", err?.error ?? "Insufficient resources");
       },
     });
   }, [townId, forts, placeFortification, invalidate]);
@@ -146,6 +178,9 @@ export default function KingdomScreen() {
   const canAffordTower = (town?.wood ?? 0) >= 20 && (town?.stone ?? 0) >= 50 && (town?.gold ?? 0) >= 10;
 
   const popPct = town ? Math.min(1, town.population / Math.max(1, town.populationCap ?? 1)) : 0;
+
+  const season = gameState?.season as Season ?? "spring";
+  const mods = gameState?.seasonModifiers ?? { gold: 1, food: 1, wood: 1, stone: 1 };
 
   if (townLoading || gridLoading) {
     return (
@@ -184,7 +219,10 @@ export default function KingdomScreen() {
                   {town?.population ?? 0}/{town?.populationCap ?? 0}
                 </Text>
                 <View style={[styles.popBar, { backgroundColor: colors.border }]}>
-                  <View style={[styles.popFill, { width: `${Math.round(popPct * 100)}%` as any, backgroundColor: popPct > 0.9 ? colors.destructive : colors.gold }]} />
+                  <View style={[styles.popFill, {
+                    width: `${Math.round(popPct * 100)}%` as any,
+                    backgroundColor: popPct > 0.9 ? colors.destructive : colors.gold,
+                  }]} />
                 </View>
               </View>
               <View style={styles.statChip}>
@@ -210,6 +248,68 @@ export default function KingdomScreen() {
           />
         </View>
 
+        {/* ── Production & Season (collapsible) ── */}
+        <TouchableOpacity
+          style={[styles.sectionToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
+          onPress={() => setShowProduction(p => !p)}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="chart-bar" size={15} color={colors.gold} />
+          <Text style={[styles.sectionToggleText, { color: colors.foreground }]}>Production & Season</Text>
+          <View style={styles.sectionTogglePills}>
+            <Text style={[styles.pillText, { color: colors.gold }]}>
+              +{(town?.goldPerHour ?? 0).toFixed(0)}G  +{(town?.foodPerHour ?? 0).toFixed(0)}F  +{(town?.woodPerHour ?? 0).toFixed(0)}W  +{(town?.stonePerHour ?? 0).toFixed(0)}St
+            </Text>
+          </View>
+          <MaterialCommunityIcons
+            name={showProduction ? "chevron-up" : "chevron-down"}
+            size={16}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+
+        {showProduction && (
+          <View style={[styles.productionPanel, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            {gameState?.season && (
+              <View style={[styles.seasonRow, { borderBottomColor: colors.border }]}>
+                <SeasonBadge season={gameState.season as any} cycleNumber={gameState.cycleNumber} />
+                <Text style={[styles.seasonTip, { color: colors.textSecondary }]}>{SEASON_TIPS[season]}</Text>
+              </View>
+            )}
+
+            <View style={styles.modGrid}>
+              {MODIFIER_LABELS.map(({ key, icon, label, color }) => {
+                const mod = (mods as any)[key] ?? 1;
+                const pct = Math.round((mod - 1) * 100);
+                return (
+                  <View key={key} style={[styles.modCard, { borderColor: mod >= 1 ? color + "44" : colors.destructive + "44", backgroundColor: colors.background }]}>
+                    <MaterialCommunityIcons name={icon as any} size={16} color={color} />
+                    <Text style={[styles.modLabel, { color: colors.textSecondary }]}>{label}</Text>
+                    <Text style={[styles.modValue, { color: mod >= 1 ? "#3d7a35" : colors.destructive }]}>
+                      {pct >= 0 ? "+" : ""}{pct}%
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={[styles.prodRates, { borderTopColor: colors.border }]}>
+              {[
+                { icon: "gold",        label: "Gold/hr",  value: town?.goldPerHour ?? 0,  color: colors.gold },
+                { icon: "food-apple",  label: "Food/hr",  value: town?.foodPerHour ?? 0,  color: colors.food },
+                { icon: "axe",         label: "Wood/hr",  value: town?.woodPerHour ?? 0,  color: colors.wood },
+                { icon: "cube-outline",label: "Stone/hr", value: town?.stonePerHour ?? 0, color: colors.stone },
+              ].map(({ icon, label, value, color }) => (
+                <View key={label} style={styles.prodRow}>
+                  <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+                  <Text style={[styles.prodLabel, { color: colors.textSecondary }]}>{label}</Text>
+                  <Text style={[styles.prodValue, { color: colors.foreground }]}>+{value.toFixed(1)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* ── Fortifications ── */}
         <View style={[styles.section, { borderColor: colors.border }]}>
           <View style={styles.sectionHeader}>
@@ -219,17 +319,17 @@ export default function KingdomScreen() {
           </View>
 
           <View style={styles.fortStats}>
-            <View style={[styles.fortStatBox, { backgroundColor: colors.surface }]}>
+            <View style={[styles.fortStatBox, { backgroundColor: colors.background }]}>
               <MaterialCommunityIcons name="wall" size={20} color="#5a7a9a" />
               <Text style={[styles.fortStatNum, { color: colors.foreground }]}>{wallCount}</Text>
               <Text style={[styles.fortStatLabel, { color: colors.textSecondary }]}>Walls</Text>
             </View>
-            <View style={[styles.fortStatBox, { backgroundColor: colors.surface }]}>
+            <View style={[styles.fortStatBox, { backgroundColor: colors.background }]}>
               <MaterialCommunityIcons name="chess-rook" size={20} color="#8a7a9a" />
               <Text style={[styles.fortStatNum, { color: colors.foreground }]}>{towerCount}</Text>
               <Text style={[styles.fortStatLabel, { color: colors.textSecondary }]}>Towers</Text>
             </View>
-            <View style={[styles.fortStatBox, { backgroundColor: colors.surface }]}>
+            <View style={[styles.fortStatBox, { backgroundColor: colors.background }]}>
               <MaterialCommunityIcons name="shield-half-full" size={20} color="#4a8a6a" />
               <Text style={[styles.fortStatNum, { color: colors.foreground }]}>{town?.defenseRating ?? 0}</Text>
               <Text style={[styles.fortStatLabel, { color: colors.textSecondary }]}>Defense</Text>
@@ -241,7 +341,7 @@ export default function KingdomScreen() {
               style={[
                 styles.fortBtn,
                 {
-                  backgroundColor: canAffordWall && !fortsFull ? "#5a7a9a18" : colors.surface,
+                  backgroundColor: canAffordWall && !fortsFull ? "#5a7a9a18" : colors.background,
                   borderColor: canAffordWall && !fortsFull ? "#5a7a9a66" : colors.border,
                   opacity: fortsFull ? 0.5 : 1,
                 },
@@ -265,7 +365,7 @@ export default function KingdomScreen() {
               style={[
                 styles.fortBtn,
                 {
-                  backgroundColor: canAffordTower && !fortsFull ? "#8a7a9a18" : colors.surface,
+                  backgroundColor: canAffordTower && !fortsFull ? "#8a7a9a18" : colors.background,
                   borderColor: canAffordTower && !fortsFull ? "#8a7a9a66" : colors.border,
                   opacity: fortsFull ? 0.5 : 1,
                 },
@@ -291,10 +391,10 @@ export default function KingdomScreen() {
               {(forts as any[]).map((f: any) => (
                 <TouchableOpacity
                   key={`${f.row}-${f.col}`}
-                  style={[styles.fortChip, { backgroundColor: colors.surface, borderColor: f.borderBonus ? "#5a7a9a55" : colors.border }]}
+                  style={[styles.fortChip, { backgroundColor: colors.background, borderColor: f.borderBonus ? "#5a7a9a55" : colors.border }]}
                   onPress={() => Alert.alert(
                     `Remove ${f.type}?`,
-                    `${f.type === "wall" ? "Wall" : "Tower"} at border cell (${f.row},${f.col})${f.borderBonus ? " — border bonus active" : ""}`,
+                    `${f.type === "wall" ? "Wall" : "Tower"} at (${f.row},${f.col})${f.borderBonus ? " — border bonus active" : ""}`,
                     [
                       { text: "Keep", style: "cancel" },
                       { text: "Remove", style: "destructive", onPress: () => handleRemoveFort(f.row, f.col) },
@@ -341,11 +441,10 @@ const styles = StyleSheet.create({
 
   heroHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1,
   },
   heroLeft: { flex: 1, gap: 6 },
-  heroRight: { alignItems: "flex-end", gap: 6 },
+  heroRight: { alignItems: "flex-end" },
   rulerRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   rulerName: { fontSize: 20, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
   statsRow: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -356,10 +455,40 @@ const styles = StyleSheet.create({
 
   gridWrapper: { paddingHorizontal: 12, paddingTop: 12 },
 
+  sectionToggle: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    marginHorizontal: 12, marginTop: 10,
+    borderRadius: 10, borderWidth: 1, padding: 12,
+  },
+  sectionToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  sectionTogglePills: { flex: 1 },
+  pillText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+
+  productionPanel: {
+    marginHorizontal: 12, borderRadius: 10, borderWidth: 1,
+    borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0,
+    overflow: "hidden",
+  },
+  seasonRow: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    padding: 12, borderBottomWidth: 1,
+  },
+  seasonTip: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
+  modGrid: { flexDirection: "row", gap: 8, padding: 12 },
+  modCard: {
+    flex: 1, alignItems: "center", paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1, gap: 3,
+  },
+  modLabel: { fontSize: 9, fontFamily: "Inter_400Regular" },
+  modValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  prodRates: { borderTopWidth: 1 },
+  prodRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  prodLabel: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular" },
+  prodValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
+
   section: {
-    marginHorizontal: 12, marginTop: 14,
-    borderRadius: 12, borderWidth: 1,
-    padding: 14, gap: 12,
+    marginHorizontal: 12, marginTop: 10,
+    borderRadius: 12, borderWidth: 1, padding: 14, gap: 12,
   },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   sectionTitle: { fontSize: 14, fontFamily: "Inter_700Bold", flex: 1 },
@@ -367,7 +496,7 @@ const styles = StyleSheet.create({
 
   fortStats: { flexDirection: "row", gap: 8 },
   fortStatBox: {
-    flex: 1, alignItems: "center", paddingVertical: 10, paddingHorizontal: 4,
+    flex: 1, alignItems: "center", paddingVertical: 10,
     borderRadius: 10, gap: 3,
   },
   fortStatNum: { fontSize: 18, fontFamily: "Inter_700Bold", lineHeight: 22 },
@@ -390,7 +519,7 @@ const styles = StyleSheet.create({
   },
 
   dangerZone: {
-    marginHorizontal: 12, marginTop: 14,
+    marginHorizontal: 12, marginTop: 10,
     borderRadius: 12, borderWidth: 1,
     padding: 14, alignItems: "center", gap: 6,
   },

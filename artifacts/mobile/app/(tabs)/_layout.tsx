@@ -29,8 +29,8 @@ function NativeTabLayout() {
         <Label>World</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="treasury">
-        <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
-        <Label>Treasury</Label>
+        <Icon sf={{ default: "bell", selected: "bell.fill" }} />
+        <Label>Activity</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -99,8 +99,8 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="treasury"
         options={{
-          title: "Treasury",
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-bar" size={size} color={color} />,
+          title: "Activity",
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="bell-outline" size={size} color={color} />,
         }}
       />
     </Tabs>
