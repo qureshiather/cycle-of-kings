@@ -5,12 +5,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useTopInset } from "@/hooks/useTopInset";
 import ResourceBar from "@/components/ResourceBar";
-
-function fmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return Math.floor(n).toString();
-}
+import { formatResourceAmount } from "@/lib/resourceMeta";
 
 export type ScreenHeaderTown = {
   gold: number;
@@ -69,7 +64,7 @@ export default function ScreenHeader({
         {gold != null && (
           <View style={[styles.goldPill, { backgroundColor: withAlpha(colors.gold, 0.1), borderColor: withAlpha(colors.gold, 0.28) }]}>
             <MaterialCommunityIcons name="gold" size={14} color={colors.gold} />
-            <Text style={[styles.goldValue, { color: colors.gold }]}>{fmt(gold)}</Text>
+            <Text style={[styles.goldValue, { color: colors.gold }]}>{formatResourceAmount(gold)}</Text>
           </View>
         )}
         {trailing}

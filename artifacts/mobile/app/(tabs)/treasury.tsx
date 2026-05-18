@@ -1,11 +1,14 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useFocusEffect } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useGetActivities } from "@workspace/api-client-react";
-import { useColors } from "@/hooks/useColors";
-import { useGame } from "@/context/GameContext";
+import TabBadge from "@/components/TabBadge";
 import ScreenHeader from "@/components/ScreenHeader";
 import SettingsPanel from "@/components/SettingsPanel";
+import { useColors } from "@/hooks/useColors";
+import { useActivityUnread } from "@/hooks/useActivityUnread";
+import { useGame } from "@/context/GameContext";
 
 type ActivityItem = {
   id: number;
@@ -47,10 +50,17 @@ export default function ActivityScreen() {
   const colors = useColors();
   const { townId } = useGame();
   const [activeTab, setActiveTab] = useState<"activity" | "settings">("activity");
+  const { unreadCount, markAllRead } = useActivityUnread(townId);
 
   const { data: activities = [], isLoading, refetch } = useGetActivities(townId ?? 0, {
     query: { enabled: !!townId, refetchInterval: 15_000 } as any,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === "activity") markAllRead();
+    }, [activeTab, markAllRead]),
+  );
 
   const onRefresh = useCallback(() => refetch(), [refetch]);
 
@@ -84,6 +94,7 @@ export default function ActivityScreen() {
         icon="bell-outline"
         title="Activity"
         subtitle={activeTab === "activity" ? "Your kingdom's recent events" : "Appearance, peaceful mode, reset"}
+        trailing={unreadCount > 0 && activeTab !== "activity" ? <TabBadge count={unreadCount} inline /> : undefined}
       />
 
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
@@ -91,11 +102,23 @@ export default function ActivityScreen() {
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => {
+              setActiveTab(tab);
+              if (tab === "activity") markAllRead();
+            }}
           >
-            <Text style={[styles.tabText, { color: activeTab === tab ? colors.gold : colors.textSecondary }]}>
-              {tab === "activity" ? "Feed" : "Settings"}
-            </Text>
+            <View style={styles.tabLabelRow}>
+              <Text style={[styles.tabText, { color: activeTab === tab ? colors.gold : colors.textSecondary }]}>
+                {tab === "activity" ? "Feed" : "Settings"}
+              </Text>
+              {tab === "activity" && activeTab !== "activity" && unreadCount > 0 && (
+                <View style={[styles.tabBadge, { backgroundColor: colors.destructive }]}>
+                  <Text style={[styles.tabBadgeText, { color: colors.destructiveForeground }]}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -170,7 +193,10 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   tabs: { flexDirection: "row", borderBottomWidth: 1 },
   tab: { flex: 1, alignItems: "center", paddingVertical: 12 },
+  tabLabelRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   tabText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  tabBadge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 5, alignItems: "center", justifyContent: "center" },
+  tabBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold" },
   scrollContent: { padding: 12, paddingBottom: 110, gap: 8 },
   empty: { alignItems: "center", paddingTop: 80, gap: 12 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },

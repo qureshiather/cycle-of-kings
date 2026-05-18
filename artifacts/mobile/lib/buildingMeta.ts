@@ -76,18 +76,26 @@ export const BASE_COSTS: Record<string, { wood: number; stone: number; gold: num
   tower: { wood: 20, stone: 60, gold: 20, food: 0 },
 };
 
-export function formatCost(slotType: string, targetLevel: number): string {
+export type ResourceAmounts = { gold: number; food: number; wood: number; stone: number };
+
+export function getBuildingCost(slotType: string, targetLevel: number): ResourceAmounts {
   const base = BASE_COSTS[slotType] ?? { wood: 0, stone: 0, gold: 0, food: 0 };
   const mult = Math.pow(1.8, targetLevel - 1);
+  return {
+    gold: Math.ceil(base.gold * mult),
+    food: Math.ceil(base.food * mult),
+    wood: Math.ceil(base.wood * mult),
+    stone: Math.ceil(base.stone * mult),
+  };
+}
+
+export function formatCost(slotType: string, targetLevel: number): string {
+  const cost = getBuildingCost(slotType, targetLevel);
   const parts: string[] = [];
-  const g = Math.ceil(base.gold * mult);
-  if (g > 0) parts.push(`${g}G`);
-  const f = Math.ceil(base.food * mult);
-  if (f > 0) parts.push(`${f}F`);
-  const w = Math.ceil(base.wood * mult);
-  if (w > 0) parts.push(`${w}W`);
-  const s = Math.ceil(base.stone * mult);
-  if (s > 0) parts.push(`${s}St`);
+  if (cost.gold > 0) parts.push(`${cost.gold}G`);
+  if (cost.food > 0) parts.push(`${cost.food}F`);
+  if (cost.wood > 0) parts.push(`${cost.wood}W`);
+  if (cost.stone > 0) parts.push(`${cost.stone}St`);
   return parts.join(" · ") || "Free";
 }
 

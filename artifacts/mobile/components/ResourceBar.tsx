@@ -3,6 +3,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { formatResourceAmount } from "@/lib/resourceMeta";
 
 interface ResourceBarProps {
   gold: number;
@@ -15,12 +16,6 @@ interface ResourceBarProps {
   stonePerHour?: number;
   /** When true, omits top safe-area padding (parent handles insets). */
   embedded?: boolean;
-}
-
-function fmt(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return Math.floor(n).toString();
 }
 
 interface ResourceCellProps {
@@ -50,13 +45,13 @@ function ResourceCell({ icon, label, value, color, perHour, showDivider }: Resou
         {label}
       </Text>
       <Text style={[styles.value, { color: colors.foreground }]} numberOfLines={1}>
-        {fmt(value)}
+        {formatResourceAmount(value)}
       </Text>
       <Text
         style={[styles.rate, { color: perHour && perHour > 0 ? color : colors.textSecondary + "88" }]}
         numberOfLines={1}
       >
-        {perHour && perHour > 0 ? `+${fmt(perHour)}/h` : "—"}
+        {perHour && perHour > 0 ? `+${formatResourceAmount(perHour)}/h` : "—"}
       </Text>
     </View>
   );

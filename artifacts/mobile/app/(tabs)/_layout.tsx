@@ -4,11 +4,24 @@ import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Redirect, Tabs } from "expo-router";
 import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import TabBadge from "@/components/TabBadge";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { useActivityUnread } from "@/hooks/useActivityUnread";
 import { useGame } from "@/context/GameContext";
-import { ActivityIndicator } from "react-native";
+
+function ActivityTabIcon({ color, size }: { color: string; size: number }) {
+  const { townId } = useGame();
+  const { unreadCount } = useActivityUnread(townId);
+
+  return (
+    <View style={styles.tabIconWrap}>
+      <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
+      <TabBadge count={unreadCount} />
+    </View>
+  );
+}
 
 function NativeTabLayout() {
   return (
@@ -100,7 +113,7 @@ function ClassicTabLayout() {
         name="treasury"
         options={{
           title: "Activity",
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="bell-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ActivityTabIcon color={color} size={size} />,
         }}
       />
     </Tabs>
@@ -124,3 +137,7 @@ export default function TabLayout() {
   if (isLiquidGlassAvailable()) return <NativeTabLayout />;
   return <ClassicTabLayout />;
 }
+
+const styles = StyleSheet.create({
+  tabIconWrap: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+});

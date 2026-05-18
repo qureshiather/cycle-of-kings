@@ -22,29 +22,14 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
-
-type ResourceKey = "gold" | "food" | "wood" | "stone";
-
-const RES_ICON: Record<ResourceKey, string> = {
-  gold: "gold",
-  food: "food-apple",
-  wood: "tree",
-  stone: "cube-outline",
-};
-
-const RES_COLOR_KEY: Record<ResourceKey, "gold" | "food" | "wood" | "stone"> = {
-  gold: "gold",
-  food: "food",
-  wood: "wood",
-  stone: "stone",
-};
-
-const RES_SUFFIX: Record<ResourceKey, string> = {
-  gold: "G",
-  food: "F",
-  wood: "W",
-  stone: "St",
-};
+import ResourceCostRow from "@/components/ResourceCostRow";
+import {
+  formatResourceAmount,
+  normalizeResources,
+  RESOURCE_META,
+  singleResourceAmount,
+  type ResourceKey,
+} from "@/lib/resourceMeta";
 
 function refreshTimeLeft(refreshesAt: string): string {
   const ms = new Date(refreshesAt).getTime() - Date.now();
@@ -138,15 +123,14 @@ export default function WorldScreen() {
     return myTown[res] ?? 0;
   };
 
-  const renderResource = (res: ResourceKey, amount: number) => {
-    const color = colors[RES_COLOR_KEY[res]];
-    return (
-      <View style={styles.resChip}>
-        <MaterialCommunityIcons name={RES_ICON[res] as any} size={14} color={color} />
-        <Text style={[styles.resChipText, { color }]}>{Math.floor(amount)}{RES_SUFFIX[res]}</Text>
-      </View>
-    );
-  };
+  const townResources = myTown
+    ? normalizeResources({
+        gold: myTown.gold ?? 0,
+        food: myTown.food ?? 0,
+        wood: myTown.wood ?? 0,
+        stone: myTown.stone ?? 0,
+      })
+    : undefined;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -335,9 +319,15 @@ export default function WorldScreen() {
                     )}
                   </View>
                   <View style={styles.tradeExchange}>
-                    {renderResource(payRes, deal.payAmount)}
+                    <ResourceCostRow
+                      cost={singleResourceAmount(payRes, deal.payAmount)}
+                      owned={townResources}
+                    />
                     <MaterialCommunityIcons name="arrow-right" size={18} color={colors.textSecondary} />
-                    {renderResource(recvRes, deal.receiveAmount)}
+                    <ResourceCostRow
+                      cost={singleResourceAmount(recvRes, deal.receiveAmount)}
+                      variant="reward"
+                    />
                   </View>
                   {!done && (
                     <TouchableOpacity
@@ -358,7 +348,7 @@ export default function WorldScreen() {
                         <Text style={[styles.tradeBtnText, { color: canAfford ? colors.gold : colors.textSecondary }]}>
                           {canAfford
                             ? "Accept Trade"
-                            : `Need ${Math.ceil(deal.payAmount - townBalance(payRes))}${RES_SUFFIX[payRes]} more`}
+                            : `Need ${formatResourceAmount(Math.ceil(deal.payAmount - townBalance(payRes)))} more ${RESOURCE_META[payRes].label.toLowerCase()}`}
                         </Text>
                       )}
                     </TouchableOpacity>
@@ -486,9 +476,7 @@ const styles = StyleSheet.create({
   tradeTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold" },
   doneBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
   doneBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
-  tradeExchange: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
-  resChip: { flexDirection: "row", alignItems: "center", gap: 4 },
-  resChipText: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  tradeExchange: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" },
   tradeBtn: { borderRadius: 8, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
   tradeBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
   tradeError: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },

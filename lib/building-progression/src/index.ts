@@ -48,22 +48,36 @@ export const BUILD_REQUIREMENTS: Record<SlotType, BuildingPrereq> = {
   tower: { townHallLevel: 5, requires: [{ slot: "wall", minLevel: 2 }] },
 };
 
-/** Display order in the building grid (top → bottom). */
-export const BUILDING_GRID_ORDER: SlotType[] = [
-  "townHall",
-  "farm",
-  "house",
-  "lumberMill",
-  "quarry",
-  "mine",
-  "wall",
-  "market",
-  "tavern",
-  "barracks",
-  "archeryRange",
-  "stables",
-  "tower",
-];
+export type BuildingCategory = "production" | "army";
+
+export const BUILDING_CATEGORY_ORDER: BuildingCategory[] = ["production", "army"];
+
+/** Buildings grouped for the kingdom UI. */
+export const BUILDINGS_BY_CATEGORY: Record<BuildingCategory, SlotType[]> = {
+  production: [
+    "townHall",
+    "farm",
+    "house",
+    "lumberMill",
+    "quarry",
+    "mine",
+    "wall",
+    "market",
+    "tavern",
+    "tower",
+  ],
+  army: ["barracks", "archeryRange", "stables"],
+};
+
+export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
+  production: "Production",
+  army: "Army",
+};
+
+/** Flat display order (production, then army). */
+export const BUILDING_GRID_ORDER: SlotType[] = BUILDING_CATEGORY_ORDER.flatMap(
+  (category) => BUILDINGS_BY_CATEGORY[category],
+);
 
 export const MAX_CONCURRENT_MISSIONS = 3;
 

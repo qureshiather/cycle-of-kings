@@ -1,6 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-  BUILDING_GRID_ORDER,
+  BUILDING_CATEGORY_LABELS,
+  BUILDING_CATEGORY_ORDER,
+  BUILDINGS_BY_CATEGORY,
   formatRequirementHint,
   getBuildBlockReason,
   getTownHallLevel,
@@ -30,15 +32,17 @@ import {
   getGetTownQueryKey,
 } from "@workspace/api-client-react";
 import {
-  BASE_COSTS,
+  getBuildingCost,
   SLOT_BONUS,
   getSlotColor,
   SLOT_ICONS,
   SLOT_NAMES,
-  formatCost,
   formatTimeRemaining,
+  type ResourceAmounts,
 } from "@/lib/buildingMeta";
+import ResourceCostRow from "@/components/ResourceCostRow";
 import ModalOverlay from "@/components/ui/ModalOverlay";
+import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -93,15 +97,10 @@ export default function KingdomMap({
   const wood = town?.wood ?? 0;
   const stone = town?.stone ?? 0;
 
+  const owned = normalizeResources({ gold, food, wood, stone });
+
   function canAfford(slotType: string, level: number): boolean {
-    const base = BASE_COSTS[slotType] ?? { wood: 0, stone: 0, gold: 0, food: 0 };
-    const mult = Math.pow(1.8, level - 1);
-    return (
-      gold >= Math.ceil(base.gold * mult) &&
-      food >= Math.ceil(base.food * mult) &&
-      wood >= Math.ceil(base.wood * mult) &&
-      stone >= Math.ceil(base.stone * mult)
-    );
+    return canAffordCost(getBuildingCost(slotType, level), owned);
   }
 
   const buildBlocked =
@@ -201,40 +200,71 @@ export default function KingdomMap({
           Town Hall level {townHallLevel} · Tap a building to build or upgrade
         </Text>
 
-        <View style={styles.grid}>
-          {BUILDING_GRID_ORDER.map((slotType) => {
-            const slot = slotMap.get(slotType) ?? {
-              slotType,
-              level: slotType === "townHall" ? 1 : 0,
-              upgrading: false,
-            };
-            const built = slot.level > 0;
-            const locked = !built && getBuildBlockReason(slotType, slots) !== null;
-            const color = getSlotColor(slotType, colors);
-            const icon = SLOT_ICONS[slotType] ?? "help";
-            const name = SLOT_NAMES[slotType] ?? slotType;
-
-            return (
-              <BuildingCard
-                key={slotType}
-                name={name}
-                icon={icon}
-                color={color}
-                level={slot.level}
-                built={built}
-                locked={locked}
-                upgrading={slot.upgrading}
-                upgradeEndsAt={slot.upgradeEndsAt}
-                lockReason={locked ? getBuildBlockReason(slotType, slots) : null}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setSelectedSlotType(slotType);
-                }}
-                colors={colors}
-              />
-            );
-          })}
+        <View style={styles.legend}>
+          <LegendChip label="Built" dotColor={colors.success} colors={colors} />
+          <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
+          <LegendChip label="Locked" dotColor={colors.textMuted} colors={colors} />
+          <LegendChip label="Upgrading" dotColor={colors.warning} colors={colors} />
         </View>
+
+        {BUILDING_CATEGORY_ORDER.map((category) => (
+          <View key={category} style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons
+                name={category === "production" ? "warehouse" : "sword-cross"}
+                size={16}
+                color={category === "production" ? colors.food : colors.military}
+              />
+              <Text
+                style={[
+                  styles.sectionTitle,
+                  { color: category === "production" ? colors.food : colors.military },
+                ]}
+              >
+                {BUILDING_CATEGORY_LABELS[category]}
+              </Text>
+              <View style={[styles.sectionLine, { backgroundColor: colors.border }]} />
+            </View>
+            <View style={styles.grid}>
+              {BUILDINGS_BY_CATEGORY[category].map((slotType) => {
+                const slot = slotMap.get(slotType) ?? {
+                  slotType,
+                  level: slotType === "townHall" ? 1 : 0,
+                  upgrading: false,
+                };
+                const built = slot.level > 0;
+                const lockReason = !built ? getBuildBlockReason(slotType, slots) : null;
+                const locked = lockReason !== null;
+                const ready = !built && !locked;
+                const color = getSlotColor(slotType, colors);
+                const icon = SLOT_ICONS[slotType] ?? "help";
+                const name = SLOT_NAMES[slotType] ?? slotType;
+
+                return (
+                  <BuildingCard
+                    key={slotType}
+                    name={name}
+                    icon={icon}
+                    color={color}
+                    level={slot.level}
+                    built={built}
+                    ready={ready}
+                    locked={locked}
+                    upgrading={slot.upgrading}
+                    upgradeEndsAt={slot.upgradeEndsAt}
+                    lockReason={lockReason}
+                    canAffordBuild={ready && canAfford(slotType, 1)}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setSelectedSlotType(slotType);
+                    }}
+                    colors={colors}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        ))}
       </ScrollView>
 
       <Modal
@@ -252,9 +282,85 @@ export default function KingdomMap({
                 const name = SLOT_NAMES[selectedSlotType] ?? selectedSlotType;
                 const level = selectedSlot?.level ?? 0;
                 const nextLevel = level + 1;
+                const sheetStatus = isUpgrading
+                  ? "upgrading"
+                  : isEmpty && !isTownHall
+                    ? buildBlocked
+                      ? "locked"
+                      : "empty"
+                    : "built";
 
                 return (
                   <>
+                    <View
+                      style={[
+                        styles.statusBanner,
+                        {
+                          backgroundColor:
+                            sheetStatus === "upgrading"
+                              ? withAlpha(colors.warning, 0.12)
+                              : sheetStatus === "locked"
+                                ? withAlpha(colors.textMuted, 0.1)
+                                : sheetStatus === "empty"
+                                  ? withAlpha(colors.gold, 0.1)
+                                  : withAlpha(color, 0.1),
+                          borderColor:
+                            sheetStatus === "upgrading"
+                              ? withAlpha(colors.warning, 0.35)
+                              : sheetStatus === "locked"
+                                ? colors.border
+                                : sheetStatus === "empty"
+                                  ? withAlpha(colors.gold, 0.35)
+                                  : withAlpha(color, 0.35),
+                        },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={
+                          sheetStatus === "upgrading"
+                            ? "progress-clock"
+                            : sheetStatus === "locked"
+                              ? "lock"
+                              : sheetStatus === "empty"
+                                ? "hammer-wrench"
+                                : "check-circle"
+                        }
+                        size={14}
+                        color={
+                          sheetStatus === "upgrading"
+                            ? colors.warning
+                            : sheetStatus === "locked"
+                              ? colors.textSecondary
+                              : sheetStatus === "empty"
+                                ? colors.gold
+                                : color
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.statusBannerText,
+                          {
+                            color:
+                              sheetStatus === "upgrading"
+                                ? colors.warning
+                                : sheetStatus === "locked"
+                                  ? colors.textSecondary
+                                  : sheetStatus === "empty"
+                                    ? colors.gold
+                                    : color,
+                          },
+                        ]}
+                      >
+                        {sheetStatus === "upgrading"
+                          ? "Upgrade in progress"
+                          : sheetStatus === "locked"
+                            ? `Not built · ${buildBlocked}`
+                            : sheetStatus === "empty"
+                              ? "Empty slot · Ready to build"
+                              : `Built · Level ${level}`}
+                      </Text>
+                    </View>
+
                     <View style={styles.sheetHeader}>
                       <View style={[styles.sheetIcon, { backgroundColor: withAlpha(color, 0.12) }]}>
                         <MaterialCommunityIcons name={icon as any} size={28} color={color} />
@@ -265,7 +371,9 @@ export default function KingdomMap({
                           {isTownHall
                             ? `Town Hall · Level ${level}`
                             : isEmpty
-                              ? `Locked: ${buildBlocked ?? "Ready to build"}`
+                              ? buildBlocked
+                                ? `Requires: ${formatRequirementHint(selectedSlotType as SlotType)}`
+                                : "Tap Build below when you have resources"
                               : `Level ${level}`}
                         </Text>
                       </View>
@@ -273,12 +381,6 @@ export default function KingdomMap({
                         <Text style={[styles.lvBadge, { color }]}>{level}</Text>
                       )}
                     </View>
-
-                    {isEmpty && !isTownHall && (
-                      <Text style={[styles.reqHint, { color: colors.textSecondary }]}>
-                        Needs: {formatRequirementHint(selectedSlotType as SlotType)}
-                      </Text>
-                    )}
 
                     {level > 0 && (
                       <Text style={[styles.bonus, { color }]}>
@@ -290,13 +392,12 @@ export default function KingdomMap({
                       {isEmpty && !isTownHall && (
                         <ActionButton
                           label={`Build ${name}`}
-                          sub={buildBlocked ?? `Cost: ${formatCost(selectedSlotType, 1)}`}
+                          cost={getBuildingCost(selectedSlotType, 1)}
+                          owned={owned}
                           icon="hammer-wrench"
                           color={color}
                           disabled={!canBuild || buildSlot.isPending}
-                          muted={colors.muted}
-                          border={colors.border}
-                          fg={colors.foreground}
+                          blockedReason={buildBlocked}
                           onPress={handleBuild}
                           loading={buildSlot.isPending}
                         />
@@ -304,8 +405,9 @@ export default function KingdomMap({
 
                       {(!isEmpty || isTownHall) && !isMaxLevel && (
                         <ActionButton
-                          label={isUpgrading ? "Upgrading…" : `Upgrade to ${nextLevel}`}
-                          sub={isUpgrading ? "" : `Cost: ${formatCost(selectedSlotType, nextLevel)}`}
+                          label={isUpgrading ? "Upgrading…" : `Upgrade to level ${nextLevel}`}
+                          cost={isUpgrading ? null : getBuildingCost(selectedSlotType, nextLevel)}
+                          owned={owned}
                           icon="arrow-up-bold-circle"
                           color={color}
                           disabled={
@@ -313,9 +415,6 @@ export default function KingdomMap({
                             isUpgrading ||
                             !canAfford(selectedSlotType, nextLevel)
                           }
-                          muted={colors.muted}
-                          border={colors.border}
-                          fg={colors.foreground}
                           onPress={handleUpgrade}
                           loading={upgradeSlot.isPending}
                         />
@@ -324,15 +423,15 @@ export default function KingdomMap({
                       {!isEmpty && !isTownHall && (
                         <ActionButton
                           label="Demolish"
-                          sub={`Refund ~${formatCost(selectedSlotType, level)}`}
+                          cost={getBuildingCost(selectedSlotType, level)}
+                          owned={owned}
                           icon="delete-outline"
                           color={colors.destructive}
                           disabled={demolishSlot.isPending}
-                          muted={colors.muted}
-                          border={colors.border}
-                          fg={colors.destructive}
+                          variant="refund"
                           onPress={handleDemolish}
                           loading={demolishSlot.isPending}
+                          costLabel="Refund ~"
                         />
                       )}
                     </View>
@@ -347,16 +446,35 @@ export default function KingdomMap({
   );
 }
 
+function LegendChip({
+  label,
+  dotColor,
+  colors,
+}: {
+  label: string;
+  dotColor: string;
+  colors: ReturnType<typeof useColors>;
+}) {
+  return (
+    <View style={styles.legendChip}>
+      <View style={[styles.legendDot, { backgroundColor: dotColor }]} />
+      <Text style={[styles.legendText, { color: colors.textSecondary }]}>{label}</Text>
+    </View>
+  );
+}
+
 function BuildingCard({
   name,
   icon,
   color,
   level,
   built,
+  ready,
   locked,
   upgrading,
   upgradeEndsAt,
   lockReason,
+  canAffordBuild,
   onPress,
   colors,
 }: {
@@ -365,10 +483,12 @@ function BuildingCard({
   color: string;
   level: number;
   built: boolean;
+  ready: boolean;
   locked: boolean;
   upgrading: boolean;
   upgradeEndsAt?: string | null;
   lockReason: string | null;
+  canAffordBuild: boolean;
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
@@ -386,6 +506,26 @@ function BuildingCard({
     return () => clearInterval(id);
   }, [upgrading, upgradeEndsAt]);
 
+  const accentColor = upgrading
+    ? colors.warning
+    : built
+      ? color
+      : ready
+        ? canAffordBuild
+          ? colors.gold
+          : colors.textSecondary
+        : colors.textMuted;
+
+  const statusLabel = upgrading
+    ? formatTimeRemaining(timeLeft)
+    : built
+      ? `Lv ${level}`
+      : ready
+        ? canAffordBuild
+          ? "BUILD"
+          : "READY"
+        : "LOCKED";
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -393,17 +533,23 @@ function BuildingCard({
       style={[
         styles.card,
         {
-          backgroundColor: built ? colors.surfaceElevated : colors.surface,
-          borderColor: locked ? colors.border : built ? withAlpha(color, 0.4) : colors.border,
-          opacity: locked ? 0.55 : 1,
+          backgroundColor: built ? colors.surfaceElevated : ready ? withAlpha(colors.gold, 0.04) : colors.surface,
+          borderColor: built
+            ? withAlpha(color, 0.45)
+            : ready
+              ? withAlpha(canAffordBuild ? colors.gold : colors.border, canAffordBuild ? 0.5 : 1)
+              : colors.border,
+          borderStyle: ready && !built ? "dashed" : "solid",
+          opacity: locked ? 0.65 : 1,
         },
       ]}
     >
-      <View style={[styles.cardIcon, { backgroundColor: withAlpha(color, built ? 0.14 : 0.08) }]}>
+      <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
+      <View style={[styles.cardIcon, { backgroundColor: withAlpha(color, built || ready ? 0.14 : 0.06) }]}>
         {locked ? (
-          <MaterialCommunityIcons name="lock" size={20} color={colors.textSecondary} />
+          <MaterialCommunityIcons name="lock" size={20} color={colors.textMuted} />
         ) : (
-          <MaterialCommunityIcons name={icon as any} size={22} color={color} />
+          <MaterialCommunityIcons name={icon as any} size={22} color={built || ready ? color : colors.textMuted} />
         )}
       </View>
       <View style={styles.cardBody}>
@@ -411,49 +557,58 @@ function BuildingCard({
           {name}
         </Text>
         {built ? (
-          <Text style={[styles.cardMeta, { color }]}>
-            Level {level}
-            {upgrading ? ` · ${formatTimeRemaining(timeLeft)}` : ""}
+          <Text style={[styles.cardMeta, { color: upgrading ? colors.warning : color }]}>
+            {upgrading ? `Upgrading · ${formatTimeRemaining(timeLeft)}` : `Level ${level}`}
           </Text>
         ) : (
           <Text style={[styles.cardMeta, { color: colors.textSecondary }]} numberOfLines={2}>
-            {locked ? lockReason : "Tap to build"}
+            {locked ? lockReason : canAffordBuild ? "Ready — tap to build" : "Needs resources"}
           </Text>
         )}
       </View>
-      {built && (
-        <View style={[styles.cardLv, { borderColor: withAlpha(color, 0.5), backgroundColor: withAlpha(color, 0.12) }]}>
-          <Text style={[styles.cardLvText, { color }]}>{level}</Text>
-        </View>
-      )}
+      <View
+        style={[
+          styles.statusPill,
+          {
+            backgroundColor: withAlpha(accentColor, 0.15),
+            borderColor: withAlpha(accentColor, 0.4),
+          },
+        ]}
+      >
+        <Text style={[styles.statusPillText, { color: accentColor }]}>{statusLabel}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
 
 function ActionButton({
   label,
-  sub,
+  cost,
+  owned,
   icon,
   color,
   disabled,
-  muted,
-  border,
-  fg,
   onPress,
   loading,
+  blockedReason,
+  variant = "default",
+  costLabel = "Cost",
 }: {
   label: string;
-  sub: string;
+  cost: ResourceAmounts | null;
+  owned: ResourceAmounts;
   icon: string;
   color: string;
   disabled: boolean;
-  muted: string;
-  border: string;
-  fg: string;
   onPress: () => void;
   loading: boolean;
+  blockedReason?: string | null;
+  variant?: "default" | "refund";
+  costLabel?: string;
 }) {
+  const colors = useColors();
   const { withAlpha } = useTheme();
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -461,15 +616,31 @@ function ActionButton({
       style={[
         styles.actionBtn,
         {
-          backgroundColor: disabled ? muted : withAlpha(color, 0.1),
-          borderColor: disabled ? border : withAlpha(color, 0.28),
+          backgroundColor: disabled ? colors.muted : withAlpha(color, 0.1),
+          borderColor: disabled ? colors.border : withAlpha(color, 0.35),
         },
       ]}
     >
-      <MaterialCommunityIcons name={icon as any} size={18} color={disabled ? border : color} />
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.actionLabel, { color: disabled ? border : fg }]}>{label}</Text>
-        {!!sub && <Text style={[styles.actionSub, { color: border }]}>{sub}</Text>}
+      <MaterialCommunityIcons name={icon as any} size={20} color={disabled ? colors.textMuted : color} />
+      <View style={styles.actionBody}>
+        <Text style={[styles.actionLabel, { color: disabled ? colors.textSecondary : colors.foreground }]}>
+          {label}
+        </Text>
+        {blockedReason && (
+          <Text style={[styles.blockedHint, { color: colors.textSecondary }]}>{blockedReason}</Text>
+        )}
+        {cost && (
+          <View style={styles.costBlock}>
+            <Text style={[styles.costLabel, { color: colors.textSecondary }]}>
+              {variant === "refund" ? costLabel : costLabel}
+            </Text>
+            <ResourceCostRow
+              cost={cost}
+              owned={variant === "default" ? owned : undefined}
+              variant={variant === "refund" ? "refund" : "default"}
+            />
+          </View>
+        )}
       </View>
       {loading && <ActivityIndicator size="small" color={color} />}
     </TouchableOpacity>
@@ -479,16 +650,27 @@ function ActionButton({
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
   scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 8 },
-  hint: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 12 },
+  hint: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center", marginBottom: 8 },
+  legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, marginBottom: 12 },
+  legendChip: { flexDirection: "row", alignItems: "center", gap: 5 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 10, fontFamily: "Inter_500Medium" },
+  section: { gap: 8, marginBottom: 16 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
+  sectionLine: { flex: 1, height: 1 },
   grid: { gap: 8 },
   card: {
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
+    paddingLeft: 10,
     borderRadius: 10,
     borderWidth: 1,
-    gap: 12,
+    gap: 10,
+    overflow: "hidden",
   },
+  cardAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   cardIcon: {
     width: 44,
     height: 44,
@@ -499,13 +681,14 @@ const styles = StyleSheet.create({
   cardBody: { flex: 1, gap: 3 },
   cardName: { fontSize: 15, fontFamily: "Inter_600SemiBold" },
   cardMeta: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 15 },
-  cardLv: {
+  statusPill: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
+    flexShrink: 0,
   },
-  cardLvText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  statusPillText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
   sheet: {
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
@@ -519,17 +702,28 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
   lvBadge: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  reqHint: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  statusBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  statusBannerText: { fontSize: 12, fontFamily: "Inter_600SemiBold", flex: 1 },
   bonus: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   actions: { gap: 8 },
   actionBtn: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 10,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
   },
+  actionBody: { flex: 1, gap: 6 },
   actionLabel: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
-  actionSub: { fontSize: 11, fontFamily: "Inter_400Regular", marginTop: 2 },
+  blockedHint: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 15 },
+  costBlock: { gap: 4 },
+  costLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4, textTransform: "uppercase" },
 });
