@@ -16,12 +16,12 @@ import { setBaseUrl } from "@workspace/api-client-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
 import { ColorSchemeProvider } from "@/context/ColorSchemeContext";
+import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
+const apiUrl = resolveApiBaseUrl();
 if (apiUrl) {
+  if (__DEV__) console.log("[api] base URL:", apiUrl);
   setBaseUrl(apiUrl);
-} else if (process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
 
 SplashScreen.preventAutoHideAsync();

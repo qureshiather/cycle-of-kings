@@ -16,5 +16,4 @@ export interface LeaderboardEntry {
   economyScore: number;
   armyScore: number;
   gold: number;
-  peacefulMode?: boolean;
 }

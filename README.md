@@ -2,7 +2,7 @@
 
 A medieval town-building strategy game: **Expo mobile app** + **Express API** + **PostgreSQL**.
 
-Build a 9×9 kingdom, command armies, raid rivals, and climb the seasonal leaderboard.
+Build your town, command armies, raid rivals, and climb the seasonal leaderboard.
 
 ## Prerequisites
 
@@ -46,10 +46,12 @@ The mobile app calls the API using `EXPO_PUBLIC_API_URL` from `.env`:
 | Target | `EXPO_PUBLIC_API_URL` |
 |--------|------------------------|
 | iOS Simulator / web | `http://localhost:8080` |
-| Android emulator | `http://10.0.2.2:8080` |
+| Android emulator | `http://localhost:8080` (auto-rewritten to `10.0.2.2`) |
 | Physical phone (same Wi‑Fi) | `http://<your-computer-lan-ip>:8080` |
 
-Restart Expo after changing `.env` (`r` in the terminal or restart `pnpm dev:mobile`).
+In dev, `localhost` in `.env` is rewritten for Android automatically. Check the Metro log for `[api] base URL: ...` after reload.
+
+Restart Expo after changing `.env` (`r` in the terminal or restart `pnpm dev:mobile`). Restart the dev server after changing `app.json` (cleartext HTTP on Android).
 
 Health check: [http://localhost:8080/api/healthz](http://localhost:8080/api/healthz)
 
@@ -66,7 +68,34 @@ lib/
   api-client-react/# Generated React Query hooks
   api-zod/         # Generated Zod schemas
   db/              # Drizzle ORM + PostgreSQL schema
+  building-progression/  # Town Hall gates + building prerequisites (shared by API + mobile)
 ```
+
+## Building progression
+
+First-time builds are gated by **Town Hall level** and a few building prerequisites. Upgrades only cost resources (once built). Rules live in `lib/building-progression/src/index.ts` and are enforced on the API and shown in the mobile building list.
+
+```mermaid
+flowchart TB
+  TH1["Town Hall 1 — Farm, House"]
+  TH2["Town Hall 2 — Lumber Mill, Quarry, Mine, Wall"]
+  TH3["Town Hall 3 — Market, Tavern, Barracks"]
+  TH4["Town Hall 4 — Archery Range, Stables"]
+  TH5["Town Hall 5 — Watch Tower"]
+
+  TH1 --> TH2 --> TH3 --> TH4 --> TH5
+  W1["Wall Lv 1"] -.-> TH3
+  B1["Barracks Lv 1"] -.-> TH4
+  W2["Wall Lv 2"] -.-> TH5
+```
+
+| Town Hall | Unlocks (first build) | Also requires |
+|-----------|------------------------|---------------|
+| 1 | Town Hall (Lv 1), Farm, House | — |
+| 2 | Lumber Mill, Quarry, Mine, Town Wall | — |
+| 3 | Market, Tavern, Barracks | Wall Lv 1 |
+| 4 | Archery Range, Stables | Barracks Lv 1 |
+| 5 | Watch Tower | Wall Lv 2 |
 
 Optional Replit artifact (not required locally): `artifacts/mockup-sandbox/` (web UI mockup).
 

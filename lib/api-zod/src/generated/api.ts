@@ -93,6 +93,7 @@ export const GetTownResponse = zod.object({
   "staticDefense": zod.number(),
   "totalDefense": zod.number(),
   "peacefulMode": zod.boolean(),
+  "peacefulOptedInCycle": zod.number().nullish(),
   "lastTickAt": zod.string()
 })
 
@@ -107,7 +108,7 @@ export const GetBuildingSlotsParams = zod.object({
 export const GetBuildingSlotsResponseItem = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -120,7 +121,7 @@ export const GetBuildingSlotsResponse = zod.array(GetBuildingSlotsResponseItem)
  */
 export const BuildSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
 
@@ -129,13 +130,13 @@ export const BuildSlotParams = zod.object({
  */
 export const UpgradeSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
 export const UpgradeSlotResponse = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -147,13 +148,13 @@ export const UpgradeSlotResponse = zod.object({
  */
 export const DemolishSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
 export const DemolishSlotResponse = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -188,7 +189,7 @@ export const GetTownArmyResponse = zod.object({
 
 
 /**
- * @summary Enable or disable peaceful mode (opt out of PvP)
+ * @summary Permanently enable peaceful mode (one opt-in per cycle, irreversible)
  */
 export const SetPeacefulModeParams = zod.object({
   "townId": zod.coerce.number()
@@ -199,7 +200,8 @@ export const SetPeacefulModeBody = zod.object({
 })
 
 export const SetPeacefulModeResponse = zod.object({
-  "peacefulMode": zod.boolean()
+  "peacefulMode": zod.boolean(),
+  "peacefulOptedInCycle": zod.number().nullish()
 })
 
 
@@ -413,8 +415,7 @@ export const GetLeaderboardResponseItem = zod.object({
   "score": zod.number(),
   "economyScore": zod.number(),
   "armyScore": zod.number(),
-  "gold": zod.number(),
-  "peacefulMode": zod.boolean().optional()
+  "gold": zod.number()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 

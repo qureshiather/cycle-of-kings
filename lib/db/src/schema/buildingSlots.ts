@@ -3,11 +3,15 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const SLOT_TYPES = [
+  "townHall",
   "farm", "mine", "quarry", "lumberMill",
   "barracks", "archeryRange", "stables",
   "market", "tavern", "house",
   "wall", "tower",
 ] as const;
+
+/** Starts at level 1 when a town is created; cannot be demolished. */
+export const CORE_SLOT_TYPES = ["townHall"] as const;
 
 export type SlotType = typeof SLOT_TYPES[number];
 

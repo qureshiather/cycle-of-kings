@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
 interface ResourceBarProps {
@@ -13,83 +12,150 @@ interface ResourceBarProps {
   foodPerHour?: number;
   woodPerHour?: number;
   stonePerHour?: number;
+  /** When true, omits top safe-area padding (parent handles insets). */
+  embedded?: boolean;
 }
 
 function fmt(n: number): string {
-  if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return Math.floor(n).toString();
 }
 
-interface ResourcePillProps { icon: string; label: string; value: number; color: string; perHour?: number; }
+interface ResourceCellProps {
+  icon: string;
+  label: string;
+  value: number;
+  color: string;
+  perHour?: number;
+  showDivider: boolean;
+}
 
-function ResourcePill({ icon, label, value, color, perHour }: ResourcePillProps) {
+function ResourceCell({ icon, label, value, color, perHour, showDivider }: ResourceCellProps) {
   const colors = useColors();
+
   return (
-    <View style={[styles.pill, { backgroundColor: colors.surface }]}>
-      <MaterialCommunityIcons name={icon as any} size={13} color={color} />
-      <View style={styles.pillText}>
-        <Text style={[styles.pillLabel, { color }]}>{label}</Text>
-        <Text style={[styles.pillValue, { color: colors.foreground }]}>{fmt(value)}</Text>
-        {perHour !== undefined && perHour > 0 && (
-          <Text style={[styles.pillRate, { color: colors.textSecondary }]}>+{fmt(perHour)}/h</Text>
-        )}
+    <View
+      style={[
+        styles.cell,
+        showDivider && { borderRightWidth: StyleSheet.hairlineWidth, borderRightColor: colors.border },
+      ]}
+    >
+      <View style={[styles.iconRing, { backgroundColor: color + "1a", borderColor: color + "55" }]}>
+        <MaterialCommunityIcons name={icon as any} size={15} color={color} />
       </View>
+      <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.value, { color: colors.foreground }]} numberOfLines={1}>
+        {fmt(value)}
+      </Text>
+      <Text
+        style={[styles.rate, { color: perHour && perHour > 0 ? color : colors.textSecondary + "88" }]}
+        numberOfLines={1}
+      >
+        {perHour && perHour > 0 ? `+${fmt(perHour)}/h` : "—"}
+      </Text>
     </View>
   );
 }
 
-export default function ResourceBar({ gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour }: ResourceBarProps) {
+export default function ResourceBar({
+  gold,
+  food,
+  wood,
+  stone,
+  goldPerHour,
+  foodPerHour,
+  woodPerHour,
+  stonePerHour,
+  embedded = false,
+}: ResourceBarProps) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
+
+  const resources: Omit<ResourceCellProps, "showDivider">[] = [
+    { icon: "gold", label: "Gold", value: gold, color: colors.gold, perHour: goldPerHour },
+    { icon: "food-apple", label: "Food", value: food, color: colors.food, perHour: foodPerHour },
+    { icon: "tree", label: "Wood", value: wood, color: colors.wood, perHour: woodPerHour },
+    { icon: "cube-outline", label: "Stone", value: stone, color: colors.stone, perHour: stonePerHour },
+  ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: topPad + 6, borderBottomColor: colors.border }]}>
-      <View style={styles.row}>
-        <ResourcePill icon="gold" label="GOLD" value={gold} color={colors.gold} perHour={goldPerHour} />
-        <ResourcePill icon="food-apple" label="FOOD" value={food} color={colors.food} perHour={foodPerHour} />
-        <ResourcePill icon="axe" label="WOOD" value={wood} color={colors.wood} perHour={woodPerHour} />
-        <ResourcePill icon="wall" label="STONE" value={stone} color={colors.stone} perHour={stonePerHour} />
+    <View
+      style={[
+        styles.outer,
+        embedded ? styles.outerEmbedded : null,
+        {
+          paddingTop: embedded ? 0 : 6,
+          borderBottomColor: colors.border,
+          borderBottomWidth: embedded ? 0 : StyleSheet.hairlineWidth,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.bar,
+          {
+            backgroundColor: colors.surfaceElevated,
+            borderColor: colors.border,
+          },
+        ]}
+      >
+        {resources.map((r, i) => (
+          <ResourceCell key={r.label} {...r} showDivider={i < resources.length - 1} />
+        ))}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     paddingHorizontal: 12,
     paddingBottom: 8,
-    borderBottomWidth: 1,
   },
-  row: {
+  outerEmbedded: {
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  bar: {
     flexDirection: "row",
-    gap: 6,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: "hidden",
+    minHeight: 72,
   },
-  pill: {
+  cell: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 5,
-    borderRadius: 6,
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    gap: 2,
   },
-  pillText: {
-    flex: 1,
+  iconRing: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 2,
   },
-  pillLabel: {
-    fontSize: 8,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.5,
-  },
-  pillValue: {
-    fontSize: 12,
-    fontFamily: "Inter_600SemiBold",
-    lineHeight: 14,
-  },
-  pillRate: {
+  label: {
     fontSize: 9,
-    fontFamily: "Inter_400Regular",
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  value: {
+    fontSize: 15,
+    fontFamily: "Inter_700Bold",
+    lineHeight: 18,
+  },
+  rate: {
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    lineHeight: 12,
   },
 });

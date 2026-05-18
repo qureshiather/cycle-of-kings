@@ -12,6 +12,8 @@ export const townsTable = pgTable("towns", {
   stone: real("stone").notNull().default(100),
   defenseRating: real("defense_rating").notNull().default(10),
   peacefulMode: boolean("peaceful_mode").notNull().default(false),
+  /** Cycle number when peaceful mode was permanently enabled (null = never opted in). */
+  peacefulOptedInCycle: integer("peaceful_opted_in_cycle"),
   lastTickAt: timestamp("last_tick_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

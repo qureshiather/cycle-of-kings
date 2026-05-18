@@ -7,13 +7,28 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCreatePlayer } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import { getOrCreateDeviceId } from "@/lib/deviceId";
+import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
 
-function getDeviceId(): string {
-  const stored = typeof window !== "undefined" ? localStorage?.getItem?.("deviceId") : null;
-  if (stored) return stored;
-  const id = `device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  if (typeof window !== "undefined") localStorage?.setItem?.("deviceId", id);
-  return id;
+function formatConnectError(err: unknown): string {
+  const msg =
+    (err as { message?: string })?.message ??
+    (err as { error?: string })?.error ??
+    String(err);
+
+  if (/network request failed|failed to fetch|network error/i.test(msg)) {
+    const base = resolveApiBaseUrl() ?? "(not configured)";
+    if (Platform.OS === "android") {
+      return `Cannot reach API at ${base}. Run pnpm dev:api on your computer. Emulator uses 10.0.2.2; a physical device needs your Mac's Wi‑Fi IP in .env.`;
+    }
+    return `Cannot reach API at ${base}. Run pnpm dev:api and check EXPO_PUBLIC_API_URL in .env.`;
+  }
+
+  if (msg.toLowerCase().includes("name") || msg.toLowerCase().includes("taken")) {
+    return "That ruler name is already taken. Choose another.";
+  }
+
+  return "Failed to connect to server. Try again.";
 }
 
 export default function SetupScreen() {
@@ -33,20 +48,23 @@ export default function SetupScreen() {
     setError("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+    let deviceId: string;
+    try {
+      deviceId = await getOrCreateDeviceId();
+    } catch {
+      setError("Could not save device identity. Try again.");
+      return;
+    }
+
     createPlayer.mutate(
-      { data: { deviceId: getDeviceId(), name: trimmed } },
+      { data: { deviceId, name: trimmed } },
       {
         onSuccess: (player) => {
           setPlayer((player as any).id, (player as any).townId, (player as any).name);
           router.replace("/(tabs)" as any);
         },
-        onError: (err: any) => {
-          const msg: string = err?.error ?? err?.message ?? "";
-          if (msg.toLowerCase().includes("name") || msg.toLowerCase().includes("taken")) {
-            setError("That ruler name is already taken. Choose another.");
-          } else {
-            setError("Failed to connect to server. Try again.");
-          }
+        onError: (err: unknown) => {
+          setError(formatConnectError(err));
         },
       }
     );

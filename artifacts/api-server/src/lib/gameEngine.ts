@@ -9,6 +9,7 @@ export const BUILDING_COSTS: Record<string, { wood: number; stone: number; gold:
   market:       { wood: 40,  stone: 0,   gold: 20, food: 0 },
   tavern:       { wood: 50,  stone: 20,  gold: 10, food: 0 },
   house:        { wood: 30,  stone: 20,  gold: 0,  food: 0 },
+  townHall:     { wood: 80,  stone: 60,  gold: 50, food: 20 },
   wall:         { wood: 0,   stone: 40,  gold: 0,  food: 0 },
   tower:        { wood: 20,  stone: 60,  gold: 20, food: 0 },
 };
@@ -29,6 +30,7 @@ export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood
   stables:      { food: 0,  gold: 0, wood: 0, stone: 0 },
   tavern:       { food: 0,  gold: 0, wood: 0, stone: 0 },
   house:        { food: 0,  gold: 0, wood: 0, stone: 0 },
+  townHall:     { food: 0,  gold: 3, wood: 0, stone: 0 },
   wall:         { food: 0,  gold: 0, wood: 0, stone: 0 },
   tower:        { food: 0,  gold: 0, wood: 0, stone: 0 },
 };
@@ -112,6 +114,8 @@ export function calculateProduction(slots: SlotLike[], season: Season): { gold: 
     wood  += rates.wood  * slot.level * mods.wood;
     stone += rates.stone * slot.level * mods.stone;
   }
+  const { bonusGoldPerHour } = getTownHallBonuses(slots);
+  gold += bonusGoldPerHour * mods.gold;
   return { gold, food, wood, stone };
 }
 
@@ -200,15 +204,36 @@ export function calculateBuildingCost(slotType: string, targetLevel: number): { 
   };
 }
 
-export function getUpgradeDurationMs(slotType: string, currentLevel: number): number {
+export function getTownHallLevel(slots: SlotLike[]): number {
+  const hall = slots.find((s) => s.slotType === "townHall");
+  return Math.max(1, hall?.level ?? 1);
+}
+
+/** +3 gold/h per town hall level; 5% faster builds per level above 1 (max 45% reduction). */
+export function getTownHallBonuses(slots: SlotLike[]): {
+  bonusGoldPerHour: number;
+  buildSpeedMultiplier: number;
+} {
+  const level = getTownHallLevel(slots);
+  const buildSpeedMultiplier = Math.max(0.55, 1 - (level - 1) * 0.05);
+  return { bonusGoldPerHour: level * 3, buildSpeedMultiplier };
+}
+
+export function getUpgradeDurationMs(
+  slotType: string,
+  currentLevel: number,
+  slots: SlotLike[] = [],
+): number {
   const baseMins: Record<string, number> = {
     farm: 5, mine: 8, quarry: 6, lumberMill: 6,
     barracks: 10, archeryRange: 10, stables: 12,
     market: 10, tavern: 12, house: 7,
-    wall: 8, tower: 12,
+    townHall: 15, wall: 8, tower: 12,
   };
   const base = baseMins[slotType] ?? 10;
-  return base * Math.pow(2, currentLevel - 1) * 60 * 1000;
+  const raw = base * Math.pow(2, currentLevel - 1) * 60 * 1000;
+  const { buildSpeedMultiplier } = getTownHallBonuses(slots);
+  return Math.round(raw * buildSpeedMultiplier);
 }
 
 export interface CombatForces { infantry: number; archers: number; cavalry: number; }

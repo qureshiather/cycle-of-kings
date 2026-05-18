@@ -20,7 +20,8 @@
       }
     },
     "android": {
-      "userInterfaceStyle": "dark"
+      "userInterfaceStyle": "dark",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/images/icon.png"

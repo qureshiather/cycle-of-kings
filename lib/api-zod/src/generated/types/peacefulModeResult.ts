@@ -8,4 +8,5 @@
 
 export interface PeacefulModeResult {
   peacefulMode: boolean;
+  peacefulOptedInCycle?: number | null;
 }

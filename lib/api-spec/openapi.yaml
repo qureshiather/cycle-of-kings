@@ -154,7 +154,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "201":
           description: Building constructed
@@ -180,7 +180,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "200":
           description: Upgrade started
@@ -206,7 +206,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "200":
           description: Demolished, refund granted
@@ -239,7 +239,7 @@ paths:
     patch:
       operationId: setPeacefulMode
       tags: [towns]
-      summary: Enable or disable peaceful mode (opt out of PvP)
+      summary: Permanently enable peaceful mode (one opt-in per cycle, irreversible)
       parameters:
         - name: townId
           in: path
@@ -567,6 +567,7 @@ components:
         staticDefense: { type: number }
         totalDefense: { type: number }
         peacefulMode: { type: boolean }
+        peacefulOptedInCycle: { type: integer, nullable: true }
         lastTickAt: { type: string }
 
     PeacefulModeInput:
@@ -580,6 +581,7 @@ components:
       required: [peacefulMode]
       properties:
         peacefulMode: { type: boolean }
+        peacefulOptedInCycle: { type: integer, nullable: true }
 
     TownSummary:
       type: object
@@ -601,7 +603,7 @@ components:
         townId: { type: integer }
         slotType:
           type: string
-          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+          enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
         level: { type: integer }
         upgrading: { type: boolean }
         upgradeEndsAt: { type: ["string", "null"] }
@@ -771,7 +773,6 @@ components:
         economyScore: { type: number }
         armyScore: { type: number }
         gold: { type: number }
-        peacefulMode: { type: boolean }
 
     ResetResult:
       type: object

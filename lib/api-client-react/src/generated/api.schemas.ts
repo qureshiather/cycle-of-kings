@@ -49,6 +49,7 @@ export interface Town {
   staticDefense: number;
   totalDefense: number;
   peacefulMode: boolean;
+  peacefulOptedInCycle?: number | null;
   lastTickAt: string;
 }
 
@@ -58,6 +59,7 @@ export interface PeacefulModeInput {
 
 export interface PeacefulModeResult {
   peacefulMode: boolean;
+  peacefulOptedInCycle?: number | null;
 }
 
 export interface TownSummary {
@@ -74,6 +76,7 @@ export type BuildingSlotSlotType = typeof BuildingSlotSlotType[keyof typeof Buil
 
 
 export const BuildingSlotSlotType = {
+  townHall: 'townHall',
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',
@@ -291,7 +294,6 @@ export interface LeaderboardEntry {
   economyScore: number;
   armyScore: number;
   gold: number;
-  peacefulMode?: boolean;
 }
 
 export interface ResetResult {

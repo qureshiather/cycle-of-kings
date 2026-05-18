@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, Touchabl
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetLeaderboard, useListTowns, useLaunchRaid, useGetTownArmy, useGetTownRaids, useResetTown,
-  useGetTown, useSetPeacefulMode,
+  useGetTown, useSetPeacefulMode, useGetGameState,
   getGetTownRaidsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
   getGetBuildingSlotsQueryKey,
 } from "@workspace/api-client-react";
@@ -31,41 +31,42 @@ export default function WorldScreen() {
   const { data: raids, isLoading: raidsLoading, refetch: refetchRaids } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: myTown } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
   const launchRaid = useLaunchRaid();
   const resetTown = useResetTown();
   const setPeacefulMode = useSetPeacefulMode();
 
   const isPeaceful = myTown?.peacefulMode ?? false;
+  const peacefulLocked = (myTown as any)?.peacefulOptedInCycle != null;
+  const cycleNumber = gameState?.cycleNumber;
 
-  const handleTogglePeaceful = (value: boolean) => {
-    if (!townId) return;
-    if (value) {
-      Alert.alert(
-        "Enable Peaceful Mode?",
-        "You won't be able to raid others or be raided. You can turn this off any time.",
-        [
-          { text: "Cancel", style: "cancel" },
-          {
-            text: "Enable",
-            onPress: () => setPeacefulMode.mutate(
-              { townId, data: { peaceful: true } },
-              {
-                onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) }); },
-                onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
-              }
-            ),
-          },
-        ]
-      );
-    } else {
-      setPeacefulMode.mutate(
-        { townId, data: { peaceful: false } },
+  const handleEnablePeaceful = () => {
+    if (!townId || isPeaceful) return;
+    const cycleLabel = cycleNumber != null ? `Cycle ${cycleNumber}` : "this cycle";
+    Alert.alert(
+      "Enable Peaceful Mode?",
+      `This is permanent — you cannot return to PvP or appear on leaderboards.\n\nYou may only opt into peaceful mode once per cycle. This uses your opt-in for ${cycleLabel}.`,
+      [
+        { text: "Cancel", style: "cancel" },
         {
-          onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) }); },
-          onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
-        }
-      );
-    }
+          text: "Enable Forever",
+          style: "destructive",
+          onPress: () => setPeacefulMode.mutate(
+            { townId, data: { peaceful: true } },
+            {
+              onSuccess: () => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+              },
+              onError: (e: any) => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                Alert.alert("Peaceful Mode", e?.data?.error ?? e?.message ?? "Could not enable peaceful mode");
+              },
+            },
+          ),
+        },
+      ],
+    );
   };
 
   const availableInfantry = army?.availableInfantry ?? 0;
@@ -150,6 +151,14 @@ export default function WorldScreen() {
 
       {activeTab === "leaderboard" && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {isPeaceful && (
+            <View style={[styles.peacefulBanner, { backgroundColor: "#3d7a9a18", borderColor: "#3d7a9a44" }]}>
+              <MaterialCommunityIcons name="shield-check" size={16} color="#3d7a9a" />
+              <Text style={[styles.peacefulBannerText, { color: colors.textSecondary }]}>
+                Peaceful kingdoms are hidden from the leaderboard.
+              </Text>
+            </View>
+          )}
           {lbLoading ? <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} /> : (
             (leaderboard ?? []).map((entry: any) => (
               <View
@@ -285,29 +294,26 @@ export default function WorldScreen() {
                   </Text>
                   <Text style={[styles.resetDesc, { color: colors.textSecondary }]}>
                     {isPeaceful
-                      ? "Your kingdom is protected. You cannot raid others or be raided."
-                      : "PvP is active. You can raid and be raided by other kingdoms."}
+                      ? `Permanent since Cycle ${(myTown as any)?.peacefulOptedInCycle ?? "?"}. No raids, no leaderboard.`
+                      : peacefulLocked
+                        ? "Peaceful mode is locked for this kingdom."
+                        : "Opt in once per cycle. Permanent — no PvP and no leaderboard ranking."}
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[
-                  styles.resetBtn,
-                  isPeaceful
-                    ? { borderColor: colors.destructive + "55", backgroundColor: colors.destructive + "11" }
-                    : { borderColor: "#3d7a9a55", backgroundColor: "#3d7a9a11" },
-                ]}
-                onPress={() => handleTogglePeaceful(!isPeaceful)}
-                disabled={setPeacefulMode.isPending}
-                activeOpacity={0.7}
-              >
-                {setPeacefulMode.isPending
-                  ? <ActivityIndicator size="small" color={isPeaceful ? colors.destructive : "#3d7a9a"} />
-                  : <Text style={[styles.resetBtnText, { color: isPeaceful ? colors.destructive : "#3d7a9a" }]}>
-                      {isPeaceful ? "Disable Peaceful Mode" : "Enable Peaceful Mode"}
-                    </Text>
-                }
-              </TouchableOpacity>
+              {!isPeaceful && !peacefulLocked && (
+                <TouchableOpacity
+                  style={[styles.resetBtn, { borderColor: "#3d7a9a55", backgroundColor: "#3d7a9a11" }]}
+                  onPress={handleEnablePeaceful}
+                  disabled={setPeacefulMode.isPending}
+                  activeOpacity={0.7}
+                >
+                  {setPeacefulMode.isPending
+                    ? <ActivityIndicator size="small" color="#3d7a9a" />
+                    : <Text style={[styles.resetBtnText, { color: "#3d7a9a" }]}>Enable Peaceful Mode</Text>
+                  }
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -400,6 +406,16 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   tabText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   scrollContent: { padding: 12, paddingBottom: 100, gap: 8 },
+  peacefulBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  peacefulBannerText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 16 },
   rankRow: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
   rank: { width: 28, fontSize: 14, fontFamily: "Inter_700Bold", textAlign: "center" },
   rankInfo: { flex: 1 },

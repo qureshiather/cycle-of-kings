@@ -23,5 +23,6 @@ export interface Town {
   staticDefense: number;
   totalDefense: number;
   peacefulMode: boolean;
+  peacefulOptedInCycle?: number | null;
   lastTickAt: string;
 }

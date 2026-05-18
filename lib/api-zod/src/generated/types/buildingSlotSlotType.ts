@@ -10,6 +10,7 @@ export type BuildingSlotSlotType = typeof BuildingSlotSlotType[keyof typeof Buil
 
 
 export const BuildingSlotSlotType = {
+  townHall: 'townHall',
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',

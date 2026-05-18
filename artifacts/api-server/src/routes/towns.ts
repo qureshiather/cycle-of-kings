@@ -103,8 +103,46 @@ router.patch("/towns/:townId/peaceful", async (req, res) => {
   const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!town) return void res.status(404).json({ error: "Town not found" });
 
-  await db.update(townsTable).set({ peacefulMode: peaceful }).where(eq(townsTable.id, townId));
-  res.json({ peacefulMode: peaceful });
+  const { cycleNumber } = getCurrentSeasonInfo();
+
+  if (!peaceful) {
+    if (town.peacefulMode || town.peacefulOptedInCycle != null) {
+      return void res.status(400).json({
+        error: "Peaceful mode is permanent. You cannot return to PvP once you have opted in.",
+      });
+    }
+    return void res.json({
+      peacefulMode: false,
+      peacefulOptedInCycle: null,
+    });
+  }
+
+  if (town.peacefulMode) {
+    const optedCycle = town.peacefulOptedInCycle ?? cycleNumber;
+    if (town.peacefulOptedInCycle == null) {
+      await db.update(townsTable).set({ peacefulOptedInCycle: optedCycle }).where(eq(townsTable.id, townId));
+    }
+    return void res.json({
+      peacefulMode: true,
+      peacefulOptedInCycle: optedCycle,
+    });
+  }
+
+  if (town.peacefulOptedInCycle != null) {
+    return void res.status(400).json({
+      error: "You have already opted into peaceful mode and cannot change it.",
+    });
+  }
+
+  await db.update(townsTable).set({
+    peacefulMode: true,
+    peacefulOptedInCycle: cycleNumber,
+  }).where(eq(townsTable.id, townId));
+
+  res.json({
+    peacefulMode: true,
+    peacefulOptedInCycle: cycleNumber,
+  });
 });
 
 router.post("/towns/:townId/reset", async (req, res) => {

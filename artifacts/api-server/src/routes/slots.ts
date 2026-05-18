@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { townsTable, buildingSlotsTable, activitiesTable, armyTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { getBuildBlockReason } from "@workspace/building-progression";
 import { SLOT_TYPES } from "@workspace/db";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateBuildingCost,
@@ -12,10 +13,15 @@ import {
 
 const router = Router();
 
+function initialSlotLevel(slotType: string): number {
+  return slotType === "townHall" ? 1 : 0;
+}
+
 const SLOT_NAMES: Record<string, string> = {
   farm: "Farm", mine: "Mine", quarry: "Quarry", lumberMill: "Lumber Mill",
   barracks: "Barracks", archeryRange: "Archery Range", stables: "Stables",
   market: "Market", tavern: "Tavern", house: "House",
+  townHall: "Town Hall",
   wall: "Town Wall", tower: "Watch Tower",
 };
 
@@ -24,7 +30,13 @@ async function initSlotsForTown(townId: number): Promise<void> {
   const existingTypes = new Set(existing.map(s => s.slotType));
   const missing = SLOT_TYPES.filter(t => !existingTypes.has(t));
   if (missing.length > 0) {
-    await db.insert(buildingSlotsTable).values(missing.map(slotType => ({ townId, slotType, level: 0 })));
+    await db.insert(buildingSlotsTable).values(
+      missing.map((slotType) => ({
+        townId,
+        slotType,
+        level: initialSlotLevel(slotType),
+      })),
+    );
   }
 }
 
@@ -103,7 +115,15 @@ router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
   const [slot] = await db.select().from(buildingSlotsTable)
     .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, slotType)));
   if (!slot) return void res.status(400).json({ error: "Slot not found" });
+  if (slotType === "townHall") return void res.status(400).json({ error: "Upgrade the Town Hall instead of building it" });
   if (slot.level > 0) return void res.status(400).json({ error: "Already built. Use upgrade instead." });
+
+  const allSlots = await db
+    .select()
+    .from(buildingSlotsTable)
+    .where(eq(buildingSlotsTable.townId, townId));
+  const block = getBuildBlockReason(slotType, allSlots);
+  if (block) return void res.status(400).json({ error: block });
 
   const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!town) return void res.status(404).json({ error: "Town not found" });
@@ -159,7 +179,11 @@ router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
     return void res.status(400).json({ error: "Insufficient resources", cost });
   }
 
-  const durationMs = getUpgradeDurationMs(slotType, slot.level);
+  const allSlots = await db
+    .select()
+    .from(buildingSlotsTable)
+    .where(eq(buildingSlotsTable.townId, townId));
+  const durationMs = getUpgradeDurationMs(slotType, slot.level, allSlots);
   const upgradeEndsAt = new Date(Date.now() + durationMs);
 
   await db.update(townsTable).set({
@@ -201,6 +225,7 @@ router.delete("/towns/:townId/slots/:slotType", async (req, res) => {
   const [slot] = await db.select().from(buildingSlotsTable)
     .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, slotType)));
   if (!slot || slot.level === 0) return void res.status(400).json({ error: "Nothing to demolish" });
+  if (slotType === "townHall") return void res.status(400).json({ error: "Town Hall cannot be demolished" });
 
   const cost = calculateBuildingCost(slotType, slot.level);
   const refund = {

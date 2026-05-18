@@ -513,7 +513,7 @@ export function useGetBuildingSlots<TData = Awaited<ReturnType<typeof getBuildin
 
 
 export const getBuildSlotUrl = (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
@@ -525,7 +525,7 @@ export const getBuildSlotUrl = (townId: number,
  * @summary Build in an empty slot (level 0 -> 1)
  */
 export const buildSlot = async (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
   return customFetch<BuildingSlot>(getBuildSlotUrl(townId,slotType),
   {
@@ -540,8 +540,8 @@ export const buildSlot = async (townId: number,
 
 
 export const getBuildSlotMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
 const mutationKey = ['buildSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -553,7 +553,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buildSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buildSlot>>, {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
           const {townId,slotType} = props ?? {};
 
           return  buildSlot(townId,slotType,requestOptions)
@@ -574,18 +574,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Build in an empty slot (level 0 -> 1)
  */
 export const useBuildSlot = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof buildSlot>>,
         TError,
-        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
+        {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
       return useMutation(getBuildSlotMutationOptions(options));
     }
 
 export const getUpgradeSlotUrl = (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
@@ -597,7 +597,7 @@ export const getUpgradeSlotUrl = (townId: number,
  * @summary Upgrade an existing building slot
  */
 export const upgradeSlot = async (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
   return customFetch<BuildingSlot>(getUpgradeSlotUrl(townId,slotType),
   {
@@ -612,8 +612,8 @@ export const upgradeSlot = async (townId: number,
 
 
 export const getUpgradeSlotMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
 const mutationKey = ['upgradeSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -625,7 +625,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upgradeSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upgradeSlot>>, {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
           const {townId,slotType} = props ?? {};
 
           return  upgradeSlot(townId,slotType,requestOptions)
@@ -646,18 +646,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Upgrade an existing building slot
  */
 export const useUpgradeSlot = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof upgradeSlot>>,
         TError,
-        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
+        {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
       return useMutation(getUpgradeSlotMutationOptions(options));
     }
 
 export const getDemolishSlotUrl = (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
@@ -669,7 +669,7 @@ export const getDemolishSlotUrl = (townId: number,
  * @summary Demolish a building (75% resource refund, resets to level 0)
  */
 export const demolishSlot = async (townId: number,
-    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
+    slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
   return customFetch<BuildingSlot>(getDemolishSlotUrl(townId,slotType),
   {
@@ -684,8 +684,8 @@ export const demolishSlot = async (townId: number,
 
 
 export const getDemolishSlotMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
 const mutationKey = ['demolishSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -697,7 +697,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof demolishSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof demolishSlot>>, {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
           const {townId,slotType} = props ?? {};
 
           return  demolishSlot(townId,slotType,requestOptions)
@@ -718,11 +718,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Demolish a building (75% resource refund, resets to level 0)
  */
 export const useDemolishSlot = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof demolishSlot>>,
         TError,
-        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
+        {townId: number;slotType: 'townHall' | 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
       return useMutation(getDemolishSlotMutationOptions(options));
@@ -814,7 +814,7 @@ export const getSetPeacefulModeUrl = (townId: number,) => {
 }
 
 /**
- * @summary Enable or disable peaceful mode (opt out of PvP)
+ * @summary Permanently enable peaceful mode (one opt-in per cycle, irreversible)
  */
 export const setPeacefulMode = async (townId: number,
     peacefulModeInput: PeacefulModeInput, options?: RequestInit): Promise<PeacefulModeResult> => {
@@ -864,7 +864,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type SetPeacefulModeMutationError = ErrorType<void>
 
     /**
- * @summary Enable or disable peaceful mode (opt out of PvP)
+ * @summary Permanently enable peaceful mode (one opt-in per cycle, irreversible)
  */
 export const useSetPeacefulMode = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPeacefulMode>>, TError,{townId: number;data: BodyType<PeacefulModeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}

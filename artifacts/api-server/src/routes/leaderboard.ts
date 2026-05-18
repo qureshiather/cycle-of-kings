@@ -22,7 +22,9 @@ router.get("/leaderboard", async (_req, res) => {
 
   const armyByTown = new Map(allArmy.map(a => [a.townId, a]));
 
-  const entries = towns.map(town => {
+  const competitiveTowns = towns.filter((town) => !town.peacefulMode);
+
+  const entries = competitiveTowns.map(town => {
     const slots = slotsByTown.get(town.id) ?? [];
     const economyScore = calculateEconomyScore(slots);
     const composition = calculateArmyComposition(slots);
@@ -38,7 +40,6 @@ router.get("/leaderboard", async (_req, res) => {
       economyScore,
       armyScore,
       gold: Math.floor(town.gold),
-      peacefulMode: town.peacefulMode,
     };
   });
 
