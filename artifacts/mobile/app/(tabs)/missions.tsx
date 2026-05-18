@@ -31,10 +31,10 @@ export default function MissionsScreen() {
 
   const { data: missionCards, isLoading: cardsLoading } = useGetMissions(
     { townId: townId ?? 0 },
-    { query: { enabled: !!townId, refetchInterval: 60_000 } }
+    { query: { enabled: !!townId, refetchInterval: 60_000 } as any }
   );
-  const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } });
-  const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
+  const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
   const dispatchMission = useDispatchMission();
 
   const [selected, setSelected] = useState<any | null>(null);

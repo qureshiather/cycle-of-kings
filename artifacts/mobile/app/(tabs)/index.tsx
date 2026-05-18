@@ -1,8 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Alert, RefreshControl, ScrollView,
+  ActivityIndicator, Alert, Animated, RefreshControl, ScrollView,
   StyleSheet, Text, TouchableOpacity, View,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ import { useGame } from "@/context/GameContext";
 import ResourceBar from "@/components/ResourceBar";
 import TownGrid from "@/components/TownGrid";
 import type { GridCellData, BuildingType } from "@/components/TownGrid";
+import { BUILDING_META_NAMES } from "@/components/TownGrid";
 import SeasonBadge from "@/components/SeasonBadge";
 
 const BORDER_SEQUENCE: [number, number][] = [
@@ -34,20 +35,6 @@ function nextBorderPos(forts: Array<{ row: number; col: number }>): [number, num
   return null;
 }
 
-type Season = "spring" | "summer" | "autumn" | "winter";
-const SEASON_TIPS: Record<Season, string> = {
-  spring: "Food & Wood boosted. Best time to expand.",
-  summer: "Gold peaks this season. Invest in mines.",
-  autumn: "Stock up on wood before winter.",
-  winter: "Production suffers. Guard your stockpiles.",
-};
-
-const MODIFIER_LABELS = [
-  { key: "gold",  icon: "gold",        label: "Gold",  color: "#d4a520" },
-  { key: "food",  icon: "food-apple",  label: "Food",  color: "#3d7a35" },
-  { key: "wood",  icon: "axe",         label: "Wood",  color: "#7a4e20" },
-  { key: "stone", icon: "cube-outline",label: "Stone", color: "#7a7a6a" },
-];
 
 export default function KingdomScreen() {
   const colors = useColors();
@@ -65,7 +52,20 @@ export default function KingdomScreen() {
   const placeFortification = usePlaceFortification();
   const removeFortification = useRemoveFortification();
 
-  const [showProduction, setShowProduction] = useState(false);
+  const [upgradeToast, setUpgradeToast] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setUpgradeToast(msg);
+    Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() => setUpgradeToast(null));
+    }, 3000);
+  }, [toastOpacity]);
+
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId ?? 0) });
@@ -104,10 +104,15 @@ export default function KingdomScreen() {
 
   const handleUpgrade = useCallback((row: number, col: number) => {
     if (!townId) return;
+    const cell = cells.find(c => c.row === row && c.col === col);
+    const name = cell ? (BUILDING_META_NAMES[cell.buildingType] ?? cell.buildingType) : "Building";
+    const nextLevel = cell ? cell.level + 1 : "?";
+    showToast(`Upgrading ${name} to level ${nextLevel}…`);
     upgradeBuilding.mutate({ townId, row, col }, {
       onSuccess: () => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); invalidate(); },
       onError: (err: any) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setUpgradeToast(null);
         const msg: string = err?.error ?? "Failed to upgrade";
         if (msg.includes("Insufficient")) {
           const cost = err?.cost;
@@ -120,7 +125,7 @@ export default function KingdomScreen() {
         }
       },
     });
-  }, [townId, upgradeBuilding, invalidate]);
+  }, [townId, cells, upgradeBuilding, invalidate, showToast]);
 
   const handleBuildFort = useCallback((type: "wall" | "tower") => {
     if (!townId) return;
@@ -151,9 +156,6 @@ export default function KingdomScreen() {
 
   const popPct = town ? Math.min(1, town.population / Math.max(1, town.populationCap ?? 1)) : 0;
 
-  const season = gameState?.season as Season ?? "spring";
-  const mods = gameState?.seasonModifiers ?? { gold: 1, food: 1, wood: 1, stone: 1 };
-
   if (townLoading || gridLoading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.background }]}>
@@ -170,6 +172,13 @@ export default function KingdomScreen() {
           goldPerHour={town.goldPerHour} foodPerHour={town.foodPerHour}
           woodPerHour={town.woodPerHour} stonePerHour={town.stonePerHour}
         />
+      )}
+
+      {upgradeToast && (
+        <Animated.View style={[styles.upgradeToast, { opacity: toastOpacity, backgroundColor: colors.surface, borderColor: colors.gold + "60" }]}>
+          <MaterialCommunityIcons name="arrow-up-bold-circle" size={16} color={colors.gold} />
+          <Text style={[styles.upgradeToastText, { color: colors.foreground }]}>{upgradeToast}</Text>
+        </Animated.View>
       )}
 
       <ScrollView
@@ -219,68 +228,6 @@ export default function KingdomScreen() {
             onUpgradeBuilding={handleUpgrade}
           />
         </View>
-
-        {/* ── Production & Season (collapsible) ── */}
-        <TouchableOpacity
-          style={[styles.sectionToggle, { borderColor: colors.border, backgroundColor: colors.surface }]}
-          onPress={() => setShowProduction(p => !p)}
-          activeOpacity={0.7}
-        >
-          <MaterialCommunityIcons name="chart-bar" size={15} color={colors.gold} />
-          <Text style={[styles.sectionToggleText, { color: colors.foreground }]}>Production & Season</Text>
-          <View style={styles.sectionTogglePills}>
-            <Text style={[styles.pillText, { color: colors.gold }]}>
-              +{(town?.goldPerHour ?? 0).toFixed(0)}G  +{(town?.foodPerHour ?? 0).toFixed(0)}F  +{(town?.woodPerHour ?? 0).toFixed(0)}W  +{(town?.stonePerHour ?? 0).toFixed(0)}St
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name={showProduction ? "chevron-up" : "chevron-down"}
-            size={16}
-            color={colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        {showProduction && (
-          <View style={[styles.productionPanel, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            {gameState?.season && (
-              <View style={[styles.seasonRow, { borderBottomColor: colors.border }]}>
-                <SeasonBadge season={gameState.season as any} cycleNumber={gameState.cycleNumber} />
-                <Text style={[styles.seasonTip, { color: colors.textSecondary }]}>{SEASON_TIPS[season]}</Text>
-              </View>
-            )}
-
-            <View style={styles.modGrid}>
-              {MODIFIER_LABELS.map(({ key, icon, label, color }) => {
-                const mod = (mods as any)[key] ?? 1;
-                const pct = Math.round((mod - 1) * 100);
-                return (
-                  <View key={key} style={[styles.modCard, { borderColor: mod >= 1 ? color + "44" : colors.destructive + "44", backgroundColor: colors.background }]}>
-                    <MaterialCommunityIcons name={icon as any} size={16} color={color} />
-                    <Text style={[styles.modLabel, { color: colors.textSecondary }]}>{label}</Text>
-                    <Text style={[styles.modValue, { color: mod >= 1 ? "#3d7a35" : colors.destructive }]}>
-                      {pct >= 0 ? "+" : ""}{pct}%
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            <View style={[styles.prodRates, { borderTopColor: colors.border }]}>
-              {[
-                { icon: "gold",        label: "Gold/hr",  value: town?.goldPerHour ?? 0,  color: colors.gold },
-                { icon: "food-apple",  label: "Food/hr",  value: town?.foodPerHour ?? 0,  color: colors.food },
-                { icon: "axe",         label: "Wood/hr",  value: town?.woodPerHour ?? 0,  color: colors.wood },
-                { icon: "cube-outline",label: "Stone/hr", value: town?.stonePerHour ?? 0, color: colors.stone },
-              ].map(({ icon, label, value, color }) => (
-                <View key={label} style={styles.prodRow}>
-                  <MaterialCommunityIcons name={icon as any} size={14} color={color} />
-                  <Text style={[styles.prodLabel, { color: colors.textSecondary }]}>{label}</Text>
-                  <Text style={[styles.prodValue, { color: colors.foreground }]}>+{value.toFixed(1)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         {/* ── Fortifications ── */}
         <View style={[styles.section, { borderColor: colors.border }]}>
@@ -411,36 +358,12 @@ const styles = StyleSheet.create({
 
   gridWrapper: { paddingHorizontal: 12, paddingTop: 12 },
 
-  sectionToggle: {
+  upgradeToast: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    marginHorizontal: 12, marginTop: 10,
-    borderRadius: 10, borderWidth: 1, padding: 12,
+    marginHorizontal: 12, marginTop: 6, marginBottom: 2,
+    borderRadius: 10, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 10,
   },
-  sectionToggleText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  sectionTogglePills: { flex: 1 },
-  pillText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-
-  productionPanel: {
-    marginHorizontal: 12, borderRadius: 10, borderWidth: 1,
-    borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0,
-    overflow: "hidden",
-  },
-  seasonRow: {
-    flexDirection: "row", alignItems: "center", gap: 12,
-    padding: 12, borderBottomWidth: 1,
-  },
-  seasonTip: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
-  modGrid: { flexDirection: "row", gap: 8, padding: 12 },
-  modCard: {
-    flex: 1, alignItems: "center", paddingVertical: 10,
-    borderRadius: 10, borderWidth: 1, gap: 3,
-  },
-  modLabel: { fontSize: 9, fontFamily: "Inter_400Regular" },
-  modValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  prodRates: { borderTopWidth: 1 },
-  prodRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  prodLabel: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular" },
-  prodValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  upgradeToastText: { fontSize: 13, fontFamily: "Inter_600SemiBold", flex: 1 },
 
   section: {
     marginHorizontal: 12, marginTop: 10,

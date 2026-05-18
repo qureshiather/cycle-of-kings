@@ -10,11 +10,13 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
 
 export default function WorldScreen() {
   const colors = useColors();
   const { townId } = useGame();
   const qc = useQueryClient();
+  const { preference: schemePref, setPreference: setScheme } = useColorSchemePreference();
 
   const [activeTab, setActiveTab] = useState<"leaderboard" | "raids" | "settings">("leaderboard");
   const [selectedTarget, setSelectedTarget] = useState<any | null>(null);
@@ -23,10 +25,10 @@ export default function WorldScreen() {
   const [cavalry, setCavalry] = useState(0);
   const [raidError, setRaidError] = useState<string | null>(null);
 
-  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ query: { refetchInterval: 120_000 } });
-  const { data: towns } = useListTowns({ query: { staleTime: 60_000 } });
-  const { data: raids, isLoading: raidsLoading, refetch: refetchRaids } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } });
-  const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
+  const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ query: { refetchInterval: 120_000 } as any });
+  const { data: towns } = useListTowns({ query: { staleTime: 60_000 } as any });
+  const { data: raids, isLoading: raidsLoading, refetch: refetchRaids } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
   const launchRaid = useLaunchRaid();
   const resetTown = useResetTown();
 
@@ -38,7 +40,7 @@ export default function WorldScreen() {
     if (!townId || !selectedTarget) return;
     setRaidError(null);
     launchRaid.mutate(
-      { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry } },
+      { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry, catapults: 0 } },
       {
         onSuccess: (result) => {
           Haptics.notificationAsync(result.result === "victory" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error);
@@ -58,7 +60,8 @@ export default function WorldScreen() {
   const otherTowns = (towns ?? []).filter((t: any) => t.id !== townId);
 
   const handleReset = () => {
-    if (!townId) return;
+    const id = townId;
+    if (!id) return;
     Alert.alert(
       "Start Fresh?",
       "This will demolish all buildings, disband your army, and cancel all missions. You'll restart with 200 Gold, 200 Food, 150 Wood, and 100 Stone. This cannot be undone.",
@@ -68,18 +71,19 @@ export default function WorldScreen() {
           text: "Start Fresh",
           style: "destructive",
           onPress: () => {
-            resetTown.mutate({ townId }, {
+            resetTown.mutate({ townId: id }, {
               onSuccess: () => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
-                qc.invalidateQueries({ queryKey: getGetTownGridQueryKey(townId) });
-                qc.invalidateQueries({ queryKey: getGetFortificationsQueryKey(townId) });
-                qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
-                qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(townId) });
+                qc.invalidateQueries({ queryKey: getGetTownQueryKey(id) });
+                qc.invalidateQueries({ queryKey: getGetTownGridQueryKey(id) });
+                qc.invalidateQueries({ queryKey: getGetFortificationsQueryKey(id) });
+                qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(id) });
+                qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(id) });
               },
               onError: (e: any) => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                Alert.alert("Reset Failed", e?.error ?? e?.message ?? "Something went wrong. Try again.");
+                const msg = e?.response?.data?.error ?? e?.error ?? e?.message ?? "Something went wrong. Try again.";
+                Alert.alert("Reset Failed", msg);
               },
             });
           },
@@ -183,10 +187,46 @@ export default function WorldScreen() {
 
       {activeTab === "settings" && (
         <ScrollView contentContainerStyle={styles.scrollContent}>
+          {/* Appearance */}
+          <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.settingsHeader}>
+              <MaterialCommunityIcons name="theme-light-dark" size={16} color={colors.textSecondary} />
+              <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Appearance</Text>
+            </View>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={styles.schemeRow}>
+              {(["auto", "light", "dark"] as ColorSchemePreference[]).map(pref => {
+                const icons = { auto: "brightness-auto", light: "white-balance-sunny", dark: "moon-waning-crescent" } as const;
+                const labels = { auto: "Auto", light: "Light", dark: "Dark" };
+                const active = schemePref === pref;
+                return (
+                  <TouchableOpacity
+                    key={pref}
+                    style={[
+                      styles.schemeBtn,
+                      {
+                        backgroundColor: active ? colors.gold + "22" : colors.background,
+                        borderColor: active ? colors.gold : colors.border,
+                      },
+                    ]}
+                    onPress={() => setScheme(pref)}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name={icons[pref]} size={18} color={active ? colors.gold : colors.textSecondary} />
+                    <Text style={[styles.schemeBtnText, { color: active ? colors.gold : colors.textSecondary }]}>
+                      {labels[pref]}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Start Fresh */}
           <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={styles.settingsHeader}>
               <MaterialCommunityIcons name="cog-outline" size={16} color={colors.textSecondary} />
-              <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Kingdom Settings</Text>
+              <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Kingdom</Text>
             </View>
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <View style={styles.resetSection}>
@@ -303,10 +343,13 @@ const styles = StyleSheet.create({
   raidError: { fontSize: 12, fontFamily: "Inter_400Regular" },
   launchBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, padding: 14, borderRadius: 10 },
   launchText: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  settingsCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  settingsCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden", marginBottom: 10 },
   settingsHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 14 },
   settingsTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  divider: { height: 1, marginHorizontal: 0 },
+  divider: { height: 1 },
+  schemeRow: { flexDirection: "row", gap: 8, padding: 14 },
+  schemeBtn: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 10, borderWidth: 1, gap: 6 },
+  schemeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   resetSection: { padding: 14, gap: 14 },
   resetInfo: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
   resetText: { flex: 1, gap: 4 },

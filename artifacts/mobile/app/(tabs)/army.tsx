@@ -105,7 +105,7 @@ function UnitRow({ type, total, onMission, attackMult }: {
 export default function ArmyScreen() {
   const colors = useColors();
   const { townId } = useGame();
-  const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } });
+  const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
 
   const totalTroops = army?.totalTroops ?? 0;
   const totalOnMission = (army?.onMissionInfantry ?? 0) + (army?.onMissionArchers ?? 0) + (army?.onMissionCavalry ?? 0);

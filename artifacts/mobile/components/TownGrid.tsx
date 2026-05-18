@@ -28,6 +28,12 @@ interface TownGridProps {
 const GRID_SIZE = 9;
 const UPGRADE_COST_MULT = 1.8;
 
+export const BUILDING_META_NAMES: Record<string, string> = {
+  farm: "Farm", mine: "Mine", quarry: "Quarry", lumberMill: "Lumber Mill",
+  barracks: "Barracks", archeryRange: "Archery Range", stables: "Stables",
+  market: "Market", tavern: "Tavern", house: "House",
+};
+
 const BUILDING_META: Record<BuildingType, { icon: string; color: string; label: string; desc: string }> = {
   farm:         { icon: "corn",         color: "#3d7a35", label: "Farm",          desc: "+5 Food/hr per level" },
   mine:         { icon: "pickaxe",      color: "#c4a820", label: "Mine",          desc: "+3 Gold/hr per level" },
@@ -198,10 +204,11 @@ export default function TownGrid({ cells, onPlaceBuilding, onRemoveBuilding, onU
           <View style={styles.infoActions}>
             {!cell.upgrading && cell.level < 10 && (
               <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "80" }]}
+                style={[styles.upgradeBtn, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "80" }]}
                 onPress={() => { onUpgradeBuilding?.(selectedCell.row, selectedCell.col); setSelectedCell(null); }}
               >
-                <MaterialCommunityIcons name="arrow-up-bold" size={15} color={colors.gold} />
+                <MaterialCommunityIcons name="arrow-up-bold" size={14} color={colors.gold} />
+                <Text style={[styles.upgradeBtnText, { color: colors.gold }]}>Upgrade</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -297,6 +304,8 @@ const styles = StyleSheet.create({
   infoCost: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   infoActions: { flexDirection: "row", gap: 6, flexShrink: 0 },
   actionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center", borderWidth: 1 },
+  upgradeBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1 },
+  upgradeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "#00000099" },
   buildMenu: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, borderWidth: 1, borderBottomWidth: 0, maxHeight: "78%" },
   buildMenuHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
