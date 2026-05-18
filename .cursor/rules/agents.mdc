@@ -1,0 +1,14 @@
+---
+description: Project context for AI agents — read AGENTS.md before making changes
+alwaysApply: true
+---
+
+# Cycle of Kings
+
+Read [AGENTS.md](../../AGENTS.md) and [docs/agents/](../../docs/agents/) for architecture, codegen, and game rules.
+
+- OpenAPI first: `lib/api-spec/openapi.yaml` → `pnpm codegen`
+- Schema: `lib/db/src/schema/` → `pnpm db:push`
+- Building prereqs: `lib/building-progression` + enforce in `slots.ts`
+- Kingdom UI: `KingdomMap.tsx` (not legacy `TownGrid.tsx`)
+- Peaceful mode is permanent; peaceful towns excluded from leaderboard

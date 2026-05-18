@@ -4,6 +4,8 @@ A medieval town-building strategy game: **Expo mobile app** + **Express API** + 
 
 Build your town, command armies, raid rivals, and climb the seasonal leaderboard.
 
+**For AI agents / contributors:** see [AGENTS.md](./AGENTS.md) and [docs/agents/](./docs/agents/).
+
 ## Prerequisites
 
 - [Node.js](https://nodejs.org/) 20+ (22 or 24 recommended)
