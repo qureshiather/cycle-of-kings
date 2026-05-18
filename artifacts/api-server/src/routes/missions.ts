@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { missionsTable, armyTable, townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
+import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
 import { generateMissionCards, getCurrentHourSeed, calculateArmyComposition } from "../lib/gameEngine.js";
 import { initSlotsForTown } from "./slots.js";
 
@@ -114,7 +115,19 @@ router.post("/towns/:townId/missions", async (req, res) => {
   if (!missionCardId) return void res.status(400).json({ error: "missionCardId required" });
 
   await initSlotsForTown(townId);
+  await resolvePendingMissions(townId);
+
+  const activeCount = await db.select().from(missionsTable)
+    .where(and(eq(missionsTable.townId, townId), eq(missionsTable.status, "active")));
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const maxActive = getMaxActiveMissionsFromSlots(slots);
+  if (activeCount.length >= maxActive) {
+    return void res.status(400).json({
+      error: maxActive === 1
+        ? "Only 1 mission at a time. Upgrade Town Hall for more slots."
+        : `At mission limit (${maxActive}). Upgrade Town Hall for more slots.`,
+    });
+  }
   const composition = calculateArmyComposition(slots);
   const seed = getCurrentHourSeed();
   const cards = generateMissionCards(seed, composition.totalTroops, composition.totalPower);

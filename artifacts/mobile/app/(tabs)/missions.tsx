@@ -3,8 +3,10 @@ import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
 import {
   useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy, useGetTown,
+  useGetBuildingSlots,
   getGetTownMissionsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
 } from "@workspace/api-client-react";
 import ModalOverlay from "@/components/ui/ModalOverlay";
@@ -45,7 +47,10 @@ export default function MissionsScreen() {
   const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: town } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: slots = [] } = useGetBuildingSlots(townId ?? 0, { query: { enabled: !!townId } as any });
   const dispatchMission = useDispatchMission();
+
+  const maxActiveMissions = getMaxActiveMissionsFromSlots(slots);
 
   const [selected, setSelected] = useState<any | null>(null);
   const [infantry, setInfantry] = useState(0);
@@ -64,7 +69,14 @@ export default function MissionsScreen() {
     ? Math.min(0.95, selected.baseSuccessRate + Math.max(0, totalDeployed - selected.minTroops) * 0.01)
     : 0;
 
+  const activeMissionsList = (activeMissions ?? []).filter((m: any) => m.status === "active");
+  const completedMissions = (activeMissions ?? []).filter((m: any) => m.status !== "active").slice(0, 5);
+  const hasTroops = (army?.totalTroops ?? 0) > 0;
+  const atMissionLimit = activeMissionsList.length >= maxActiveMissions;
+  const missionSlotsLabel = `${activeMissionsList.length}/${maxActiveMissions} active`;
+
   const openMission = (card: any) => {
+    if (atMissionLimit) return;
     setSelected(card);
     setInfantry(0); setArchers(0); setCavalry(0); setMercenaries(0);
     setDispatchError(null);
@@ -91,16 +103,12 @@ export default function MissionsScreen() {
     );
   };
 
-  const activeMissionsList = (activeMissions ?? []).filter((m: any) => m.status === "active");
-  const completedMissions = (activeMissions ?? []).filter((m: any) => m.status !== "active").slice(0, 5);
-  const hasTroops = (army?.totalTroops ?? 0) > 0;
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         icon="map-legend"
         title="Missions"
-        subtitle="3 cards / hour"
+        subtitle={`3 cards/h · ${missionSlotsLabel}`}
         gold={townId ? (town?.gold ?? 0) : undefined}
       />
 
@@ -125,6 +133,17 @@ export default function MissionsScreen() {
 
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AVAILABLE MISSIONS</Text>
 
+        {atMissionLimit && (
+          <View style={[styles.noTroopsBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.gold + "55" }]}>
+            <MaterialCommunityIcons name="castle" size={20} color={colors.gold} />
+            <Text style={[styles.noTroopsText, { color: colors.textSecondary }]}>
+              {maxActiveMissions < 3
+                ? `Mission limit reached (${maxActiveMissions}). Upgrade Town Hall to run up to 3 missions at once.`
+                : `Mission limit reached (${maxActiveMissions}). Wait for a mission to return before dispatching another.`}
+            </Text>
+          </View>
+        )}
+
         {!hasTroops && (
           <View style={[styles.noTroopsBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
             <MaterialCommunityIcons name="castle" size={20} color={colors.textSecondary} />
@@ -142,8 +161,18 @@ export default function MissionsScreen() {
             return (
               <TouchableOpacity
                 key={card.id}
-                style={[styles.missionCard, { backgroundColor: colors.surface, borderColor: colors.border, borderLeftColor: diff, borderLeftWidth: 3 }]}
+                style={[
+                  styles.missionCard,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderLeftColor: diff,
+                    borderLeftWidth: 3,
+                    opacity: atMissionLimit ? 0.5 : 1,
+                  },
+                ]}
                 onPress={() => openMission(card)}
+                disabled={atMissionLimit}
               >
                 <View style={styles.cardTop}>
                   <View style={styles.cardLeft}>

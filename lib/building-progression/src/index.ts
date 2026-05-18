@@ -65,9 +65,20 @@ export const BUILDING_GRID_ORDER: SlotType[] = [
   "tower",
 ];
 
+export const MAX_CONCURRENT_MISSIONS = 3;
+
 export function getTownHallLevel(slots: SlotLike[]): number {
   const hall = slots.find((s) => s.slotType === "townHall");
   return Math.max(1, hall?.level ?? 1);
+}
+
+/** Active mission slots from Town Hall level (1 at TH1, capped at 3 at TH3+). */
+export function getMaxActiveMissions(townHallLevel: number): number {
+  return Math.min(Math.max(1, townHallLevel), MAX_CONCURRENT_MISSIONS);
+}
+
+export function getMaxActiveMissionsFromSlots(slots: SlotLike[]): number {
+  return getMaxActiveMissions(getTownHallLevel(slots));
 }
 
 function slotLevel(slots: SlotLike[], slotType: string): number {

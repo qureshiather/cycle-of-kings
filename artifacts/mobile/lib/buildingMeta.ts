@@ -1,3 +1,4 @@
+import { getMaxActiveMissions } from "@workspace/building-progression";
 import type { ColorPalette, SlotColorKey } from "@/constants/colors";
 
 export const SLOT_NAMES: Record<string, string> = {
@@ -50,7 +51,11 @@ export const SLOT_BONUS: Record<string, (level: number) => string> = {
   stables: (l) => `+${l * 3} Cavalry`,
   house: (l) => `+${l * 10} capacity`,
   tavern: (l) => `+${Math.round(l * 2.5)} morale`,
-  townHall: (l) => `+${l * 3} gold/h`,
+  townHall: (l) => {
+    const missions = getMaxActiveMissions(l);
+    const missionLabel = missions === 1 ? "1 mission" : `${missions} missions`;
+    return `+${l * 3} gold/h · ${missionLabel}`;
+  },
   wall: (l) => `+${l * 20} defense`,
   tower: (l) => `+${l * 30} defense`,
 };
