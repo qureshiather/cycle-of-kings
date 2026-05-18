@@ -6,6 +6,7 @@ import {
   formatRequirementHint,
   getBuildBlockReason,
   getTownHallLevel,
+  type BuildingCategory,
   type SlotType,
 } from "@workspace/building-progression";
 import * as Haptics from "expo-haptics";
@@ -14,6 +15,7 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -76,6 +78,15 @@ export default function KingdomMap({
   const demolishSlot = useDemolishSlot();
 
   const [selectedSlotType, setSelectedSlotType] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Record<BuildingCategory, boolean>>({
+    production: false,
+    army: false,
+  });
+
+  const toggleSection = (category: BuildingCategory) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCollapsedSections((prev) => ({ ...prev, [category]: !prev[category] }));
+  };
 
   const slots = slotsRaw as SlotData[];
   const slotMap = new Map(slots.map((s) => [s.slotType, s]));
@@ -207,26 +218,46 @@ export default function KingdomMap({
           <LegendChip label="Upgrading" dotColor={colors.warning} colors={colors} />
         </View>
 
-        {BUILDING_CATEGORY_ORDER.map((category) => (
+        {BUILDING_CATEGORY_ORDER.map((category) => {
+          const isCollapsed = collapsedSections[category];
+          const sectionColor = category === "production" ? colors.food : colors.military;
+          const categorySlots = BUILDINGS_BY_CATEGORY[category];
+          const builtInSection = categorySlots.filter(
+            (slotType) => (slotMap.get(slotType)?.level ?? (slotType === "townHall" ? 1 : 0)) > 0,
+          ).length;
+
+          return (
           <View key={category} style={styles.section}>
-            <View style={styles.sectionHeader}>
+            <Pressable
+              onPress={() => toggleSection(category)}
+              style={({ pressed }) => [styles.sectionHeader, pressed && { opacity: 0.7 }]}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: !isCollapsed }}
+              accessibilityLabel={`${BUILDING_CATEGORY_LABELS[category]}, ${builtInSection} of ${categorySlots.length} built`}
+            >
+              <MaterialCommunityIcons
+                name={isCollapsed ? "chevron-right" : "chevron-down"}
+                size={18}
+                color={sectionColor}
+              />
               <MaterialCommunityIcons
                 name={category === "production" ? "warehouse" : "sword-cross"}
                 size={16}
-                color={category === "production" ? colors.food : colors.military}
+                color={sectionColor}
               />
-              <Text
-                style={[
-                  styles.sectionTitle,
-                  { color: category === "production" ? colors.food : colors.military },
-                ]}
-              >
+              <Text style={[styles.sectionTitle, { color: sectionColor }]}>
                 {BUILDING_CATEGORY_LABELS[category]}
               </Text>
+              {isCollapsed && (
+                <Text style={[styles.sectionSummary, { color: colors.textSecondary }]}>
+                  {builtInSection}/{categorySlots.length} built
+                </Text>
+              )}
               <View style={[styles.sectionLine, { backgroundColor: colors.border }]} />
-            </View>
+            </Pressable>
+            {!isCollapsed && (
             <View style={styles.grid}>
-              {BUILDINGS_BY_CATEGORY[category].map((slotType) => {
+              {categorySlots.map((slotType) => {
                 const slot = slotMap.get(slotType) ?? {
                   slotType,
                   level: slotType === "townHall" ? 1 : 0,
@@ -263,8 +294,10 @@ export default function KingdomMap({
                 );
               })}
             </View>
+            )}
           </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <Modal
@@ -656,9 +689,10 @@ const styles = StyleSheet.create({
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 10, fontFamily: "Inter_500Medium" },
   section: { gap: 8, marginBottom: 16 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
-  sectionLine: { flex: 1, height: 1 },
+  sectionSummary: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  sectionLine: { flex: 1, height: 1, marginLeft: 4 },
   grid: { gap: 8 },
   card: {
     flexDirection: "row",
