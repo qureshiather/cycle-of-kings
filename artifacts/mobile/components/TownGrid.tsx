@@ -19,6 +19,7 @@ export interface GridCellData {
 
 interface TownGridProps {
   cells: GridCellData[];
+  town?: { gold: number; food: number; wood: number; stone: number };
   onPlaceBuilding?: (row: number, col: number, type: BuildingType) => void;
   onRemoveBuilding?: (row: number, col: number) => void;
   onUpgradeBuilding?: (row: number, col: number) => void;
@@ -79,16 +80,36 @@ const BUILDING_COSTS_DISPLAY: Record<BuildingType, string> = {
 
 const MILITARY_TYPES = new Set<BuildingType>(["barracks", "archeryRange", "stables"]);
 
-function calcUpgradeCost(bType: string, currentLevel: number): string {
-  const base = BUILDING_COSTS_NUM[bType];
-  if (!base) return "";
+function calcUpgradeCostNum(bType: string, currentLevel: number): { gold: number; food: number; wood: number; stone: number } {
+  const base = BUILDING_COSTS_NUM[bType] ?? { wood: 0, stone: 0, gold: 0, food: 0 };
   const mult = Math.pow(UPGRADE_COST_MULT, currentLevel);
+  return {
+    gold: Math.ceil(base.gold * mult),
+    food: Math.ceil(base.food * mult),
+    wood: Math.ceil(base.wood * mult),
+    stone: Math.ceil(base.stone * mult),
+  };
+}
+
+function calcUpgradeCost(bType: string, currentLevel: number): string {
+  const { gold, food, wood, stone } = calcUpgradeCostNum(bType, currentLevel);
   const parts: string[] = [];
-  if (base.gold) parts.push(`${Math.ceil(base.gold * mult)}G`);
-  if (base.food) parts.push(`${Math.ceil(base.food * mult)}F`);
-  if (base.wood) parts.push(`${Math.ceil(base.wood * mult)}W`);
-  if (base.stone) parts.push(`${Math.ceil(base.stone * mult)}St`);
+  if (gold) parts.push(`${gold}G`);
+  if (food) parts.push(`${food}F`);
+  if (wood) parts.push(`${wood}W`);
+  if (stone) parts.push(`${stone}St`);
   return parts.join(" · ");
+}
+
+function canAffordBuild(bType: string, res: { gold: number; food: number; wood: number; stone: number }): boolean {
+  const cost = BUILDING_COSTS_NUM[bType];
+  if (!cost) return true;
+  return res.gold >= cost.gold && res.food >= cost.food && res.wood >= cost.wood && res.stone >= cost.stone;
+}
+
+function canAffordUpgrade(bType: string, currentLevel: number, res: { gold: number; food: number; wood: number; stone: number }): boolean {
+  const cost = calcUpgradeCostNum(bType, currentLevel);
+  return res.gold >= cost.gold && res.food >= cost.food && res.wood >= cost.wood && res.stone >= cost.stone;
 }
 
 function getCellsMap(cells: GridCellData[]): Map<string, GridCellData> {
@@ -97,7 +118,8 @@ function getCellsMap(cells: GridCellData[]): Map<string, GridCellData> {
   return map;
 }
 
-export default function TownGrid({ cells, onPlaceBuilding, onRemoveBuilding, onUpgradeBuilding }: TownGridProps) {
+export default function TownGrid({ cells, town, onPlaceBuilding, onRemoveBuilding, onUpgradeBuilding }: TownGridProps) {
+  const res = town ?? { gold: 0, food: 0, wood: 0, stone: 0 };
   const colors = useColors();
   const [selectedCell, setSelectedCell] = useState<{ row: number; col: number } | null>(null);
   const [showBuildMenu, setShowBuildMenu] = useState(false);
@@ -202,15 +224,28 @@ export default function TownGrid({ cells, onPlaceBuilding, onRemoveBuilding, onU
             )}
           </View>
           <View style={styles.infoActions}>
-            {!cell.upgrading && cell.level < 10 && (
-              <TouchableOpacity
-                style={[styles.upgradeBtn, { backgroundColor: colors.gold + "18", borderColor: colors.gold + "80" }]}
-                onPress={() => { onUpgradeBuilding?.(selectedCell.row, selectedCell.col); setSelectedCell(null); }}
-              >
-                <MaterialCommunityIcons name="arrow-up-bold" size={14} color={colors.gold} />
-                <Text style={[styles.upgradeBtnText, { color: colors.gold }]}>Upgrade</Text>
-              </TouchableOpacity>
-            )}
+            {!cell.upgrading && cell.level < 10 && (() => {
+              const affordable = canAffordUpgrade(cell.buildingType, cell.level, res);
+              return (
+                <TouchableOpacity
+                  style={[styles.upgradeBtn, affordable
+                    ? { backgroundColor: colors.gold + "18", borderColor: colors.gold + "80" }
+                    : { backgroundColor: colors.muted + "18", borderColor: colors.muted + "50" }
+                  ]}
+                  onPress={() => {
+                    if (!affordable) return;
+                    onUpgradeBuilding?.(selectedCell.row, selectedCell.col);
+                    setSelectedCell(null);
+                  }}
+                  activeOpacity={affordable ? 0.7 : 1}
+                >
+                  <MaterialCommunityIcons name="arrow-up-bold" size={14} color={affordable ? colors.gold : colors.textSecondary} />
+                  <Text style={[styles.upgradeBtnText, { color: affordable ? colors.gold : colors.textSecondary }]}>
+                    {affordable ? "Upgrade" : "Can't afford"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: colors.destructive + "18", borderColor: colors.destructive + "80" }]}
               onPress={() => { onRemoveBuilding?.(selectedCell.row, selectedCell.col); setSelectedCell(null); }}
@@ -241,11 +276,16 @@ export default function TownGrid({ cells, onPlaceBuilding, onRemoveBuilding, onU
               {BUILDING_TYPES.map(bType => {
                 const meta = BUILDING_META[bType];
                 const isMil = MILITARY_TYPES.has(bType);
+                const affordable = canAffordBuild(bType, res);
                 return (
                   <TouchableOpacity
                     key={bType}
-                    style={[styles.buildOption, { borderBottomColor: colors.border }]}
+                    style={[styles.buildOption, { borderBottomColor: colors.border, opacity: affordable ? 1 : 0.45 }]}
                     onPress={() => {
+                      if (!affordable) {
+                        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                        return;
+                      }
                       if (selectedCell) {
                         onPlaceBuilding?.(selectedCell.row, selectedCell.col, bType);
                         setShowBuildMenu(false);
@@ -253,23 +293,29 @@ export default function TownGrid({ cells, onPlaceBuilding, onRemoveBuilding, onU
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       }
                     }}
+                    activeOpacity={affordable ? 0.7 : 0.9}
                   >
                     <View style={[styles.buildIcon, { backgroundColor: meta.color + "22", borderColor: meta.color + "40", borderWidth: 1 }]}>
-                      <MaterialCommunityIcons name={meta.icon as any} size={22} color={meta.color} />
+                      <MaterialCommunityIcons name={meta.icon as any} size={22} color={affordable ? meta.color : colors.textSecondary} />
                     </View>
                     <View style={styles.buildOptionText}>
                       <View style={styles.buildOptionNameRow}>
-                        <Text style={[styles.buildOptionName, { color: colors.foreground }]}>{meta.label}</Text>
+                        <Text style={[styles.buildOptionName, { color: affordable ? colors.foreground : colors.textSecondary }]}>{meta.label}</Text>
                         {isMil && (
                           <View style={[styles.militaryBadge, { backgroundColor: "#8a3030" + "28", borderColor: "#8a303055", borderWidth: 1 }]}>
                             <Text style={[styles.militaryBadgeText, { color: "#cc6060" }]}>⚔ MILITARY</Text>
                           </View>
                         )}
+                        {!affordable && (
+                          <View style={[styles.militaryBadge, { backgroundColor: colors.destructive + "18", borderColor: colors.destructive + "40", borderWidth: 1 }]}>
+                            <Text style={[styles.militaryBadgeText, { color: colors.destructive }]}>NOT ENOUGH</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={[styles.buildOptionDesc, { color: colors.textSecondary }]}>{meta.desc}</Text>
-                      <Text style={[styles.buildOptionCost, { color: colors.gold }]}>🏗 {BUILDING_COSTS_DISPLAY[bType]}</Text>
+                      <Text style={[styles.buildOptionCost, { color: affordable ? colors.gold : colors.textSecondary }]}>🏗 {BUILDING_COSTS_DISPLAY[bType]}</Text>
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={18} color={colors.border} />
+                    <MaterialCommunityIcons name={affordable ? "chevron-right" : "lock-outline"} size={18} color={affordable ? colors.border : colors.textSecondary} />
                   </TouchableOpacity>
                 );
               })}

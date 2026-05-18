@@ -223,6 +223,7 @@ export default function KingdomScreen() {
         <View style={styles.gridWrapper}>
           <TownGrid
             cells={cells}
+            town={town ? { gold: town.gold, food: town.food, wood: town.wood, stone: town.stone } : undefined}
             onPlaceBuilding={handlePlace}
             onRemoveBuilding={handleRemove}
             onUpgradeBuilding={handleUpgrade}
