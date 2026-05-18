@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React, { useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
 import {
@@ -71,8 +71,8 @@ export default function MissionsScreen() {
 
   const activeMissionsList = (activeMissions ?? []).filter((m: any) => m.status === "active");
   const completedMissions = (activeMissions ?? []).filter((m: any) => m.status !== "active").slice(0, 5);
-  const hasTroops = (army?.totalTroops ?? 0) > 0;
   const atMissionLimit = activeMissionsList.length >= maxActiveMissions;
+  const canUnlockMoreMissionSlots = maxActiveMissions < 3;
   const missionSlotsLabel = `${activeMissionsList.length}/${maxActiveMissions} active`;
 
   const openMission = (card: any) => {
@@ -115,7 +115,22 @@ export default function MissionsScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {activeMissionsList.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACTIVE</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>ACTIVE</Text>
+              {canUnlockMoreMissionSlots && (
+                <TouchableOpacity
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  onPress={() =>
+                    Alert.alert(
+                      "Mission slots",
+                      `Upgrade Town Hall to run up to 3 missions at once. You currently have ${maxActiveMissions} active slot${maxActiveMissions === 1 ? "" : "s"}.`,
+                    )
+                  }
+                >
+                  <MaterialCommunityIcons name="information-outline" size={14} color={colors.gold} />
+                </TouchableOpacity>
+              )}
+            </View>
             {activeMissionsList.map((m: any) => (
               <View key={m.id} style={[styles.activeCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
                 <MaterialCommunityIcons name={TYPE_ICONS[m.missionType] as any ?? "map"} size={20} color={colors.gold} />
@@ -132,26 +147,6 @@ export default function MissionsScreen() {
         )}
 
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AVAILABLE MISSIONS</Text>
-
-        {atMissionLimit && (
-          <View style={[styles.noTroopsBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.gold + "55" }]}>
-            <MaterialCommunityIcons name="castle" size={20} color={colors.gold} />
-            <Text style={[styles.noTroopsText, { color: colors.textSecondary }]}>
-              {maxActiveMissions < 3
-                ? `Mission limit reached (${maxActiveMissions}). Upgrade Town Hall to run up to 3 missions at once.`
-                : `Mission limit reached (${maxActiveMissions}). Wait for a mission to return before dispatching another.`}
-            </Text>
-          </View>
-        )}
-
-        {!hasTroops && (
-          <View style={[styles.noTroopsBanner, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="castle" size={20} color={colors.textSecondary} />
-            <Text style={[styles.noTroopsText, { color: colors.textSecondary }]}>
-              Build Barracks, Archery Ranges, or Stables to raise troops. You can still hire mercenaries for small missions.
-            </Text>
-          </View>
-        )}
 
         {cardsLoading ? (
           <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
@@ -320,14 +315,13 @@ export default function MissionsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { padding: 12, paddingBottom: 100, gap: 10 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
   activeCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
   activeInfo: { flex: 1 },
   activeName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   activeTime: { fontSize: 11, fontFamily: "Inter_400Regular" },
   activeDot: { width: 8, height: 8, borderRadius: 4 },
-  noTroopsBanner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
-  noTroopsText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 18 },
   missionCard: { padding: 12, borderRadius: 10, borderWidth: 1, gap: 8 },
   cardTop: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   cardLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },

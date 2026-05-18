@@ -4,6 +4,7 @@ export * from "./buildingSlots";
 export * from "./army";
 export * from "./missions";
 export * from "./tradeRoutes";
+export * from "./tradeDealCompletions";
 export * from "./raids";
 export * from "./trophies";
 export * from "./activities";

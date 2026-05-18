@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type TradeRouteInputResourceType = typeof TradeRouteInputResourceType[keyof typeof TradeRouteInputResourceType];
+export type TradeDealReceiveResource = typeof TradeDealReceiveResource[keyof typeof TradeDealReceiveResource];
 
 
-export const TradeRouteInputResourceType = {
+export const TradeDealReceiveResource = {
   gold: 'gold',
   food: 'food',
   wood: 'wood',

@@ -198,42 +198,52 @@ export interface ActiveMission {
   casualties?: number | null;
 }
 
-export type TradeRouteResourceType = typeof TradeRouteResourceType[keyof typeof TradeRouteResourceType];
+export type TradeDealPayResource = typeof TradeDealPayResource[keyof typeof TradeDealPayResource];
 
 
-export const TradeRouteResourceType = {
+export const TradeDealPayResource = {
   gold: 'gold',
   food: 'food',
   wood: 'wood',
   stone: 'stone',
 } as const;
 
-export interface TradeRoute {
-  id: number;
-  fromTownId: number;
-  toTownId: number;
-  fromTownName: string;
-  toTownName: string;
-  resourceType: TradeRouteResourceType;
-  amountPerHour: number;
-  active: boolean;
-  createdAt: string;
+export type TradeDealReceiveResource = typeof TradeDealReceiveResource[keyof typeof TradeDealReceiveResource];
+
+
+export const TradeDealReceiveResource = {
+  gold: 'gold',
+  food: 'food',
+  wood: 'wood',
+  stone: 'stone',
+} as const;
+
+export interface TradeDeal {
+  id: string;
+  title: string;
+  payResource: TradeDealPayResource;
+  payAmount: number;
+  receiveResource: TradeDealReceiveResource;
+  receiveAmount: number;
+  completed: boolean;
 }
 
-export type TradeRouteInputResourceType = typeof TradeRouteInputResourceType[keyof typeof TradeRouteInputResourceType];
+export interface TradeDealsResponse {
+  hourSeed: number;
+  refreshesAt: string;
+  deals: TradeDeal[];
+}
 
+export interface TradeDealExecute {
+  dealId: string;
+}
 
-export const TradeRouteInputResourceType = {
-  gold: 'gold',
-  food: 'food',
-  wood: 'wood',
-  stone: 'stone',
-} as const;
-
-export interface TradeRouteInput {
-  toTownId: number;
-  resourceType: TradeRouteInputResourceType;
-  amountPerHour: number;
+export interface TradeDealExecuteResult {
+  deal: TradeDeal;
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
 }
 
 export type RaidResult = typeof RaidResult[keyof typeof RaidResult];

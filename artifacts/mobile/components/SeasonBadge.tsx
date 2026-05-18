@@ -1,40 +1,29 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
-
-type Season = "spring" | "summer" | "autumn" | "winter";
-
-const SEASON_META: Record<Season, { icon: string; label: string }> = {
-  spring: { icon: "flower",      label: "Spring" },
-  summer: { icon: "white-balance-sunny", label: "Summer" },
-  autumn: { icon: "leaf",        label: "Autumn" },
-  winter: { icon: "snowflake",   label: "Winter" },
-};
+import { SEASON_META, type Season } from "@/lib/seasonMeta";
 
 interface SeasonBadgeProps {
   season: Season;
   cycleNumber?: number;
   compact?: boolean;
+  onPress?: () => void;
 }
 
-export default function SeasonBadge({ season, cycleNumber, compact }: SeasonBadgeProps) {
+export default function SeasonBadge({ season, cycleNumber, compact, onPress }: SeasonBadgeProps) {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const meta = SEASON_META[season];
   const seasonColor = colors[season as keyof typeof colors] as string;
 
-  if (compact) {
-    return (
-      <View style={[styles.badge, { backgroundColor: withAlpha(seasonColor, 0.12), borderColor: withAlpha(seasonColor, 0.35) }]}>
-        <MaterialCommunityIcons name={meta.icon as any} size={12} color={seasonColor} />
-        <Text style={[styles.label, { color: seasonColor }]}>{meta.label}</Text>
-      </View>
-    );
-  }
-
-  return (
+  const content = compact ? (
+    <View style={[styles.badge, { backgroundColor: withAlpha(seasonColor, 0.12), borderColor: withAlpha(seasonColor, 0.35) }]}>
+      <MaterialCommunityIcons name={meta.icon as any} size={12} color={seasonColor} />
+      <Text style={[styles.label, { color: seasonColor }]}>{meta.label}</Text>
+    </View>
+  ) : (
     <View style={[styles.badgeLarge, { backgroundColor: withAlpha(seasonColor, 0.12), borderColor: withAlpha(seasonColor, 0.35) }]}>
       <MaterialCommunityIcons name={meta.icon as any} size={18} color={seasonColor} />
       <View>
@@ -44,6 +33,14 @@ export default function SeasonBadge({ season, cycleNumber, compact }: SeasonBadg
         )}
       </View>
     </View>
+  );
+
+  if (!onPress) return content;
+
+  return (
+    <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${meta.label} season calendar`}>
+      {content}
+    </Pressable>
   );
 }
 

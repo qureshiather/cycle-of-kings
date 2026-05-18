@@ -39,8 +39,9 @@ import type {
   ResetResult,
   Town,
   TownSummary,
-  TradeRoute,
-  TradeRouteInput,
+  TradeDealExecute,
+  TradeDealExecuteResult,
+  TradeDealsResponse,
   Trophy
 } from './api.schemas';
 
@@ -1189,11 +1190,11 @@ export const getGetTownTradesUrl = (townId: number,) => {
 }
 
 /**
- * @summary Get active trade routes for a town
+ * @summary Get merchant trade deals for this hour (refreshes on the hour UTC)
  */
-export const getTownTrades = async (townId: number, options?: RequestInit): Promise<TradeRoute[]> => {
+export const getTownTrades = async (townId: number, options?: RequestInit): Promise<TradeDealsResponse> => {
 
-  return customFetch<TradeRoute[]>(getGetTownTradesUrl(townId),
+  return customFetch<TradeDealsResponse>(getGetTownTradesUrl(townId),
   {
     ...options,
     method: 'GET'
@@ -1236,7 +1237,7 @@ export type GetTownTradesQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get active trade routes for a town
+ * @summary Get merchant trade deals for this hour (refreshes on the hour UTC)
  */
 
 export function useGetTownTrades<TData = Awaited<ReturnType<typeof getTownTrades>>, TError = ErrorType<unknown>>(
@@ -1257,7 +1258,7 @@ export function useGetTownTrades<TData = Awaited<ReturnType<typeof getTownTrades
 
 
 
-export const getCreateTradeRouteUrl = (townId: number,) => {
+export const getExecuteTradeDealUrl = (townId: number,) => {
 
 
 
@@ -1266,29 +1267,29 @@ export const getCreateTradeRouteUrl = (townId: number,) => {
 }
 
 /**
- * @summary Create a trade route with another town
+ * @summary Execute a merchant trade deal (one use per deal per hour)
  */
-export const createTradeRoute = async (townId: number,
-    tradeRouteInput: TradeRouteInput, options?: RequestInit): Promise<TradeRoute> => {
+export const executeTradeDeal = async (townId: number,
+    tradeDealExecute: TradeDealExecute, options?: RequestInit): Promise<TradeDealExecuteResult> => {
 
-  return customFetch<TradeRoute>(getCreateTradeRouteUrl(townId),
+  return customFetch<TradeDealExecuteResult>(getExecuteTradeDealUrl(townId),
   {
     ...options,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...options?.headers },
     body: JSON.stringify(
-      tradeRouteInput,)
+      tradeDealExecute,)
   }
 );}
 
 
 
 
-export const getCreateTradeRouteMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTradeRoute>>, TError,{townId: number;data: BodyType<TradeRouteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createTradeRoute>>, TError,{townId: number;data: BodyType<TradeRouteInput>}, TContext> => {
+export const getExecuteTradeDealMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeTradeDeal>>, TError,{townId: number;data: BodyType<TradeDealExecute>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeTradeDeal>>, TError,{townId: number;data: BodyType<TradeDealExecute>}, TContext> => {
 
-const mutationKey = ['createTradeRoute'];
+const mutationKey = ['executeTradeDeal'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1298,10 +1299,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTradeRoute>>, {townId: number;data: BodyType<TradeRouteInput>}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeTradeDeal>>, {townId: number;data: BodyType<TradeDealExecute>}> = (props) => {
           const {townId,data} = props ?? {};
 
-          return  createTradeRoute(townId,data,requestOptions)
+          return  executeTradeDeal(townId,data,requestOptions)
         }
 
 
@@ -1311,94 +1312,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateTradeRouteMutationResult = NonNullable<Awaited<ReturnType<typeof createTradeRoute>>>
-    export type CreateTradeRouteMutationBody = BodyType<TradeRouteInput>
-    export type CreateTradeRouteMutationError = ErrorType<void>
+    export type ExecuteTradeDealMutationResult = NonNullable<Awaited<ReturnType<typeof executeTradeDeal>>>
+    export type ExecuteTradeDealMutationBody = BodyType<TradeDealExecute>
+    export type ExecuteTradeDealMutationError = ErrorType<void>
 
     /**
- * @summary Create a trade route with another town
+ * @summary Execute a merchant trade deal (one use per deal per hour)
  */
-export const useCreateTradeRoute = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTradeRoute>>, TError,{townId: number;data: BodyType<TradeRouteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useExecuteTradeDeal = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeTradeDeal>>, TError,{townId: number;data: BodyType<TradeDealExecute>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof createTradeRoute>>,
+        Awaited<ReturnType<typeof executeTradeDeal>>,
         TError,
-        {townId: number;data: BodyType<TradeRouteInput>},
+        {townId: number;data: BodyType<TradeDealExecute>},
         TContext
       > => {
-      return useMutation(getCreateTradeRouteMutationOptions(options));
-    }
-
-export const getCancelTradeRouteUrl = (townId: number,
-    tradeId: number,) => {
-
-
-
-
-  return `/api/towns/${townId}/trades/${tradeId}`
-}
-
-/**
- * @summary Cancel a trade route
- */
-export const cancelTradeRoute = async (townId: number,
-    tradeId: number, options?: RequestInit): Promise<void> => {
-
-  return customFetch<void>(getCancelTradeRouteUrl(townId,tradeId),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getCancelTradeRouteMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelTradeRoute>>, TError,{townId: number;tradeId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof cancelTradeRoute>>, TError,{townId: number;tradeId: number}, TContext> => {
-
-const mutationKey = ['cancelTradeRoute'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelTradeRoute>>, {townId: number;tradeId: number}> = (props) => {
-          const {townId,tradeId} = props ?? {};
-
-          return  cancelTradeRoute(townId,tradeId,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CancelTradeRouteMutationResult = NonNullable<Awaited<ReturnType<typeof cancelTradeRoute>>>
-
-    export type CancelTradeRouteMutationError = ErrorType<unknown>
-
-    /**
- * @summary Cancel a trade route
- */
-export const useCancelTradeRoute = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelTradeRoute>>, TError,{townId: number;tradeId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof cancelTradeRoute>>,
-        TError,
-        {townId: number;tradeId: number},
-        TContext
-      > => {
-      return useMutation(getCancelTradeRouteMutationOptions(options));
+      return useMutation(getExecuteTradeDealMutationOptions(options));
     }
 
 export const getGetActivitiesUrl = (townId: number,) => {

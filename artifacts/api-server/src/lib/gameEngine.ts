@@ -315,6 +315,64 @@ export function getCurrentHourSeed(): number {
   return n.getUTCFullYear() * 1000000 + (n.getUTCMonth() + 1) * 10000 + n.getUTCDate() * 100 + n.getUTCHours();
 }
 
+export type ResourceType = "gold" | "food" | "wood" | "stone";
+
+export interface TradeDealData {
+  id: string;
+  title: string;
+  payResource: ResourceType;
+  payAmount: number;
+  receiveResource: ResourceType;
+  receiveAmount: number;
+}
+
+const TRADE_MERCHANTS = [
+  "Wandering Merchant",
+  "Caravan Master",
+  "Foreign Trader",
+  "Market Broker",
+  "Silk Road Peddler",
+  "Harbor Factor",
+];
+
+const TRADE_RESOURCES: ResourceType[] = ["gold", "food", "wood", "stone"];
+
+export function getNextHourRefreshAt(): string {
+  const now = new Date();
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours() + 1, 0, 0, 0),
+  ).toISOString();
+}
+
+/** Merchant deals refresh hourly; exchange rates skew unfavorable (pay more than fair value). */
+export function generateTradeDeals(hourSeed: number, townId: number): TradeDealData[] {
+  const rng = seededRandom(hourSeed * 997 + townId);
+  const dealCount = 4;
+
+  return Array.from({ length: dealCount }, (_, i) => {
+    let payResource = TRADE_RESOURCES[Math.floor(rng() * TRADE_RESOURCES.length)];
+    let receiveResource = TRADE_RESOURCES[Math.floor(rng() * TRADE_RESOURCES.length)];
+    while (receiveResource === payResource) {
+      receiveResource = TRADE_RESOURCES[Math.floor(rng() * TRADE_RESOURCES.length)];
+    }
+
+    const payAmount = Math.ceil(20 + rng() * 60);
+    let ratio = 0.38 + rng() * 0.32;
+    if (rng() < 0.12) ratio = 0.62 + rng() * 0.18;
+    if (rng() < 0.04) ratio = 0.82 + rng() * 0.12;
+    const receiveAmount = Math.max(1, Math.floor(payAmount * ratio));
+
+    return {
+      id: `trade-${hourSeed}-${i}`,
+      title: TRADE_MERCHANTS[Math.floor(rng() * TRADE_MERCHANTS.length)],
+      payResource,
+      payAmount,
+      receiveResource,
+      receiveAmount,
+    };
+  });
+}
+
 export function generateMissionCards(hourSeed: number, totalTroops: number = 5, armyPower: number = 50): MissionCardData[] {
   const rng = seededRandom(hourSeed);
   const types = ["explore", "patrol", "raid"] as const;

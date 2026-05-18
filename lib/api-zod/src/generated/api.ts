@@ -298,46 +298,52 @@ export const DispatchMissionBody = zod.object({
 
 
 /**
- * @summary Get active trade routes for a town
+ * @summary Get merchant trade deals for this hour (refreshes on the hour UTC)
  */
 export const GetTownTradesParams = zod.object({
   "townId": zod.coerce.number()
 })
 
-export const GetTownTradesResponseItem = zod.object({
-  "id": zod.number(),
-  "fromTownId": zod.number(),
-  "toTownId": zod.number(),
-  "fromTownName": zod.string(),
-  "toTownName": zod.string(),
-  "resourceType": zod.enum(['gold', 'food', 'wood', 'stone']),
-  "amountPerHour": zod.number(),
-  "active": zod.boolean(),
-  "createdAt": zod.string()
+export const GetTownTradesResponse = zod.object({
+  "hourSeed": zod.number(),
+  "refreshesAt": zod.string(),
+  "deals": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "payResource": zod.enum(['gold', 'food', 'wood', 'stone']),
+  "payAmount": zod.number(),
+  "receiveResource": zod.enum(['gold', 'food', 'wood', 'stone']),
+  "receiveAmount": zod.number(),
+  "completed": zod.boolean()
+}))
 })
-export const GetTownTradesResponse = zod.array(GetTownTradesResponseItem)
 
 
 /**
- * @summary Create a trade route with another town
+ * @summary Execute a merchant trade deal (one use per deal per hour)
  */
-export const CreateTradeRouteParams = zod.object({
+export const ExecuteTradeDealParams = zod.object({
   "townId": zod.coerce.number()
 })
 
-export const CreateTradeRouteBody = zod.object({
-  "toTownId": zod.number(),
-  "resourceType": zod.enum(['gold', 'food', 'wood', 'stone']),
-  "amountPerHour": zod.number()
+export const ExecuteTradeDealBody = zod.object({
+  "dealId": zod.string()
 })
 
-
-/**
- * @summary Cancel a trade route
- */
-export const CancelTradeRouteParams = zod.object({
-  "townId": zod.coerce.number(),
-  "tradeId": zod.coerce.number()
+export const ExecuteTradeDealResponse = zod.object({
+  "deal": zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "payResource": zod.enum(['gold', 'food', 'wood', 'stone']),
+  "payAmount": zod.number(),
+  "receiveResource": zod.enum(['gold', 'food', 'wood', 'stone']),
+  "receiveAmount": zod.number(),
+  "completed": zod.boolean()
+}),
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
 })
 
 

@@ -349,7 +349,7 @@ paths:
     get:
       operationId: getTownTrades
       tags: [trade]
-      summary: Get active trade routes for a town
+      summary: Get merchant trade deals for this hour (refreshes on the hour UTC)
       parameters:
         - name: townId
           in: path
@@ -357,17 +357,15 @@ paths:
           schema: { type: integer }
       responses:
         "200":
-          description: Trade routes
+          description: Hourly merchant deals
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/TradeRoute"
+                $ref: "#/components/schemas/TradeDealsResponse"
     post:
-      operationId: createTradeRoute
+      operationId: executeTradeDeal
       tags: [trade]
-      summary: Create a trade route with another town
+      summary: Execute a merchant trade deal (one use per deal per hour)
       parameters:
         - name: townId
           in: path
@@ -378,34 +376,16 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/TradeRouteInput"
+              $ref: "#/components/schemas/TradeDealExecute"
       responses:
-        "201":
-          description: Trade route created
+        "200":
+          description: Trade completed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TradeRoute"
+                $ref: "#/components/schemas/TradeDealExecuteResult"
         "400":
-          description: Invalid trade route
-
-  /towns/{townId}/trades/{tradeId}:
-    delete:
-      operationId: cancelTradeRoute
-      tags: [trade]
-      summary: Cancel a trade route
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-        - name: tradeId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Cancelled
+          description: Invalid or unavailable deal
 
   /towns/{townId}/activities:
     get:
@@ -686,31 +666,49 @@ components:
         lootStone: { type: ["number", "null"] }
         casualties: { type: ["integer", "null"] }
 
-    TradeRoute:
+    TradeDeal:
       type: object
-      required: [id, fromTownId, toTownId, fromTownName, toTownName, resourceType, amountPerHour, active, createdAt]
+      required: [id, title, payResource, payAmount, receiveResource, receiveAmount, completed]
       properties:
-        id: { type: integer }
-        fromTownId: { type: integer }
-        toTownId: { type: integer }
-        fromTownName: { type: string }
-        toTownName: { type: string }
-        resourceType:
+        id: { type: string }
+        title: { type: string }
+        payResource:
           type: string
           enum: [gold, food, wood, stone]
-        amountPerHour: { type: number }
-        active: { type: boolean }
-        createdAt: { type: string }
+        payAmount: { type: number }
+        receiveResource:
+          type: string
+          enum: [gold, food, wood, stone]
+        receiveAmount: { type: number }
+        completed: { type: boolean }
 
-    TradeRouteInput:
+    TradeDealsResponse:
       type: object
-      required: [toTownId, resourceType, amountPerHour]
+      required: [hourSeed, refreshesAt, deals]
       properties:
-        toTownId: { type: integer }
-        resourceType:
-          type: string
-          enum: [gold, food, wood, stone]
-        amountPerHour: { type: number }
+        hourSeed: { type: integer }
+        refreshesAt: { type: string }
+        deals:
+          type: array
+          items:
+            $ref: "#/components/schemas/TradeDeal"
+
+    TradeDealExecute:
+      type: object
+      required: [dealId]
+      properties:
+        dealId: { type: string }
+
+    TradeDealExecuteResult:
+      type: object
+      required: [deal, gold, food, wood, stone]
+      properties:
+        deal:
+          $ref: "#/components/schemas/TradeDeal"
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
 
     Raid:
       type: object

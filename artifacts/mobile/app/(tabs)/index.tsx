@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 import SeasonBadge from "@/components/SeasonBadge";
+import SeasonCalendarModal from "@/components/SeasonCalendarModal";
 import KingdomMap from "@/components/KingdomMap";
 
 export default function KingdomScreen() {
@@ -23,6 +24,7 @@ export default function KingdomScreen() {
     { query: { enabled: !!townId } as any },
   );
   const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
+  const [seasonModalOpen, setSeasonModalOpen] = useState(false);
 
   const handleRefresh = () => {
     if (!townId) return;
@@ -36,7 +38,15 @@ export default function KingdomScreen() {
       <ScreenHeader
         icon="castle"
         title={playerName ? `${playerName}'s Town` : "Your Town"}
-        trailing={gameState ? <SeasonBadge season={gameState.season as any} compact /> : undefined}
+        trailing={
+          gameState ? (
+            <SeasonBadge
+              season={gameState.season as any}
+              compact
+              onPress={() => setSeasonModalOpen(true)}
+            />
+          ) : undefined
+        }
         town={
           townId && town
             ? {
@@ -83,6 +93,14 @@ export default function KingdomScreen() {
           townId={townId}
           refreshing={townLoading}
           onRefresh={handleRefresh}
+        />
+      )}
+
+      {gameState && (
+        <SeasonCalendarModal
+          visible={seasonModalOpen}
+          gameState={gameState}
+          onClose={() => setSeasonModalOpen(false)}
         />
       )}
     </View>
