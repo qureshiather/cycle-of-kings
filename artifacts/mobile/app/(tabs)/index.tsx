@@ -1,4 +1,3 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,15 +8,13 @@ import {
   getGetBuildingSlotsQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
-import { useTopInset } from "@/hooks/useTopInset";
 import { useGame } from "@/context/GameContext";
-import ResourceBar from "@/components/ResourceBar";
+import ScreenHeader from "@/components/ScreenHeader";
 import SeasonBadge from "@/components/SeasonBadge";
 import KingdomMap from "@/components/KingdomMap";
 
 export default function KingdomScreen() {
   const colors = useColors();
-  const topInset = useTopInset(6);
   const { townId, playerName } = useGame();
   const qc = useQueryClient();
 
@@ -36,40 +33,25 @@ export default function KingdomScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
-            paddingTop: topInset,
-          },
-        ]}
+      <ScreenHeader
+        icon="castle"
+        title={playerName ? `${playerName}'s Town` : "Your Town"}
+        trailing={gameState ? <SeasonBadge season={gameState.season as any} compact /> : undefined}
+        town={
+          townId && town
+            ? {
+                gold: town.gold ?? 0,
+                food: town.food ?? 0,
+                wood: town.wood ?? 0,
+                stone: town.stone ?? 0,
+                goldPerHour: town.goldPerHour ?? 0,
+                foodPerHour: town.foodPerHour ?? 0,
+                woodPerHour: town.woodPerHour ?? 0,
+                stonePerHour: town.stonePerHour ?? 0,
+              }
+            : undefined
+        }
       >
-        <View style={styles.titleRow}>
-          <MaterialCommunityIcons name="castle" size={18} color={colors.gold} />
-          <Text style={[styles.topTitle, { color: colors.foreground }]} numberOfLines={1}>
-            {playerName ? `${playerName}'s Town` : "Your Town"}
-          </Text>
-          {gameState && (
-            <SeasonBadge season={gameState.season as any} compact />
-          )}
-        </View>
-
-        {townId && (
-          <ResourceBar
-            embedded
-            gold={town?.gold ?? 0}
-            food={town?.food ?? 0}
-            wood={town?.wood ?? 0}
-            stone={town?.stone ?? 0}
-            goldPerHour={town?.goldPerHour ?? 0}
-            foodPerHour={town?.foodPerHour ?? 0}
-            woodPerHour={town?.woodPerHour ?? 0}
-            stonePerHour={town?.stonePerHour ?? 0}
-          />
-        )}
-
         {town && (
           <View style={[styles.scoreBar, { borderColor: colors.border }]}>
             <View style={styles.scoreItem}>
@@ -94,7 +76,7 @@ export default function KingdomScreen() {
             </View>
           </View>
         )}
-      </View>
+      </ScreenHeader>
 
       {townId && (
         <KingdomMap
@@ -109,24 +91,6 @@ export default function KingdomScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    gap: 6,
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minHeight: 28,
-  },
-  topTitle: {
-    flex: 1,
-    flexShrink: 1,
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-  },
   scoreBar: {
     flexDirection: "row",
     alignItems: "center",

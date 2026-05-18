@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View }
 import { useGetActivities } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import ScreenHeader from "@/components/ScreenHeader";
 
 type ActivityItem = {
   id: number;
@@ -76,11 +77,11 @@ export default function ActivityScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <MaterialCommunityIcons name="bell-outline" size={20} color={colors.gold} />
-        <Text style={[styles.topTitle, { color: colors.foreground }]}>Activity</Text>
-        <Text style={[styles.topSub, { color: colors.textSecondary }]}>Your kingdom's recent events</Text>
-      </View>
+      <ScreenHeader
+        icon="bell-outline"
+        title="Activity"
+        subtitle="Your kingdom's recent events"
+      />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -137,13 +138,6 @@ export default function ActivityScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  topBar: {
-    flexDirection: "row", alignItems: "center", gap: 10,
-    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,
-    borderBottomWidth: 1,
-  },
-  topTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
-  topSub: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1, textAlign: "right" },
   scrollContent: { padding: 12, paddingBottom: 110, gap: 8 },
   empty: { alignItems: "center", paddingTop: 80, gap: 12 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_600SemiBold" },

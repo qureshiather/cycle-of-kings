@@ -4,6 +4,7 @@ import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View }
 import { useGetTownArmy, getGetTownArmyQueryKey } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import ScreenHeader from "@/components/ScreenHeader";
 
 const UNIT_META = {
   infantry: {
@@ -113,10 +114,7 @@ export default function ArmyScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <MaterialCommunityIcons name="sword-cross" size={20} color={colors.gold} />
-        <Text style={[styles.topTitle, { color: colors.foreground }]}>Command Center</Text>
-      </View>
+      <ScreenHeader icon="sword-cross" title="Command Center" />
 
       {isLoading ? (
         <View style={styles.center}>
@@ -208,8 +206,6 @@ export default function ArmyScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  topBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, borderBottomWidth: 1 },
-  topTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   scrollContent: { padding: 12, paddingBottom: 100, gap: 10 },
   summaryCard: { flexDirection: "row", borderRadius: 10, borderWidth: 1, padding: 14 },
   summaryItem: { flex: 1, alignItems: "center", gap: 4 },

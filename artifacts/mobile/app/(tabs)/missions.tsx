@@ -4,11 +4,12 @@ import React, { useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy,
+  useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy, useGetTown,
   getGetTownMissionsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import ScreenHeader from "@/components/ScreenHeader";
 
 const DIFF_COLORS: Record<string, string> = { easy: "#3d7a35", medium: "#d4a520", hard: "#b03020" };
 const DIFF_LABELS: Record<string, string> = { easy: "EASY", medium: "MEDIUM", hard: "HARD" };
@@ -35,6 +36,7 @@ export default function MissionsScreen() {
   );
   const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: town } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
   const dispatchMission = useDispatchMission();
 
   const [selected, setSelected] = useState<any | null>(null);
@@ -87,11 +89,12 @@ export default function MissionsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <MaterialCommunityIcons name="map-legend" size={20} color={colors.gold} />
-        <Text style={[styles.topTitle, { color: colors.foreground }]}>Missions</Text>
-        <Text style={[styles.hourNote, { color: colors.textSecondary }]}>3 cards / hour</Text>
-      </View>
+      <ScreenHeader
+        icon="map-legend"
+        title="Missions"
+        subtitle="3 cards / hour"
+        gold={townId ? (town?.gold ?? 0) : undefined}
+      />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {activeMissionsList.length > 0 && (
@@ -277,9 +280,6 @@ export default function MissionsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, borderBottomWidth: 1 },
-  topTitle: { fontSize: 18, fontFamily: "Inter_700Bold", flex: 1 },
-  hourNote: { fontSize: 11, fontFamily: "Inter_400Regular" },
   scrollContent: { padding: 12, paddingBottom: 100, gap: 10 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
   activeCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },

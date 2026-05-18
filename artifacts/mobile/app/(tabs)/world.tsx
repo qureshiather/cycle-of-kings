@@ -11,6 +11,7 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import ScreenHeader from "@/components/ScreenHeader";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
 
 export default function WorldScreen() {
@@ -130,10 +131,7 @@ export default function WorldScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <MaterialCommunityIcons name="earth" size={20} color={colors.gold} />
-        <Text style={[styles.topTitle, { color: colors.foreground }]}>World</Text>
-      </View>
+      <ScreenHeader icon="earth" title="World" />
 
       <View style={[styles.tabs, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
         {(["leaderboard", "raids", "settings"] as const).map(tab => (
@@ -400,8 +398,6 @@ export default function WorldScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  topBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12, borderBottomWidth: 1 },
-  topTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   tabs: { flexDirection: "row", borderBottomWidth: 1 },
   tab: { flex: 1, alignItems: "center", paddingVertical: 12 },
   tabText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
