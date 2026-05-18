@@ -9,13 +9,12 @@ export const BUILDING_COSTS: Record<string, { wood: number; stone: number; gold:
   market:       { wood: 40,  stone: 0,   gold: 20, food: 0 },
   tavern:       { wood: 50,  stone: 20,  gold: 10, food: 0 },
   house:        { wood: 30,  stone: 20,  gold: 0,  food: 0 },
-  wall:         { wood: 0,   stone: 30,  gold: 0,  food: 0 },
-  tower:        { wood: 20,  stone: 50,  gold: 10, food: 0 },
+  wall:         { wood: 0,   stone: 40,  gold: 0,  food: 0 },
+  tower:        { wood: 20,  stone: 60,  gold: 20, food: 0 },
 };
 
 export const UPGRADE_COST_MULTIPLIER = 1.8;
 export const REFUND_RATIO = 0.75;
-export const GRID_SIZE = 9;
 
 export const BASE_PRODUCTION = { gold: 5, food: 5, wood: 5, stone: 5 };
 
@@ -30,7 +29,13 @@ export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood
   stables:      { food: 0,  gold: 0, wood: 0, stone: 0 },
   tavern:       { food: 0,  gold: 0, wood: 0, stone: 0 },
   house:        { food: 0,  gold: 0, wood: 0, stone: 0 },
-  empty:        { food: 0,  gold: 0, wood: 0, stone: 0 },
+  wall:         { food: 0,  gold: 0, wood: 0, stone: 0 },
+  tower:        { food: 0,  gold: 0, wood: 0, stone: 0 },
+};
+
+const ECONOMY_WEIGHTS: Record<string, number> = {
+  farm: 8, mine: 6, quarry: 7, lumberMill: 10,
+  market: 12, tavern: 5, house: 8,
 };
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
@@ -90,24 +95,34 @@ export function getCurrentWeatherEvent(): { event: string | null; active: boolea
   return { event: null, active: false };
 }
 
-export interface CellLike { buildingType: string; level: number; row?: number; col?: number; }
+export interface SlotLike { slotType: string; level: number; }
 
-export function calculateProduction(cells: CellLike[], season: Season): { gold: number; food: number; wood: number; stone: number } {
+export function calculateProduction(slots: SlotLike[], season: Season): { gold: number; food: number; wood: number; stone: number } {
   const mods = getSeasonModifiers(season);
   let gold = BASE_PRODUCTION.gold * mods.gold;
   let food = BASE_PRODUCTION.food * mods.food;
   let wood = BASE_PRODUCTION.wood * mods.wood;
   let stone = BASE_PRODUCTION.stone * mods.stone;
-  for (const cell of cells) {
-    if (cell.buildingType === "empty") continue;
-    const rates = PRODUCTION_RATES[cell.buildingType];
+  for (const slot of slots) {
+    if (slot.level === 0) continue;
+    const rates = PRODUCTION_RATES[slot.slotType];
     if (!rates) continue;
-    gold  += rates.gold  * cell.level * mods.gold;
-    food  += rates.food  * cell.level * mods.food;
-    wood  += rates.wood  * cell.level * mods.wood;
-    stone += rates.stone * cell.level * mods.stone;
+    gold  += rates.gold  * slot.level * mods.gold;
+    food  += rates.food  * slot.level * mods.food;
+    wood  += rates.wood  * slot.level * mods.wood;
+    stone += rates.stone * slot.level * mods.stone;
   }
   return { gold, food, wood, stone };
+}
+
+export function calculateEconomyScore(slots: SlotLike[]): number {
+  let score = 0;
+  for (const slot of slots) {
+    if (slot.level === 0) continue;
+    const weight = ECONOMY_WEIGHTS[slot.slotType] ?? 0;
+    score += slot.level * weight;
+  }
+  return score;
 }
 
 export interface ArmyComposition {
@@ -121,35 +136,22 @@ export interface ArmyComposition {
   totalPower: number;
 }
 
-export function calculateArmyComposition(cells: CellLike[]): ArmyComposition {
-  let infantry = 0, archers = 0, cavalry = 0;
-  let barracksLevelSum = 0, barracksCount = 0;
-  let archeryLevelSum = 0, archeryCount = 0;
-  let stablesLevelSum = 0, stablesCount = 0;
+export function calculateArmyComposition(slots: SlotLike[]): ArmyComposition {
+  const barracks     = slots.find(s => s.slotType === "barracks");
+  const archeryRange = slots.find(s => s.slotType === "archeryRange");
+  const stables      = slots.find(s => s.slotType === "stables");
 
-  for (const cell of cells) {
-    if (cell.buildingType === "barracks") {
-      infantry += cell.level * 5;
-      barracksLevelSum += cell.level;
-      barracksCount++;
-    } else if (cell.buildingType === "archeryRange") {
-      archers += cell.level * 5;
-      archeryLevelSum += cell.level;
-      archeryCount++;
-    } else if (cell.buildingType === "stables") {
-      cavalry += cell.level * 3;
-      stablesLevelSum += cell.level;
-      stablesCount++;
-    }
-  }
+  const bLevel = barracks?.level ?? 0;
+  const aLevel = archeryRange?.level ?? 0;
+  const sLevel = stables?.level ?? 0;
 
-  const avgBarracks = barracksCount > 0 ? barracksLevelSum / barracksCount : 1;
-  const avgArchery  = archeryCount  > 0 ? archeryLevelSum  / archeryCount  : 1;
-  const avgStables  = stablesCount  > 0 ? stablesLevelSum  / stablesCount  : 1;
+  const infantry = bLevel * 5;
+  const archers  = aLevel * 5;
+  const cavalry  = sLevel * 3;
 
-  const infantryAttackMult = 1 + (avgBarracks - 1) * 0.15;
-  const archerAttackMult   = 1 + (avgArchery  - 1) * 0.15;
-  const cavalryAttackMult  = 1 + (avgStables  - 1) * 0.15;
+  const infantryAttackMult = 1 + Math.max(0, bLevel - 1) * 0.15;
+  const archerAttackMult   = 1 + Math.max(0, aLevel - 1) * 0.15;
+  const cavalryAttackMult  = 1 + Math.max(0, sLevel - 1) * 0.15;
 
   const totalTroops = infantry + archers + cavalry;
   const totalPower  = Math.round(
@@ -161,42 +163,34 @@ export function calculateArmyComposition(cells: CellLike[]): ArmyComposition {
   return { infantry, archers, cavalry, infantryAttackMult, archerAttackMult, cavalryAttackMult, totalTroops, totalPower };
 }
 
-export function calculateArmyCapacity(cells: CellLike[]): number {
-  let cap = 10;
-  for (const cell of cells) {
-    if (cell.buildingType === "house") cap += cell.level * 10;
-  }
-  return cap;
+export function calculateArmyCapacity(slots: SlotLike[]): number {
+  const house = slots.find(s => s.slotType === "house");
+  return 10 + (house?.level ?? 0) * 10;
 }
 
-export function calculatePopulation(cells: CellLike[]): { population: number; populationCap: number } {
-  let cap = 10;
-  for (const cell of cells) {
-    if (cell.buildingType === "house") cap += cell.level * 10;
-  }
-  return { population: Math.floor(cap * 0.8), populationCap: cap };
+export function calculateStaticDefense(slots: SlotLike[]): number {
+  const wall  = slots.find(s => s.slotType === "wall");
+  const tower = slots.find(s => s.slotType === "tower");
+  return 10 + (wall?.level ?? 0) * 20 + (tower?.level ?? 0) * 30;
 }
 
-export interface FortLike { type: string; level: number; borderBonus: boolean; row: number; col: number; }
+export function calculateTotalDefense(
+  slots: SlotLike[],
+  onMission: { onMissionInfantry: number; onMissionArchers: number; onMissionCavalry: number },
+): number {
+  const comp   = calculateArmyComposition(slots);
+  const static_ = calculateStaticDefense(slots);
 
-export function calculateDefenseRating(forts: FortLike[]): number {
-  let defense = 10;
-  for (const fort of forts) {
-    if (fort.type === "wall") defense += fort.borderBonus ? fort.level * 8 : fort.level * 4;
-    else if (fort.type === "tower") {
-      const tooClose = forts.some(f => f.type === "tower" && f !== fort && Math.abs(f.row - fort.row) <= 1 && Math.abs(f.col - fort.col) <= 1);
-      defense += tooClose ? fort.level * 5 : fort.level * 12;
-    }
-  }
-  return defense;
+  const availInfantry = Math.max(0, comp.infantry - onMission.onMissionInfantry);
+  const availArchers  = Math.max(0, comp.archers  - onMission.onMissionArchers);
+  const availCavalry  = Math.max(0, comp.cavalry  - onMission.onMissionCavalry);
+
+  const availPower = Math.round(availInfantry * 10 + availArchers * 15 + availCavalry * 12);
+  return static_ + availPower;
 }
 
-export function isBorderCell(row: number, col: number): boolean {
-  return row === 0 || row === GRID_SIZE - 1 || col === 0 || col === GRID_SIZE - 1;
-}
-
-export function calculateBuildingCost(buildingType: string, targetLevel: number): { wood: number; stone: number; gold: number; food: number } {
-  const base = BUILDING_COSTS[buildingType] ?? { wood: 0, stone: 0, gold: 0, food: 0 };
+export function calculateBuildingCost(slotType: string, targetLevel: number): { wood: number; stone: number; gold: number; food: number } {
+  const base = BUILDING_COSTS[slotType] ?? { wood: 0, stone: 0, gold: 0, food: 0 };
   const mult = Math.pow(UPGRADE_COST_MULTIPLIER, targetLevel - 1);
   return {
     wood:  Math.ceil(base.wood  * mult),
@@ -206,13 +200,14 @@ export function calculateBuildingCost(buildingType: string, targetLevel: number)
   };
 }
 
-export function getUpgradeDurationMs(buildingType: string, currentLevel: number): number {
+export function getUpgradeDurationMs(slotType: string, currentLevel: number): number {
   const baseMins: Record<string, number> = {
     farm: 5, mine: 8, quarry: 6, lumberMill: 6,
     barracks: 10, archeryRange: 10, stables: 12,
     market: 10, tavern: 12, house: 7,
+    wall: 8, tower: 12,
   };
-  const base = baseMins[buildingType] ?? 10;
+  const base = baseMins[slotType] ?? 10;
   return base * Math.pow(2, currentLevel - 1) * 60 * 1000;
 }
 

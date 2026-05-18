@@ -112,7 +112,7 @@ export default function SetupScreen() {
 
         <View style={[styles.featureList, { borderTopColor: colors.border }]}>
           {[
-            { icon: "home-city",   text: "Build a 9×9 town grid with strategic buildings" },
+            { icon: "home-city",   text: "Build your kingdom across 12 strategic building slots" },
             { icon: "sword-cross", text: "Armies grow from your military buildings" },
             { icon: "earth",       text: "Raid other kingdoms and dominate the leaderboard" },
             { icon: "trophy",      text: "Earn permanent trophies across seasonal cycles" },

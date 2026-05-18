@@ -23,13 +23,9 @@ import type {
   ActiveMission,
   Activity,
   Army,
-  BuildingMove,
-  BuildingPlacement,
-  Fortification,
-  FortificationPlacement,
+  BuildingSlot,
   GameState,
   GetMissionsParams,
-  GridCell,
   HealthStatus,
   LeaderboardEntry,
   MissionCard,
@@ -371,7 +367,7 @@ export const getGetTownUrl = (townId: number,) => {
 }
 
 /**
- * @summary Get town details including resources
+ * @summary Get town details including resources and scores
  */
 export const getTown = async (townId: number, options?: RequestInit): Promise<Town> => {
 
@@ -418,7 +414,7 @@ export type GetTownQueryError = ErrorType<void>
 
 
 /**
- * @summary Get town details including resources
+ * @summary Get town details including resources and scores
  */
 
 export function useGetTown<TData = Awaited<ReturnType<typeof getTown>>, TError = ErrorType<void>>(
@@ -439,20 +435,20 @@ export function useGetTown<TData = Awaited<ReturnType<typeof getTown>>, TError =
 
 
 
-export const getGetTownGridUrl = (townId: number,) => {
+export const getGetBuildingSlotsUrl = (townId: number,) => {
 
 
 
 
-  return `/api/towns/${townId}/grid`
+  return `/api/towns/${townId}/slots`
 }
 
 /**
- * @summary Get the 9x9 building grid for a town
+ * @summary Get all building slots for a town
  */
-export const getTownGrid = async (townId: number, options?: RequestInit): Promise<GridCell[]> => {
+export const getBuildingSlots = async (townId: number, options?: RequestInit): Promise<BuildingSlot[]> => {
 
-  return customFetch<GridCell[]>(getGetTownGridUrl(townId),
+  return customFetch<BuildingSlot[]>(getGetBuildingSlotsUrl(townId),
   {
     ...options,
     method: 'GET'
@@ -465,45 +461,45 @@ export const getTownGrid = async (townId: number, options?: RequestInit): Promis
 
 
 
-export const getGetTownGridQueryKey = (townId: number,) => {
+export const getGetBuildingSlotsQueryKey = (townId: number,) => {
     return [
-    `/api/towns/${townId}/grid`
+    `/api/towns/${townId}/slots`
     ] as const;
     }
 
 
-export const getGetTownGridQueryOptions = <TData = Awaited<ReturnType<typeof getTownGrid>>, TError = ErrorType<unknown>>(townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTownGrid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetBuildingSlotsQueryOptions = <TData = Awaited<ReturnType<typeof getBuildingSlots>>, TError = ErrorType<unknown>>(townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBuildingSlots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetTownGridQueryKey(townId);
+  const queryKey =  queryOptions?.queryKey ?? getGetBuildingSlotsQueryKey(townId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTownGrid>>> = ({ signal }) => getTownGrid(townId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBuildingSlots>>> = ({ signal }) => getBuildingSlots(townId, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: !!(townId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTownGrid>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(townId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBuildingSlots>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetTownGridQueryResult = NonNullable<Awaited<ReturnType<typeof getTownGrid>>>
-export type GetTownGridQueryError = ErrorType<unknown>
+export type GetBuildingSlotsQueryResult = NonNullable<Awaited<ReturnType<typeof getBuildingSlots>>>
+export type GetBuildingSlotsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get the 9x9 building grid for a town
+ * @summary Get all building slots for a town
  */
 
-export function useGetTownGrid<TData = Awaited<ReturnType<typeof getTownGrid>>, TError = ErrorType<unknown>>(
- townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTownGrid>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export function useGetBuildingSlots<TData = Awaited<ReturnType<typeof getBuildingSlots>>, TError = ErrorType<unknown>>(
+ townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBuildingSlots>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetTownGridQueryOptions(townId,options)
+  const queryOptions = getGetBuildingSlotsQueryOptions(townId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -516,246 +512,22 @@ export function useGetTownGrid<TData = Awaited<ReturnType<typeof getTownGrid>>, 
 
 
 
-export const getPlaceBuildingUrl = (townId: number,) => {
+export const getBuildSlotUrl = (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
 
-  return `/api/towns/${townId}/buildings`
+  return `/api/towns/${townId}/slots/${slotType}/build`
 }
 
 /**
- * @summary Place a new building on the grid
+ * @summary Build in an empty slot (level 0 -> 1)
  */
-export const placeBuilding = async (townId: number,
-    buildingPlacement: BuildingPlacement, options?: RequestInit): Promise<GridCell> => {
+export const buildSlot = async (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
-  return customFetch<GridCell>(getPlaceBuildingUrl(townId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      buildingPlacement,)
-  }
-);}
-
-
-
-
-export const getPlaceBuildingMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeBuilding>>, TError,{townId: number;data: BodyType<BuildingPlacement>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof placeBuilding>>, TError,{townId: number;data: BodyType<BuildingPlacement>}, TContext> => {
-
-const mutationKey = ['placeBuilding'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof placeBuilding>>, {townId: number;data: BodyType<BuildingPlacement>}> = (props) => {
-          const {townId,data} = props ?? {};
-
-          return  placeBuilding(townId,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PlaceBuildingMutationResult = NonNullable<Awaited<ReturnType<typeof placeBuilding>>>
-    export type PlaceBuildingMutationBody = BodyType<BuildingPlacement>
-    export type PlaceBuildingMutationError = ErrorType<void>
-
-    /**
- * @summary Place a new building on the grid
- */
-export const usePlaceBuilding = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeBuilding>>, TError,{townId: number;data: BodyType<BuildingPlacement>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof placeBuilding>>,
-        TError,
-        {townId: number;data: BodyType<BuildingPlacement>},
-        TContext
-      > => {
-      return useMutation(getPlaceBuildingMutationOptions(options));
-    }
-
-export const getMoveBuildingUrl = (townId: number,
-    row: number,
-    col: number,) => {
-
-
-
-
-  return `/api/towns/${townId}/buildings/${row}/${col}`
-}
-
-/**
- * @summary Move building to a new position
- */
-export const moveBuilding = async (townId: number,
-    row: number,
-    col: number,
-    buildingMove: BuildingMove, options?: RequestInit): Promise<GridCell> => {
-
-  return customFetch<GridCell>(getMoveBuildingUrl(townId,row,col),
-  {
-    ...options,
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      buildingMove,)
-  }
-);}
-
-
-
-
-export const getMoveBuildingMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveBuilding>>, TError,{townId: number;row: number;col: number;data: BodyType<BuildingMove>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof moveBuilding>>, TError,{townId: number;row: number;col: number;data: BodyType<BuildingMove>}, TContext> => {
-
-const mutationKey = ['moveBuilding'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveBuilding>>, {townId: number;row: number;col: number;data: BodyType<BuildingMove>}> = (props) => {
-          const {townId,row,col,data} = props ?? {};
-
-          return  moveBuilding(townId,row,col,data,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type MoveBuildingMutationResult = NonNullable<Awaited<ReturnType<typeof moveBuilding>>>
-    export type MoveBuildingMutationBody = BodyType<BuildingMove>
-    export type MoveBuildingMutationError = ErrorType<void>
-
-    /**
- * @summary Move building to a new position
- */
-export const useMoveBuilding = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveBuilding>>, TError,{townId: number;row: number;col: number;data: BodyType<BuildingMove>}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof moveBuilding>>,
-        TError,
-        {townId: number;row: number;col: number;data: BodyType<BuildingMove>},
-        TContext
-      > => {
-      return useMutation(getMoveBuildingMutationOptions(options));
-    }
-
-export const getRemoveBuildingUrl = (townId: number,
-    row: number,
-    col: number,) => {
-
-
-
-
-  return `/api/towns/${townId}/buildings/${row}/${col}`
-}
-
-/**
- * @summary Remove/refund a building (75% resource refund)
- */
-export const removeBuilding = async (townId: number,
-    row: number,
-    col: number, options?: RequestInit): Promise<Town> => {
-
-  return customFetch<Town>(getRemoveBuildingUrl(townId,row,col),
-  {
-    ...options,
-    method: 'DELETE'
-
-
-  }
-);}
-
-
-
-
-export const getRemoveBuildingMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBuilding>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof removeBuilding>>, TError,{townId: number;row: number;col: number}, TContext> => {
-
-const mutationKey = ['removeBuilding'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeBuilding>>, {townId: number;row: number;col: number}> = (props) => {
-          const {townId,row,col} = props ?? {};
-
-          return  removeBuilding(townId,row,col,requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type RemoveBuildingMutationResult = NonNullable<Awaited<ReturnType<typeof removeBuilding>>>
-
-    export type RemoveBuildingMutationError = ErrorType<void>
-
-    /**
- * @summary Remove/refund a building (75% resource refund)
- */
-export const useRemoveBuilding = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeBuilding>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof removeBuilding>>,
-        TError,
-        {townId: number;row: number;col: number},
-        TContext
-      > => {
-      return useMutation(getRemoveBuildingMutationOptions(options));
-    }
-
-export const getUpgradeBuildingUrl = (townId: number,
-    row: number,
-    col: number,) => {
-
-
-
-
-  return `/api/towns/${townId}/buildings/${row}/${col}/upgrade`
-}
-
-/**
- * @summary Start an upgrade on a building
- */
-export const upgradeBuilding = async (townId: number,
-    row: number,
-    col: number, options?: RequestInit): Promise<GridCell> => {
-
-  return customFetch<GridCell>(getUpgradeBuildingUrl(townId,row,col),
+  return customFetch<BuildingSlot>(getBuildSlotUrl(townId,slotType),
   {
     ...options,
     method: 'POST'
@@ -767,11 +539,11 @@ export const upgradeBuilding = async (townId: number,
 
 
 
-export const getUpgradeBuildingMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeBuilding>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof upgradeBuilding>>, TError,{townId: number;row: number;col: number}, TContext> => {
+export const getBuildSlotMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
-const mutationKey = ['upgradeBuilding'];
+const mutationKey = ['buildSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -781,10 +553,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upgradeBuilding>>, {townId: number;row: number;col: number}> = (props) => {
-          const {townId,row,col} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof buildSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+          const {townId,slotType} = props ?? {};
 
-          return  upgradeBuilding(townId,row,col,requestOptions)
+          return  buildSlot(townId,slotType,requestOptions)
         }
 
 
@@ -794,41 +566,43 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type UpgradeBuildingMutationResult = NonNullable<Awaited<ReturnType<typeof upgradeBuilding>>>
+    export type BuildSlotMutationResult = NonNullable<Awaited<ReturnType<typeof buildSlot>>>
 
-    export type UpgradeBuildingMutationError = ErrorType<void>
+    export type BuildSlotMutationError = ErrorType<void>
 
     /**
- * @summary Start an upgrade on a building
+ * @summary Build in an empty slot (level 0 -> 1)
  */
-export const useUpgradeBuilding = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeBuilding>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useBuildSlot = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof buildSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof upgradeBuilding>>,
+        Awaited<ReturnType<typeof buildSlot>>,
         TError,
-        {townId: number;row: number;col: number},
+        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
-      return useMutation(getUpgradeBuildingMutationOptions(options));
+      return useMutation(getBuildSlotMutationOptions(options));
     }
 
-export const getGetFortificationsUrl = (townId: number,) => {
+export const getUpgradeSlotUrl = (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
 
-  return `/api/towns/${townId}/fortifications`
+  return `/api/towns/${townId}/slots/${slotType}/upgrade`
 }
 
 /**
- * @summary Get all fortifications for a town
+ * @summary Upgrade an existing building slot
  */
-export const getFortifications = async (townId: number, options?: RequestInit): Promise<Fortification[]> => {
+export const upgradeSlot = async (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
-  return customFetch<Fortification[]>(getGetFortificationsUrl(townId),
+  return customFetch<BuildingSlot>(getUpgradeSlotUrl(townId,slotType),
   {
     ...options,
-    method: 'GET'
+    method: 'POST'
 
 
   }
@@ -837,90 +611,11 @@ export const getFortifications = async (townId: number, options?: RequestInit): 
 
 
 
+export const getUpgradeSlotMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
-export const getGetFortificationsQueryKey = (townId: number,) => {
-    return [
-    `/api/towns/${townId}/fortifications`
-    ] as const;
-    }
-
-
-export const getGetFortificationsQueryOptions = <TData = Awaited<ReturnType<typeof getFortifications>>, TError = ErrorType<unknown>>(townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFortifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-) => {
-
-const {query: queryOptions, request: requestOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetFortificationsQueryKey(townId);
-
-
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFortifications>>> = ({ signal }) => getFortifications(townId, { signal, ...requestOptions });
-
-
-
-
-
-   return  { queryKey, queryFn, enabled: !!(townId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFortifications>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetFortificationsQueryResult = NonNullable<Awaited<ReturnType<typeof getFortifications>>>
-export type GetFortificationsQueryError = ErrorType<unknown>
-
-
-/**
- * @summary Get all fortifications for a town
- */
-
-export function useGetFortifications<TData = Awaited<ReturnType<typeof getFortifications>>, TError = ErrorType<unknown>>(
- townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFortifications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
-
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-
-  const queryOptions = getGetFortificationsQueryOptions(townId,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-
-
-
-
-
-
-export const getPlaceFortificationUrl = (townId: number,) => {
-
-
-
-
-  return `/api/towns/${townId}/fortifications`
-}
-
-/**
- * @summary Place a wall segment or tower
- */
-export const placeFortification = async (townId: number,
-    fortificationPlacement: FortificationPlacement, options?: RequestInit): Promise<Fortification> => {
-
-  return customFetch<Fortification>(getPlaceFortificationUrl(townId),
-  {
-    ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(
-      fortificationPlacement,)
-  }
-);}
-
-
-
-
-export const getPlaceFortificationMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeFortification>>, TError,{townId: number;data: BodyType<FortificationPlacement>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof placeFortification>>, TError,{townId: number;data: BodyType<FortificationPlacement>}, TContext> => {
-
-const mutationKey = ['placeFortification'];
+const mutationKey = ['upgradeSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -930,10 +625,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof placeFortification>>, {townId: number;data: BodyType<FortificationPlacement>}> = (props) => {
-          const {townId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upgradeSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+          const {townId,slotType} = props ?? {};
 
-          return  placeFortification(townId,data,requestOptions)
+          return  upgradeSlot(townId,slotType,requestOptions)
         }
 
 
@@ -943,42 +638,40 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PlaceFortificationMutationResult = NonNullable<Awaited<ReturnType<typeof placeFortification>>>
-    export type PlaceFortificationMutationBody = BodyType<FortificationPlacement>
-    export type PlaceFortificationMutationError = ErrorType<void>
+    export type UpgradeSlotMutationResult = NonNullable<Awaited<ReturnType<typeof upgradeSlot>>>
+
+    export type UpgradeSlotMutationError = ErrorType<void>
 
     /**
- * @summary Place a wall segment or tower
+ * @summary Upgrade an existing building slot
  */
-export const usePlaceFortification = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof placeFortification>>, TError,{townId: number;data: BodyType<FortificationPlacement>}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useUpgradeSlot = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upgradeSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof placeFortification>>,
+        Awaited<ReturnType<typeof upgradeSlot>>,
         TError,
-        {townId: number;data: BodyType<FortificationPlacement>},
+        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
-      return useMutation(getPlaceFortificationMutationOptions(options));
+      return useMutation(getUpgradeSlotMutationOptions(options));
     }
 
-export const getRemoveFortificationUrl = (townId: number,
-    row: number,
-    col: number,) => {
+export const getDemolishSlotUrl = (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower',) => {
 
 
 
 
-  return `/api/towns/${townId}/fortifications/${row}/${col}`
+  return `/api/towns/${townId}/slots/${slotType}`
 }
 
 /**
- * @summary Remove a fortification
+ * @summary Demolish a building (75% resource refund, resets to level 0)
  */
-export const removeFortification = async (townId: number,
-    row: number,
-    col: number, options?: RequestInit): Promise<Town> => {
+export const demolishSlot = async (townId: number,
+    slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower', options?: RequestInit): Promise<BuildingSlot> => {
 
-  return customFetch<Town>(getRemoveFortificationUrl(townId,row,col),
+  return customFetch<BuildingSlot>(getDemolishSlotUrl(townId,slotType),
   {
     ...options,
     method: 'DELETE'
@@ -990,11 +683,11 @@ export const removeFortification = async (townId: number,
 
 
 
-export const getRemoveFortificationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFortification>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof removeFortification>>, TError,{townId: number;row: number;col: number}, TContext> => {
+export const getDemolishSlotMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext> => {
 
-const mutationKey = ['removeFortification'];
+const mutationKey = ['demolishSlot'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -1004,10 +697,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeFortification>>, {townId: number;row: number;col: number}> = (props) => {
-          const {townId,row,col} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof demolishSlot>>, {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}> = (props) => {
+          const {townId,slotType} = props ?? {};
 
-          return  removeFortification(townId,row,col,requestOptions)
+          return  demolishSlot(townId,slotType,requestOptions)
         }
 
 
@@ -1017,22 +710,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type RemoveFortificationMutationResult = NonNullable<Awaited<ReturnType<typeof removeFortification>>>
+    export type DemolishSlotMutationResult = NonNullable<Awaited<ReturnType<typeof demolishSlot>>>
 
-    export type RemoveFortificationMutationError = ErrorType<unknown>
+    export type DemolishSlotMutationError = ErrorType<void>
 
     /**
- * @summary Remove a fortification
+ * @summary Demolish a building (75% resource refund, resets to level 0)
  */
-export const useRemoveFortification = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeFortification>>, TError,{townId: number;row: number;col: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+export const useDemolishSlot = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof demolishSlot>>, TError,{townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof removeFortification>>,
+        Awaited<ReturnType<typeof demolishSlot>>,
         TError,
-        {townId: number;row: number;col: number},
+        {townId: number;slotType: 'farm' | 'mine' | 'quarry' | 'lumberMill' | 'barracks' | 'archeryRange' | 'stables' | 'market' | 'tavern' | 'house' | 'wall' | 'tower'},
         TContext
       > => {
-      return useMutation(getRemoveFortificationMutationOptions(options));
+      return useMutation(getDemolishSlotMutationOptions(options));
     }
 
 export const getGetTownArmyUrl = (townId: number,) => {
@@ -1270,7 +963,7 @@ export const getGetMissionsUrl = (params: GetMissionsParams,) => {
 }
 
 /**
- * @summary Get the 5 mission cards available this hour
+ * @summary Get the 3 mission cards available this hour
  */
 export const getMissions = async (params: GetMissionsParams, options?: RequestInit): Promise<MissionCard[]> => {
 
@@ -1317,7 +1010,7 @@ export type GetMissionsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary Get the 5 mission cards available this hour
+ * @summary Get the 3 mission cards available this hour
  */
 
 export function useGetMissions<TData = Awaited<ReturnType<typeof getMissions>>, TError = ErrorType<unknown>>(

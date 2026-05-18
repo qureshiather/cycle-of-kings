@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { playersTable, townsTable, armyTable, trophiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { initSlotsForTown } from "./slots.js";
 
 const router = Router();
 
@@ -27,10 +28,11 @@ router.post("/players", async (req, res) => {
   const [town] = await db.insert(townsTable).values({
     playerId: player.id,
     name: `${trimmedName}'s Kingdom`,
-    gold: 200, food: 200, wood: 100, stone: 100,
+    gold: 200, food: 200, wood: 150, stone: 100,
   }).returning();
 
   await db.insert(armyTable).values({ townId: town.id });
+  await initSlotsForTown(town.id);
 
   res.json({ ...player, townId: town.id, createdAt: player.createdAt.toISOString() });
 });

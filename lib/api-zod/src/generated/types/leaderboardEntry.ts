@@ -13,7 +13,8 @@ export interface LeaderboardEntry {
   playerId: number;
   playerName: string;
   score: number;
+  economyScore: number;
+  armyScore: number;
   gold: number;
-  population: number;
-  militaryPower: number;
+  peacefulMode?: boolean;
 }

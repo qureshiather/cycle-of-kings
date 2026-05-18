@@ -5,14 +5,12 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
-import type { GridCellBuildingType } from './gridCellBuildingType';
+import type { BuildingSlotSlotType } from './buildingSlotSlotType';
 
-export interface GridCell {
+export interface BuildingSlot {
   id: number;
   townId: number;
-  row: number;
-  col: number;
-  buildingType: GridCellBuildingType;
+  slotType: BuildingSlotSlotType;
   level: number;
   upgrading: boolean;
   /** @nullable */

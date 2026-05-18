@@ -44,9 +44,10 @@ export interface Town {
   foodPerHour: number;
   woodPerHour: number;
   stonePerHour: number;
-  defenseRating: number;
-  population: number;
-  populationCap: number;
+  economyScore: number;
+  armyScore: number;
+  staticDefense: number;
+  totalDefense: number;
   peacefulMode: boolean;
   lastTickAt: string;
 }
@@ -64,15 +65,15 @@ export interface TownSummary {
   name: string;
   playerId: number;
   playerName: string;
-  defenseRating: number;
-  population: number;
+  staticDefense: number;
+  totalDefense: number;
   peacefulMode: boolean;
 }
 
-export type GridCellBuildingType = typeof GridCellBuildingType[keyof typeof GridCellBuildingType];
+export type BuildingSlotSlotType = typeof BuildingSlotSlotType[keyof typeof BuildingSlotSlotType];
 
 
-export const GridCellBuildingType = {
+export const BuildingSlotSlotType = {
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',
@@ -83,78 +84,18 @@ export const GridCellBuildingType = {
   market: 'market',
   tavern: 'tavern',
   house: 'house',
-  empty: 'empty',
+  wall: 'wall',
+  tower: 'tower',
 } as const;
 
-export interface GridCell {
+export interface BuildingSlot {
   id: number;
   townId: number;
-  row: number;
-  col: number;
-  buildingType: GridCellBuildingType;
+  slotType: BuildingSlotSlotType;
   level: number;
   upgrading: boolean;
   /** @nullable */
   upgradeEndsAt: string | null;
-}
-
-export type BuildingPlacementBuildingType = typeof BuildingPlacementBuildingType[keyof typeof BuildingPlacementBuildingType];
-
-
-export const BuildingPlacementBuildingType = {
-  farm: 'farm',
-  mine: 'mine',
-  quarry: 'quarry',
-  lumberMill: 'lumberMill',
-  barracks: 'barracks',
-  archeryRange: 'archeryRange',
-  stables: 'stables',
-  market: 'market',
-  tavern: 'tavern',
-  house: 'house',
-} as const;
-
-export interface BuildingPlacement {
-  row: number;
-  col: number;
-  buildingType: BuildingPlacementBuildingType;
-}
-
-export interface BuildingMove {
-  newRow: number;
-  newCol: number;
-}
-
-export type FortificationType = typeof FortificationType[keyof typeof FortificationType];
-
-
-export const FortificationType = {
-  wall: 'wall',
-  tower: 'tower',
-} as const;
-
-export interface Fortification {
-  id: number;
-  townId: number;
-  row: number;
-  col: number;
-  type: FortificationType;
-  level: number;
-  borderBonus?: boolean;
-}
-
-export type FortificationPlacementType = typeof FortificationPlacementType[keyof typeof FortificationPlacementType];
-
-
-export const FortificationPlacementType = {
-  wall: 'wall',
-  tower: 'tower',
-} as const;
-
-export interface FortificationPlacement {
-  row: number;
-  col: number;
-  type: FortificationPlacementType;
 }
 
 export interface Army {
@@ -347,9 +288,10 @@ export interface LeaderboardEntry {
   playerId: number;
   playerName: string;
   score: number;
+  economyScore: number;
+  armyScore: number;
   gold: number;
-  population: number;
-  militaryPower: number;
+  peacefulMode?: boolean;
 }
 
 export interface ResetResult {

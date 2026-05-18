@@ -11,7 +11,7 @@ export interface TownSummary {
   name: string;
   playerId: number;
   playerName: string;
-  defenseRating: number;
-  population: number;
+  staticDefense: number;
+  totalDefense: number;
   peacefulMode: boolean;
 }

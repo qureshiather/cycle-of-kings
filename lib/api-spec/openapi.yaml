@@ -12,7 +12,7 @@ tags:
   - name: players
     description: Player management
   - name: towns
-    description: Town and grid management
+    description: Town and building management
   - name: army
     description: Army recruitment and management
   - name: missions
@@ -103,7 +103,7 @@ paths:
     get:
       operationId: getTown
       tags: [towns]
-      summary: Get town details including resources
+      summary: Get town details including resources and scores
       parameters:
         - name: townId
           in: path
@@ -119,11 +119,11 @@ paths:
         "404":
           description: Not found
 
-  /towns/{townId}/grid:
+  /towns/{townId}/slots:
     get:
-      operationId: getTownGrid
+      operationId: getBuildingSlots
       tags: [towns]
-      summary: Get the 9x9 building grid for a town
+      summary: Get all building slots for a town
       parameters:
         - name: townId
           in: path
@@ -131,197 +131,91 @@ paths:
           schema: { type: integer }
       responses:
         "200":
-          description: Grid cells
+          description: Building slots
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/GridCell"
+                  $ref: "#/components/schemas/BuildingSlot"
 
-  /towns/{townId}/buildings:
+  /towns/{townId}/slots/{slotType}/build:
     post:
-      operationId: placeBuilding
+      operationId: buildSlot
       tags: [towns]
-      summary: Place a new building on the grid
+      summary: Build in an empty slot (level 0 -> 1)
       parameters:
         - name: townId
           in: path
           required: true
           schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BuildingPlacement"
+        - name: slotType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "201":
-          description: Building placed
+          description: Building constructed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GridCell"
+                $ref: "#/components/schemas/BuildingSlot"
         "400":
-          description: Invalid placement or insufficient resources
+          description: Already built or insufficient resources
 
-  /towns/{townId}/buildings/{row}/{col}:
-    patch:
-      operationId: moveBuilding
-      tags: [towns]
-      summary: Move building to a new position
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-        - name: row
-          in: path
-          required: true
-          schema: { type: integer }
-        - name: col
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/BuildingMove"
-      responses:
-        "200":
-          description: Building moved
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GridCell"
-        "400":
-          description: Invalid move
-    delete:
-      operationId: removeBuilding
-      tags: [towns]
-      summary: Remove/refund a building (75% resource refund)
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-        - name: row
-          in: path
-          required: true
-          schema: { type: integer }
-        - name: col
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Building removed, refund granted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Town"
-        "404":
-          description: No building at that position
-
-  /towns/{townId}/buildings/{row}/{col}/upgrade:
+  /towns/{townId}/slots/{slotType}/upgrade:
     post:
-      operationId: upgradeBuilding
+      operationId: upgradeSlot
       tags: [towns]
-      summary: Start an upgrade on a building
+      summary: Upgrade an existing building slot
       parameters:
         - name: townId
           in: path
           required: true
           schema: { type: integer }
-        - name: row
+        - name: slotType
           in: path
           required: true
-          schema: { type: integer }
-        - name: col
-          in: path
-          required: true
-          schema: { type: integer }
+          schema:
+            type: string
+            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "200":
           description: Upgrade started
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GridCell"
+                $ref: "#/components/schemas/BuildingSlot"
         "400":
-          description: Cannot upgrade (insufficient resources, already upgrading, max level)
+          description: Cannot upgrade (insufficient resources, already upgrading, max level, not built)
 
-  /towns/{townId}/fortifications:
-    get:
-      operationId: getFortifications
-      tags: [towns]
-      summary: Get all fortifications for a town
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-      responses:
-        "200":
-          description: Fortifications
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Fortification"
-    post:
-      operationId: placeFortification
-      tags: [towns]
-      summary: Place a wall segment or tower
-      parameters:
-        - name: townId
-          in: path
-          required: true
-          schema: { type: integer }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FortificationPlacement"
-      responses:
-        "201":
-          description: Fortification placed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Fortification"
-        "400":
-          description: Invalid placement
-
-  /towns/{townId}/fortifications/{row}/{col}:
+  /towns/{townId}/slots/{slotType}:
     delete:
-      operationId: removeFortification
+      operationId: demolishSlot
       tags: [towns]
-      summary: Remove a fortification
+      summary: Demolish a building (75% resource refund, resets to level 0)
       parameters:
         - name: townId
           in: path
           required: true
           schema: { type: integer }
-        - name: row
+        - name: slotType
           in: path
           required: true
-          schema: { type: integer }
-        - name: col
-          in: path
-          required: true
-          schema: { type: integer }
+          schema:
+            type: string
+            enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
       responses:
         "200":
-          description: Removed
+          description: Demolished, refund granted
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Town"
+                $ref: "#/components/schemas/BuildingSlot"
+        "400":
+          description: Nothing to demolish
 
   /towns/{townId}/army:
     get:
@@ -340,7 +234,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Army"
-
 
   /towns/{townId}/peaceful:
     patch:
@@ -392,7 +285,7 @@ paths:
     get:
       operationId: getMissions
       tags: [missions]
-      summary: Get the 5 mission cards available this hour
+      summary: Get the 3 mission cards available this hour
       parameters:
         - name: townId
           in: query
@@ -656,7 +549,7 @@ components:
 
     Town:
       type: object
-      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, defenseRating, population, populationCap, peacefulMode, lastTickAt]
+      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, economyScore, armyScore, staticDefense, totalDefense, peacefulMode, lastTickAt]
       properties:
         id: { type: integer }
         playerId: { type: integer }
@@ -669,9 +562,10 @@ components:
         foodPerHour: { type: number }
         woodPerHour: { type: number }
         stonePerHour: { type: number }
-        defenseRating: { type: number }
-        population: { type: integer }
-        populationCap: { type: integer }
+        economyScore: { type: number }
+        armyScore: { type: number }
+        staticDefense: { type: number }
+        totalDefense: { type: number }
         peacefulMode: { type: boolean }
         lastTickAt: { type: string }
 
@@ -689,71 +583,28 @@ components:
 
     TownSummary:
       type: object
-      required: [id, name, playerId, playerName, defenseRating, population, peacefulMode]
+      required: [id, name, playerId, playerName, staticDefense, totalDefense, peacefulMode]
       properties:
         id: { type: integer }
         name: { type: string }
         playerId: { type: integer }
         playerName: { type: string }
-        defenseRating: { type: number }
-        population: { type: integer }
+        staticDefense: { type: number }
+        totalDefense: { type: number }
         peacefulMode: { type: boolean }
 
-    GridCell:
+    BuildingSlot:
       type: object
-      required: [id, townId, row, col, buildingType, level, upgrading, upgradeEndsAt]
+      required: [id, townId, slotType, level, upgrading, upgradeEndsAt]
       properties:
         id: { type: integer }
         townId: { type: integer }
-        row: { type: integer }
-        col: { type: integer }
-        buildingType:
+        slotType:
           type: string
-          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, empty]
+          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
         level: { type: integer }
         upgrading: { type: boolean }
         upgradeEndsAt: { type: ["string", "null"] }
-
-    BuildingPlacement:
-      type: object
-      required: [row, col, buildingType]
-      properties:
-        row: { type: integer }
-        col: { type: integer }
-        buildingType:
-          type: string
-          enum: [farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house]
-
-    BuildingMove:
-      type: object
-      required: [newRow, newCol]
-      properties:
-        newRow: { type: integer }
-        newCol: { type: integer }
-
-    Fortification:
-      type: object
-      required: [id, townId, row, col, type, level]
-      properties:
-        id: { type: integer }
-        townId: { type: integer }
-        row: { type: integer }
-        col: { type: integer }
-        type:
-          type: string
-          enum: [wall, tower]
-        level: { type: integer }
-        borderBonus: { type: boolean }
-
-    FortificationPlacement:
-      type: object
-      required: [row, col, type]
-      properties:
-        row: { type: integer }
-        col: { type: integer }
-        type:
-          type: string
-          enum: [wall, tower]
 
     Army:
       type: object
@@ -909,7 +760,7 @@ components:
 
     LeaderboardEntry:
       type: object
-      required: [rank, townId, townName, playerId, playerName, score, gold, population, militaryPower]
+      required: [rank, townId, townName, playerId, playerName, score, economyScore, armyScore, gold]
       properties:
         rank: { type: integer }
         townId: { type: integer }
@@ -917,9 +768,10 @@ components:
         playerId: { type: integer }
         playerName: { type: string }
         score: { type: number }
+        economyScore: { type: number }
+        armyScore: { type: number }
         gold: { type: number }
-        population: { type: integer }
-        militaryPower: { type: integer }
+        peacefulMode: { type: boolean }
 
     ResetResult:
       type: object

@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { missionsTable, armyTable, townsTable, gridCellsTable, activitiesTable } from "@workspace/db";
+import { missionsTable, armyTable, townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { generateMissionCards, getCurrentHourSeed, calculateArmyComposition } from "../lib/gameEngine.js";
+import { initSlotsForTown } from "./slots.js";
 
 const MERCENARY_GOLD_COST = 10;
 
@@ -21,8 +22,9 @@ router.get("/missions", async (req, res) => {
   const townId = parseInt(String(req.query["townId"] ?? ""));
   if (!townId) return void res.status(400).json({ error: "townId required" });
 
-  const cells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, townId));
-  const composition = calculateArmyComposition(cells);
+  await initSlotsForTown(townId);
+  const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const composition = calculateArmyComposition(slots);
   const seed = getCurrentHourSeed();
 
   res.json(generateMissionCards(seed, composition.totalTroops, composition.totalPower));
@@ -111,8 +113,9 @@ router.post("/towns/:townId/missions", async (req, res) => {
 
   if (!missionCardId) return void res.status(400).json({ error: "missionCardId required" });
 
-  const cells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, townId));
-  const composition = calculateArmyComposition(cells);
+  await initSlotsForTown(townId);
+  const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const composition = calculateArmyComposition(slots);
   const seed = getCurrentHourSeed();
   const cards = generateMissionCards(seed, composition.totalTroops, composition.totalPower);
   const card = cards.find(c => c.id === missionCardId);

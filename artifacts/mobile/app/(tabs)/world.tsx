@@ -7,7 +7,7 @@ import {
   useGetLeaderboard, useListTowns, useLaunchRaid, useGetTownArmy, useGetTownRaids, useResetTown,
   useGetTown, useSetPeacefulMode,
   getGetTownRaidsQueryKey, getGetTownArmyQueryKey, getGetTownQueryKey,
-  getGetTownGridQueryKey, getGetFortificationsQueryKey,
+  getGetBuildingSlotsQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
@@ -111,8 +111,7 @@ export default function WorldScreen() {
               onSuccess: () => {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                 qc.invalidateQueries({ queryKey: getGetTownQueryKey(id) });
-                qc.invalidateQueries({ queryKey: getGetTownGridQueryKey(id) });
-                qc.invalidateQueries({ queryKey: getGetFortificationsQueryKey(id) });
+                qc.invalidateQueries({ queryKey: getGetBuildingSlotsQueryKey(id) });
                 qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(id) });
                 qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(id) });
               },
@@ -166,7 +165,7 @@ export default function WorldScreen() {
                 </View>
                 <View style={styles.rankStats}>
                   <Text style={[styles.rankScore, { color: colors.gold }]}>{(entry.score ?? 0).toLocaleString()}</Text>
-                  <Text style={[styles.rankMil, { color: colors.textSecondary }]}>⚔ {entry.militaryPower ?? 0}</Text>
+                  <Text style={[styles.rankMil, { color: colors.textSecondary }]}>📈 {entry.economyScore ?? 0} · ⚔ {entry.armyScore ?? 0}</Text>
                 </View>
                 {entry.townId !== townId && (() => {
                   const targetTown = (towns ?? []).find((t: any) => t.id === entry.townId);

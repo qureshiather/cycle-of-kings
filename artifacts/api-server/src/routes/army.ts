@@ -1,16 +1,18 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { armyTable, townsTable, gridCellsTable } from "@workspace/db";
+import { armyTable, buildingSlotsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { calculateArmyComposition, calculateArmyCapacity } from "../lib/gameEngine.js";
+import { initSlotsForTown } from "./slots.js";
 
 const router = Router();
 
 router.get("/towns/:townId/army", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
-  const cells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, townId));
-  const composition = calculateArmyComposition(cells);
-  const capacity = calculateArmyCapacity(cells);
+  await initSlotsForTown(townId);
+  const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const composition = calculateArmyComposition(slots);
+  const capacity = calculateArmyCapacity(slots);
 
   const rows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
   const onMission = rows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };

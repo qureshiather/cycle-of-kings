@@ -70,7 +70,7 @@ export const GetPlayerTrophiesResponse = zod.array(GetPlayerTrophiesResponseItem
 
 
 /**
- * @summary Get town details including resources
+ * @summary Get town details including resources and scores
  */
 export const GetTownParams = zod.object({
   "townId": zod.coerce.number()
@@ -88,68 +88,54 @@ export const GetTownResponse = zod.object({
   "foodPerHour": zod.number(),
   "woodPerHour": zod.number(),
   "stonePerHour": zod.number(),
-  "defenseRating": zod.number(),
-  "population": zod.number(),
-  "populationCap": zod.number(),
+  "economyScore": zod.number(),
+  "armyScore": zod.number(),
+  "staticDefense": zod.number(),
+  "totalDefense": zod.number(),
   "peacefulMode": zod.boolean(),
   "lastTickAt": zod.string()
 })
 
 
 /**
- * @summary Get the 9x9 building grid for a town
+ * @summary Get all building slots for a town
  */
-export const GetTownGridParams = zod.object({
+export const GetBuildingSlotsParams = zod.object({
   "townId": zod.coerce.number()
 })
 
-export const GetTownGridResponseItem = zod.object({
+export const GetBuildingSlotsResponseItem = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "row": zod.number(),
-  "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
 })
-export const GetTownGridResponse = zod.array(GetTownGridResponseItem)
+export const GetBuildingSlotsResponse = zod.array(GetBuildingSlotsResponseItem)
 
 
 /**
- * @summary Place a new building on the grid
+ * @summary Build in an empty slot (level 0 -> 1)
  */
-export const PlaceBuildingParams = zod.object({
-  "townId": zod.coerce.number()
-})
-
-export const PlaceBuildingBody = zod.object({
-  "row": zod.number(),
-  "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house'])
-})
-
-
-/**
- * @summary Move building to a new position
- */
-export const MoveBuildingParams = zod.object({
+export const BuildSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "row": zod.coerce.number(),
-  "col": zod.coerce.number()
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
-export const MoveBuildingBody = zod.object({
-  "newRow": zod.number(),
-  "newCol": zod.number()
+
+/**
+ * @summary Upgrade an existing building slot
+ */
+export const UpgradeSlotParams = zod.object({
+  "townId": zod.coerce.number(),
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
-export const MoveBuildingResponse = zod.object({
+export const UpgradeSlotResponse = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "row": zod.number(),
-  "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
@@ -157,114 +143,20 @@ export const MoveBuildingResponse = zod.object({
 
 
 /**
- * @summary Remove/refund a building (75% resource refund)
+ * @summary Demolish a building (75% resource refund, resets to level 0)
  */
-export const RemoveBuildingParams = zod.object({
+export const DemolishSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "row": zod.coerce.number(),
-  "col": zod.coerce.number()
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
 })
 
-export const RemoveBuildingResponse = zod.object({
-  "id": zod.number(),
-  "playerId": zod.number(),
-  "name": zod.string(),
-  "gold": zod.number(),
-  "food": zod.number(),
-  "wood": zod.number(),
-  "stone": zod.number(),
-  "goldPerHour": zod.number(),
-  "foodPerHour": zod.number(),
-  "woodPerHour": zod.number(),
-  "stonePerHour": zod.number(),
-  "defenseRating": zod.number(),
-  "population": zod.number(),
-  "populationCap": zod.number(),
-  "peacefulMode": zod.boolean(),
-  "lastTickAt": zod.string()
-})
-
-
-/**
- * @summary Start an upgrade on a building
- */
-export const UpgradeBuildingParams = zod.object({
-  "townId": zod.coerce.number(),
-  "row": zod.coerce.number(),
-  "col": zod.coerce.number()
-})
-
-export const UpgradeBuildingResponse = zod.object({
+export const DemolishSlotResponse = zod.object({
   "id": zod.number(),
   "townId": zod.number(),
-  "row": zod.number(),
-  "col": zod.number(),
-  "buildingType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'empty']),
+  "slotType": zod.enum(['farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
   "upgradeEndsAt": zod.string().nullable()
-})
-
-
-/**
- * @summary Get all fortifications for a town
- */
-export const GetFortificationsParams = zod.object({
-  "townId": zod.coerce.number()
-})
-
-export const GetFortificationsResponseItem = zod.object({
-  "id": zod.number(),
-  "townId": zod.number(),
-  "row": zod.number(),
-  "col": zod.number(),
-  "type": zod.enum(['wall', 'tower']),
-  "level": zod.number(),
-  "borderBonus": zod.boolean().optional()
-})
-export const GetFortificationsResponse = zod.array(GetFortificationsResponseItem)
-
-
-/**
- * @summary Place a wall segment or tower
- */
-export const PlaceFortificationParams = zod.object({
-  "townId": zod.coerce.number()
-})
-
-export const PlaceFortificationBody = zod.object({
-  "row": zod.number(),
-  "col": zod.number(),
-  "type": zod.enum(['wall', 'tower'])
-})
-
-
-/**
- * @summary Remove a fortification
- */
-export const RemoveFortificationParams = zod.object({
-  "townId": zod.coerce.number(),
-  "row": zod.coerce.number(),
-  "col": zod.coerce.number()
-})
-
-export const RemoveFortificationResponse = zod.object({
-  "id": zod.number(),
-  "playerId": zod.number(),
-  "name": zod.string(),
-  "gold": zod.number(),
-  "food": zod.number(),
-  "wood": zod.number(),
-  "stone": zod.number(),
-  "goldPerHour": zod.number(),
-  "foodPerHour": zod.number(),
-  "woodPerHour": zod.number(),
-  "stonePerHour": zod.number(),
-  "defenseRating": zod.number(),
-  "population": zod.number(),
-  "populationCap": zod.number(),
-  "peacefulMode": zod.boolean(),
-  "lastTickAt": zod.string()
 })
 
 
@@ -328,7 +220,7 @@ export const ResetTownResponse = zod.object({
 
 
 /**
- * @summary Get the 5 mission cards available this hour
+ * @summary Get the 3 mission cards available this hour
  */
 export const GetMissionsQueryParams = zod.object({
   "townId": zod.coerce.number()
@@ -519,9 +411,10 @@ export const GetLeaderboardResponseItem = zod.object({
   "playerId": zod.number(),
   "playerName": zod.string(),
   "score": zod.number(),
+  "economyScore": zod.number(),
+  "armyScore": zod.number(),
   "gold": zod.number(),
-  "population": zod.number(),
-  "militaryPower": zod.number()
+  "peacefulMode": zod.boolean().optional()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
 
@@ -534,8 +427,8 @@ export const ListTownsResponseItem = zod.object({
   "name": zod.string(),
   "playerId": zod.number(),
   "playerName": zod.string(),
-  "defenseRating": zod.number(),
-  "population": zod.number(),
+  "staticDefense": zod.number(),
+  "totalDefense": zod.number(),
   "peacefulMode": zod.boolean()
 })
 export const ListTownsResponse = zod.array(ListTownsResponseItem)

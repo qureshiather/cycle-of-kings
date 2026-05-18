@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { raidsTable, townsTable, armyTable, gridCellsTable, fortificationsTable, activitiesTable } from "@workspace/db";
+import { raidsTable, townsTable, armyTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
-import { simulateCombat, calculateDefenseRating, calculateArmyComposition } from "../lib/gameEngine.js";
+import { simulateCombat, calculateArmyComposition, calculateTotalDefense } from "../lib/gameEngine.js";
+import { initSlotsForTown } from "./slots.js";
 
 const router = Router();
 
@@ -47,8 +48,9 @@ router.post("/raids", async (req, res) => {
   const [defTownCheck] = await db.select({ peacefulMode: townsTable.peacefulMode }).from(townsTable).where(eq(townsTable.id, defenderTownId)).limit(1);
   if (defTownCheck?.peacefulMode) return void res.status(403).json({ error: "That kingdom has Peaceful Mode enabled and cannot be raided." });
 
-  const attCells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, attackerTownId));
-  const attComposition = calculateArmyComposition(attCells);
+  await initSlotsForTown(attackerTownId);
+  const attSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, attackerTownId));
+  const attComposition = calculateArmyComposition(attSlots);
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, attackerTownId)).limit(1);
   const onMission = armyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
 
@@ -66,12 +68,12 @@ router.post("/raids", async (req, res) => {
   const [defTown] = await db.select().from(townsTable).where(eq(townsTable.id, defenderTownId)).limit(1);
   if (!defTown) return void res.status(400).json({ error: "Defender not found" });
 
-  const defCells = await db.select().from(gridCellsTable).where(eq(gridCellsTable.townId, defenderTownId));
-  const defComposition = calculateArmyComposition(defCells);
-  const forts = await db.select().from(fortificationsTable).where(eq(fortificationsTable.townId, defenderTownId));
+  await initSlotsForTown(defenderTownId);
+  const defSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, defenderTownId));
+  const defArmyRows = await db.select().from(armyTable).where(eq(armyTable.townId, defenderTownId)).limit(1);
+  const defOnMission = defArmyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
 
-  const fortBonus = calculateDefenseRating(forts);
-  const defenderStrength = defComposition.totalPower + fortBonus + defTown.defenseRating;
+  const defenderStrength = calculateTotalDefense(defSlots, defOnMission);
 
   const { victory, casualties } = simulateCombat({ infantry, archers, cavalry }, defenderStrength);
 
@@ -105,7 +107,6 @@ router.post("/raids", async (req, res) => {
     attackerCasualties: casualties,
   }).returning();
 
-  // Activity for attacker
   await db.insert(activitiesTable).values({
     townId: attackerTownId,
     type: victory ? "raid_outgoing_win" : "raid_outgoing_loss",
@@ -117,7 +118,6 @@ router.post("/raids", async (req, res) => {
     iconColor: victory ? "#d4a520" : "#cc4040",
   });
 
-  // Activity for defender
   await db.insert(activitiesTable).values({
     townId: defenderTownId,
     type: victory ? "raid_incoming_loss" : "raid_incoming_win",

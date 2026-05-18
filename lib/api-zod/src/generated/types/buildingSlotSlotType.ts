@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GridCellBuildingType = typeof GridCellBuildingType[keyof typeof GridCellBuildingType];
+export type BuildingSlotSlotType = typeof BuildingSlotSlotType[keyof typeof BuildingSlotSlotType];
 
 
-export const GridCellBuildingType = {
+export const BuildingSlotSlotType = {
   farm: 'farm',
   mine: 'mine',
   quarry: 'quarry',
@@ -20,5 +20,6 @@ export const GridCellBuildingType = {
   market: 'market',
   tavern: 'tavern',
   house: 'house',
-  empty: 'empty',
+  wall: 'wall',
+  tower: 'tower',
 } as const;
