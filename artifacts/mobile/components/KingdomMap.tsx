@@ -44,7 +44,6 @@ import {
 } from "@/lib/buildingMeta";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import BuildingProgressionModal from "@/components/BuildingProgressionModal";
-import TownVista from "@/components/TownVista";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
@@ -61,12 +60,10 @@ export default function KingdomMap({
   townId,
   refreshing,
   onRefresh,
-  onSeasonPress,
 }: {
   townId: number;
   refreshing?: boolean;
   onRefresh?: () => void;
-  onSeasonPress?: () => void;
 }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
@@ -232,34 +229,6 @@ export default function KingdomMap({
           ) : undefined
         }
       >
-        <TownVista townId={townId} onSeasonPress={onSeasonPress} />
-
-        <View style={styles.legendRow}>
-          <View style={styles.legend}>
-            <LegendChip label="Built" dotColor={colors.success} colors={colors} />
-            <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
-            <LegendChip label="Locked" dotColor={colors.textMuted} colors={colors} />
-            <LegendChip label="Building" dotColor={colors.warning} colors={colors} />
-          </View>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setGuideOpen(true);
-            }}
-            style={({ pressed }) => [
-              styles.guideBtn,
-              {
-                backgroundColor: withAlpha(colors.gold, pressed ? 0.18 : 0.1),
-                borderColor: withAlpha(colors.gold, 0.35),
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Open building guide"
-          >
-            <MaterialCommunityIcons name="map-legend" size={18} color={colors.gold} />
-          </Pressable>
-        </View>
-
         {BUILDING_CATEGORY_ORDER.map((category) => {
           const isCollapsed = collapsedSections[category];
           const sectionColor = category === "production" ? colors.food : colors.military;
@@ -287,9 +256,29 @@ export default function KingdomMap({
                 size={16}
                 color={sectionColor}
               />
-              <Text style={[styles.sectionTitle, { color: sectionColor }]}>
+              <Text style={[styles.sectionTitle, { color: sectionColor, flex: 1 }]}>
                 {BUILDING_CATEGORY_LABELS[category]}
               </Text>
+              {category === "production" && (
+                <Pressable
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setGuideOpen(true);
+                  }}
+                  style={({ pressed }) => [
+                    styles.guideBtn,
+                    {
+                      backgroundColor: withAlpha(colors.gold, pressed ? 0.18 : 0.1),
+                      borderColor: withAlpha(colors.gold, 0.35),
+                    },
+                  ]}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open building guide"
+                >
+                  <MaterialCommunityIcons name="book-open-page-variant" size={16} color={colors.gold} />
+                </Pressable>
+              )}
               {isCollapsed && (
                 <Text style={[styles.sectionSummary, { color: colors.textSecondary }]}>
                   {builtInSection}/{categorySlots.length} built
@@ -524,23 +513,6 @@ export default function KingdomMap({
   );
 }
 
-function LegendChip({
-  label,
-  dotColor,
-  colors,
-}: {
-  label: string;
-  dotColor: string;
-  colors: ReturnType<typeof useColors>;
-}) {
-  return (
-    <View style={styles.legendChip}>
-      <View style={[styles.legendDot, { backgroundColor: dotColor }]} />
-      <Text style={[styles.legendText, { color: colors.textSecondary }]}>{label}</Text>
-    </View>
-  );
-}
-
 function BuildingCard({
   name,
   icon,
@@ -713,26 +685,16 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
-  scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 8 },
-  legendRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    marginBottom: 12,
-  },
-  legend: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 10, flexShrink: 1 },
+  scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 4 },
   guideBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: "auto",
   },
-  legendChip: { flexDirection: "row", alignItems: "center", gap: 5 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 10, fontFamily: "Inter_500Medium" },
   section: { gap: 8, marginBottom: 16 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },

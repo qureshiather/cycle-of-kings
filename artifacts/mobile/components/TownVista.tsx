@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
-import { ActivityIndicator, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
 import {
   useGetBuildingSlots,
   useGetGameState,
@@ -11,6 +11,7 @@ import type { SlotType } from "@workspace/building-progression";
 import IsoBuilding from "@/components/town-vista/IsoBuilding";
 import IsoWallRing, { getWallColors } from "@/components/town-vista/IsoWallRing";
 import TownVistaLandscape from "@/components/town-vista/TownVistaLandscape";
+import VistaWalkers from "@/components/town-vista/VistaWalkers";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { getSlotColor } from "@/lib/buildingMeta";
@@ -24,7 +25,7 @@ import {
   VISTA_LAYOUT,
   type VistaSlot,
 } from "@/lib/townVista";
-import { getSeasonProgress, SEASON_META, type Season } from "@/lib/seasonMeta";
+import type { Season } from "@/lib/seasonMeta";
 
 const H_PADDING = 16;
 const ASPECT = 0.68;
@@ -92,13 +93,7 @@ function MilitaryCamp({
   );
 }
 
-export default function TownVista({
-  townId,
-  onSeasonPress,
-}: {
-  townId: number;
-  onSeasonPress?: () => void;
-}) {
+export default function TownVista({ townId }: { townId: number }) {
   const colors = useColors();
   const { withAlpha, isDark } = useTheme();
 
@@ -123,17 +118,13 @@ export default function TownVista({
     winter: colors.winter,
     isDark,
   });
-  const seasonMeta = SEASON_META[season];
-  const seasonColor = colors[season] as string;
-  const seasonProgress = gameState?.cycleStartedAt
-    ? getSeasonProgress(gameState.cycleStartedAt, season)
-    : null;
-
   const foodTier = getProductionTier(town?.foodPerHour ?? 0);
   const goldTier = getProductionTier(town?.goldPerHour ?? 0);
 
   const wallLevel = slotMap.get("wall")?.level ?? 0;
   const farmLevel = slotMap.get("farm")?.level ?? 0;
+  const economyScore = (town as { economyScore?: number })?.economyScore ?? 0;
+  const housingCapacity = army?.capacity ?? 0;
   const paintOrder = getVistaPaintOrder();
   const builtCount = paintOrder.filter((t) => (slotMap.get(t)?.level ?? 0) > 0).length;
   const totalPerHour =
@@ -156,7 +147,7 @@ export default function TownVista({
         style={[
           styles.frame,
           {
-            borderColor: withAlpha(seasonColor, 0.35),
+            borderColor: withAlpha(colors[season] as string, 0.35),
             backgroundColor: theme.meadow,
             shadowColor: isDark ? "#000" : "#1a1612",
           },
@@ -170,13 +161,6 @@ export default function TownVista({
             hasFarm={farmLevel > 0}
             foodTier={foodTier}
             showSun={season !== "winter"}
-          />
-
-          <IsoWallRing
-            width={width}
-            height={height}
-            wallLevel={wallLevel}
-            colors={getWallColors(theme.hill, theme.meadow, isDark)}
           />
 
           {goldTier > 0 && (slotMap.get("mine")?.level ?? 0) > 0 && (
@@ -226,50 +210,25 @@ export default function TownVista({
             isDark={isDark}
           />
 
-          {/* Season header — opens calendar */}
-          <Pressable
-            onPress={onSeasonPress}
-            disabled={!onSeasonPress}
-            style={({ pressed }) => [
-              styles.seasonHeader,
-              {
-                backgroundColor: withAlpha(colors.background, isDark ? 0.72 : 0.88),
-                borderColor: withAlpha(seasonColor, 0.35),
-                opacity: pressed && onSeasonPress ? 0.85 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${seasonMeta.label} season, ${seasonMeta.tagline}. Tap for calendar.`}
-          >
-            <View style={[styles.seasonIconWrap, { backgroundColor: withAlpha(seasonColor, 0.18) }]}>
-              <MaterialCommunityIcons name={seasonMeta.icon as any} size={16} color={seasonColor} />
-            </View>
-            <View style={styles.seasonTextCol}>
-              <Text style={[styles.seasonTitle, { color: colors.foreground }]}>{seasonMeta.label}</Text>
-              <Text style={[styles.seasonSub, { color: colors.textSecondary }]}>{seasonMeta.tagline}</Text>
-            </View>
-            {seasonProgress && (
-              <View style={styles.seasonProgressCol}>
-                <Text style={[styles.seasonDay, { color: seasonColor }]}>
-                  Day {seasonProgress.dayOfSeason}/7
-                </Text>
-                <View style={[styles.progressTrack, { backgroundColor: withAlpha(seasonColor, 0.15) }]}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      {
-                        width: `${Math.round(seasonProgress.progress * 100)}%`,
-                        backgroundColor: seasonColor,
-                      },
-                    ]}
-                  />
-                </View>
-              </View>
-            )}
-            {onSeasonPress && (
-              <MaterialCommunityIcons name="chevron-right" size={18} color={seasonColor} />
-            )}
-          </Pressable>
+          <View style={[styles.wallLayer, { width, height }]} pointerEvents="none">
+            <IsoWallRing
+              width={width}
+              height={height}
+              wallLevel={wallLevel}
+              landColor={theme.meadow}
+              colors={getWallColors(theme.meadow, isDark)}
+            />
+          </View>
+
+          <VistaWalkers
+            width={width}
+            height={height}
+            economyScore={economyScore}
+            housingCapacity={housingCapacity}
+            totalTroops={army?.totalTroops ?? 0}
+            builtStructures={builtCount}
+            isDark={isDark}
+          />
 
           {/* Stats footer */}
           <View
@@ -314,36 +273,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   canvas: { position: "relative", overflow: "hidden" },
+  wallLayer: { position: "absolute", left: 0, top: 0, zIndex: 200 },
   loading: { alignItems: "center", justifyContent: "center", alignSelf: "center" },
-  seasonHeader: {
-    position: "absolute",
-    top: 8,
-    left: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  seasonIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  seasonTextCol: { flex: 1, gap: 1 },
-  seasonTitle: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  seasonSub: { fontSize: 10, fontFamily: "Inter_400Regular" },
-  seasonProgressCol: { alignItems: "flex-end", gap: 4, minWidth: 72 },
-  seasonDay: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  progressTrack: { width: 72, height: 4, borderRadius: 2, overflow: "hidden" },
-  progressFill: { height: "100%", borderRadius: 2 },
   statsBar: {
     position: "absolute",
+    zIndex: 300,
     bottom: 8,
     left: 8,
     right: 8,

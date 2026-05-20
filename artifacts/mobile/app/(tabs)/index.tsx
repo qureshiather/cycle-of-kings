@@ -9,9 +9,11 @@ import {
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useGame } from "@/context/GameContext";
+import KingdomQuickPanel from "@/components/KingdomQuickPanel";
+import KingdomVistaModal from "@/components/KingdomVistaModal";
+import KingdomMap from "@/components/KingdomMap";
 import ScreenHeader from "@/components/ScreenHeader";
 import SeasonCalendarModal from "@/components/SeasonCalendarModal";
-import KingdomMap from "@/components/KingdomMap";
 
 export default function KingdomScreen() {
   const colors = useColors();
@@ -24,6 +26,9 @@ export default function KingdomScreen() {
   );
   const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
   const [seasonModalOpen, setSeasonModalOpen] = useState(false);
+  const [vistaModalOpen, setVistaModalOpen] = useState(false);
+
+  const openSeasonCalendar = () => setSeasonModalOpen(true);
 
   const handleRefresh = () => {
     if (!townId) return;
@@ -78,12 +83,23 @@ export default function KingdomScreen() {
         )}
       </ScreenHeader>
 
+      {gameState && townId && (
+        <KingdomQuickPanel
+          gameState={gameState}
+          onSeasonPress={openSeasonCalendar}
+          onOpenVista={() => setVistaModalOpen(true)}
+        />
+      )}
+
       {townId && (
-        <KingdomMap
+        <KingdomMap townId={townId} refreshing={townLoading} onRefresh={handleRefresh} />
+      )}
+
+      {townId && (
+        <KingdomVistaModal
+          visible={vistaModalOpen}
           townId={townId}
-          refreshing={townLoading}
-          onRefresh={handleRefresh}
-          onSeasonPress={() => setSeasonModalOpen(true)}
+          onClose={() => setVistaModalOpen(false)}
         />
       )}
 
