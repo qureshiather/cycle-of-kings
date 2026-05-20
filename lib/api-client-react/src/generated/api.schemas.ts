@@ -176,7 +176,11 @@ export interface ActiveMission {
   missionCardId: string;
   missionTitle: string;
   missionType: string;
+  missionDifficulty: string;
   infantry: number;
+  enemyInfantry: number;
+  enemyArchers: number;
+  enemyCavalry: number;
   archers: number;
   cavalry: number;
   mercenaries: number;
@@ -283,6 +287,30 @@ export interface RaidOrder {
   catapults: number;
 }
 
+export interface MissionTroopSide {
+  infantry: number;
+  archers: number;
+  cavalry: number;
+  mercenaries?: number;
+  total: number;
+}
+
+export type MissionActivityMetadataLoot = {
+  gold?: number;
+  food?: number;
+  wood?: number;
+  stone?: number;
+};
+
+export interface MissionActivityMetadata {
+  missionTitle: string;
+  success: boolean;
+  playerTroops: MissionTroopSide;
+  enemyTroops: MissionTroopSide;
+  loot?: MissionActivityMetadataLoot;
+  casualties?: number;
+}
+
 export interface Activity {
   id: number;
   townId: number;
@@ -291,6 +319,7 @@ export interface Activity {
   body: string;
   icon: string;
   iconColor: string;
+  metadata?: MissionActivityMetadata | null;
   createdAt: string;
 }
 

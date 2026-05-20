@@ -83,12 +83,13 @@ export const MAX_CONCURRENT_MISSIONS = 3;
 
 export function getTownHallLevel(slots: SlotLike[]): number {
   const hall = slots.find((s) => s.slotType === "townHall");
-  return Math.max(1, hall?.level ?? 1);
+  return hall?.level ?? 0;
 }
 
-/** Active mission slots from Town Hall level (1 at TH1, capped at 3 at TH3+). */
+/** Active mission slots from Town Hall level (0 if no hall; capped at 3 at TH3+). */
 export function getMaxActiveMissions(townHallLevel: number): number {
-  return Math.min(Math.max(1, townHallLevel), MAX_CONCURRENT_MISSIONS);
+  if (townHallLevel < 1) return 0;
+  return Math.min(townHallLevel, MAX_CONCURRENT_MISSIONS);
 }
 
 export function getMaxActiveMissionsFromSlots(slots: SlotLike[]): number {
@@ -96,7 +97,13 @@ export function getMaxActiveMissionsFromSlots(slots: SlotLike[]): number {
 }
 
 function slotLevel(slots: SlotLike[], slotType: string): number {
-  return slots.find((s) => s.slotType === slotType)?.level ?? 0;
+  let max = 0;
+  for (const s of slots) {
+    if (s.slotType !== slotType) continue;
+    const lv = Number(s.level) || 0;
+    if (lv > max) max = lv;
+  }
+  return max;
 }
 
 const SLOT_LABELS: Record<SlotType, string> = {
@@ -119,6 +126,10 @@ export function getBuildBlockReason(
   slotType: string,
   slots: SlotLike[],
 ): string | null {
+  if (slotType === "townHall") {
+    return slotLevel(slots, "townHall") > 0 ? "Already built" : null;
+  }
+
   const req = BUILD_REQUIREMENTS[slotType as SlotType];
   if (!req) return "Unknown building";
 
@@ -138,7 +149,6 @@ export function getBuildBlockReason(
 }
 
 export function canFirstTimeBuild(slotType: string, slots: SlotLike[]): boolean {
-  if (slotType === "townHall") return false;
   if (slotLevel(slots, slotType) > 0) return true;
   return getBuildBlockReason(slotType, slots) === null;
 }

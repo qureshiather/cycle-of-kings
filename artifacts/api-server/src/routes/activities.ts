@@ -14,7 +14,11 @@ router.get("/towns/:townId/activities", async (req, res) => {
     .orderBy(desc(activitiesTable.createdAt))
     .limit(50);
 
-  res.json(rows.map(r => ({ ...r, createdAt: r.createdAt.toISOString() })));
+  res.json(rows.map(r => ({
+    ...r,
+    metadata: r.metadata ? JSON.parse(r.metadata) : null,
+    createdAt: r.createdAt.toISOString(),
+  })));
 });
 
 export default router;

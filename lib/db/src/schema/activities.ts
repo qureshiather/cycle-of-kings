@@ -8,6 +8,8 @@ export const activitiesTable = pgTable("activities", {
   body: text("body").notNull(),
   icon: text("icon").notNull().default("information"),
   iconColor: text("icon_color").notNull().default("#d4a520"),
+  /** JSON blob for detail modals (mission battle summary, etc.) */
+  metadata: text("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

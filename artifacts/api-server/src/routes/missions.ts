@@ -3,7 +3,13 @@ import { db } from "@workspace/db";
 import { missionsTable, armyTable, townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
-import { generateMissionCards, getCurrentHourSeed, calculateArmyComposition } from "../lib/gameEngine.js";
+import {
+  generateMissionCards,
+  generateEnemyForce,
+  getCurrentMissionSeed,
+  rollMissionLoot,
+  calculateArmyComposition,
+} from "../lib/gameEngine.js";
 import { initSlotsForTown } from "./slots.js";
 
 const MERCENARY_GOLD_COST = 10;
@@ -19,6 +25,56 @@ function fmtLoot(gold: number, food: number, wood: number, stone: number): strin
   return parts.join(" · ") || "no loot";
 }
 
+function troopSide(
+  infantry: number,
+  archers: number,
+  cavalry: number,
+  mercenaries = 0,
+) {
+  return {
+    infantry,
+    archers,
+    cavalry,
+    mercenaries,
+    total: infantry + archers + cavalry + mercenaries,
+  };
+}
+
+function buildMissionMetadata(
+  m: {
+    missionTitle: string;
+    infantry: number;
+    archers: number;
+    cavalry: number;
+    mercenaries: number;
+    enemyInfantry: number;
+    enemyArchers: number;
+    enemyCavalry: number;
+    lootGold: number | null;
+    lootFood: number | null;
+    lootWood: number | null;
+    lootStone: number | null;
+    casualties: number | null;
+  },
+  success: boolean,
+) {
+  return {
+    missionTitle: m.missionTitle,
+    success,
+    playerTroops: troopSide(m.infantry, m.archers, m.cavalry, m.mercenaries),
+    enemyTroops: troopSide(m.enemyInfantry, m.enemyArchers, m.enemyCavalry, 0),
+    loot: success
+      ? {
+          gold: m.lootGold ?? 0,
+          food: m.lootFood ?? 0,
+          wood: m.lootWood ?? 0,
+          stone: m.lootStone ?? 0,
+        }
+      : undefined,
+    casualties: m.casualties ?? 0,
+  };
+}
+
 router.get("/missions", async (req, res) => {
   const townId = parseInt(String(req.query["townId"] ?? ""));
   if (!townId) return void res.status(400).json({ error: "townId required" });
@@ -26,7 +82,7 @@ router.get("/missions", async (req, res) => {
   await initSlotsForTown(townId);
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const composition = calculateArmyComposition(slots);
-  const seed = getCurrentHourSeed();
+  const seed = getCurrentMissionSeed();
 
   res.json(generateMissionCards(seed, composition.totalTroops, composition.totalPower));
 });
@@ -44,15 +100,34 @@ async function resolvePendingMissions(townId: number) {
         ? Math.floor(ownTroops * 0.05)
         : Math.floor(ownTroops * 0.2);
 
+      const baseLoot = {
+        gold: m.lootGold ?? 0,
+        food: m.lootFood ?? 0,
+        wood: m.lootWood ?? 0,
+        stone: m.lootStone ?? 0,
+      };
+      const rolled = success
+        ? rollMissionLoot(baseLoot, m.id * 17_371 + townId)
+        : { gold: 0, food: 0, wood: 0, stone: 0 };
+
       await db.update(missionsTable).set({
         status: success ? "returned" : "failed",
         result: success ? "victory" : "defeat",
-        lootGold:  success ? m.lootGold  : 0,
-        lootFood:  success ? m.lootFood  : 0,
-        lootWood:  success ? m.lootWood  : 0,
-        lootStone: success ? m.lootStone : 0,
+        lootGold: rolled.gold,
+        lootFood: rolled.food,
+        lootWood: rolled.wood,
+        lootStone: rolled.stone,
         casualties,
       }).where(eq(missionsTable.id, m.id));
+
+      const resolved = {
+        ...m,
+        lootGold: rolled.gold,
+        lootFood: rolled.food,
+        lootWood: rolled.wood,
+        lootStone: rolled.stone,
+        casualties,
+      };
 
       const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
       if (armyRows.length) {
@@ -69,23 +144,28 @@ async function resolvePendingMissions(townId: number) {
         const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
         if (town) {
           await db.update(townsTable).set({
-            gold:  town.gold  + (m.lootGold  ?? 0),
-            food:  town.food  + (m.lootFood  ?? 0),
-            wood:  town.wood  + (m.lootWood  ?? 0),
-            stone: town.stone + (m.lootStone ?? 0),
+            gold:  town.gold  + rolled.gold,
+            food:  town.food  + rolled.food,
+            wood:  town.wood  + rolled.wood,
+            stone: town.stone + rolled.stone,
           }).where(eq(townsTable.id, townId));
         }
       }
+
+      const playerTotal = troopSide(m.infantry, m.archers, m.cavalry, m.mercenaries).total;
+      const enemyTotal = troopSide(m.enemyInfantry, m.enemyArchers, m.enemyCavalry).total;
+      const metadata = buildMissionMetadata(resolved, success);
 
       await db.insert(activitiesTable).values({
         townId,
         type: success ? "mission_success" : "mission_fail",
         title: success ? `Mission Complete` : `Mission Failed`,
         body: success
-          ? `"${m.missionTitle}" — Troops returned with ${fmtLoot(m.lootGold ?? 0, m.lootFood ?? 0, m.lootWood ?? 0, m.lootStone ?? 0)}`
-          : `"${m.missionTitle}" — Defeated. ${casualties} troops lost.`,
+          ? `"${m.missionTitle}" — Your ${playerTotal} vs their ${enemyTotal}. Spoils: ${fmtLoot(rolled.gold, rolled.food, rolled.wood, rolled.stone)}`
+          : `"${m.missionTitle}" — Your ${playerTotal} vs their ${enemyTotal}. ${casualties} troops lost.`,
         icon: success ? "flag-checkered" : "skull-crossbones",
         iconColor: success ? "#3d7a35" : "#cc4040",
+        metadata: JSON.stringify(metadata),
       });
     }
   }
@@ -129,7 +209,7 @@ router.post("/towns/:townId/missions", async (req, res) => {
     });
   }
   const composition = calculateArmyComposition(slots);
-  const seed = getCurrentHourSeed();
+  const seed = getCurrentMissionSeed();
   const cards = generateMissionCards(seed, composition.totalTroops, composition.totalPower);
   const card = cards.find(c => c.id === missionCardId);
   if (!card) return void res.status(400).json({ error: "Invalid mission card" });
@@ -161,6 +241,12 @@ router.post("/towns/:townId/missions", async (req, res) => {
   const surplus = Math.max(0, totalTroops - card.minTroops);
   const successRate = Math.min(0.95, card.baseSuccessRate + surplus * 0.01);
 
+  const enemy = generateEnemyForce(
+    townId * 31 + Date.now() % 10_000,
+    totalTroops,
+    card.difficulty,
+  );
+
   if (armyRows.length) {
     await db.update(armyTable).set({
       onMissionInfantry: onMission.onMissionInfantry + infantry,
@@ -179,9 +265,25 @@ router.post("/towns/:townId/missions", async (req, res) => {
 
   const returnsAt = new Date(Date.now() + card.durationMinutes * 60 * 1000);
   const [mission] = await db.insert(missionsTable).values({
-    townId, missionCardId, missionTitle: card.title, missionType: card.type,
-    infantry, archers, cavalry, mercenaries, successRate, status: "active", returnsAt,
-    lootGold: card.lootGold, lootFood: card.lootFood, lootWood: card.lootWood, lootStone: card.lootStone,
+    townId,
+    missionCardId,
+    missionTitle: card.title,
+    missionType: card.type,
+    missionDifficulty: card.difficulty,
+    infantry,
+    archers,
+    cavalry,
+    mercenaries,
+    enemyInfantry: enemy.infantry,
+    enemyArchers: enemy.archers,
+    enemyCavalry: enemy.cavalry,
+    successRate,
+    status: "active",
+    returnsAt,
+    lootGold: card.lootGold,
+    lootFood: card.lootFood,
+    lootWood: card.lootWood,
+    lootStone: card.lootStone,
   }).returning();
 
   const totalStr = [
@@ -191,11 +293,13 @@ router.post("/towns/:townId/missions", async (req, res) => {
     mercenaries ? `${mercenaries} merc` : "",
   ].filter(Boolean).join(", ");
 
+  const enemyTotal = enemy.infantry + enemy.archers + enemy.cavalry;
+
   await db.insert(activitiesTable).values({
     townId,
     type: "mission_dispatched",
     title: "Mission Dispatched",
-    body: `"${card.title}" — ${totalStr} sent out. Returns in ${card.durationMinutes}m.`,
+    body: `"${card.title}" — ${totalStr} (${totalTroops}) vs ~${enemyTotal} foes. Returns in ${card.durationMinutes}m.`,
     icon: "map-marker-path",
     iconColor: "#9a7a5a",
   });

@@ -258,7 +258,11 @@ export const GetTownMissionsResponseItem = zod.object({
   "missionCardId": zod.string(),
   "missionTitle": zod.string(),
   "missionType": zod.string(),
+  "missionDifficulty": zod.string(),
   "infantry": zod.number(),
+  "enemyInfantry": zod.number(),
+  "enemyArchers": zod.number(),
+  "enemyCavalry": zod.number(),
   "archers": zod.number(),
   "cavalry": zod.number(),
   "mercenaries": zod.number(),
@@ -362,6 +366,31 @@ export const GetActivitiesResponseItem = zod.object({
   "body": zod.string(),
   "icon": zod.string(),
   "iconColor": zod.string(),
+  "metadata": zod.union([zod.object({
+  "missionTitle": zod.string(),
+  "success": zod.boolean(),
+  "playerTroops": zod.object({
+  "infantry": zod.number(),
+  "archers": zod.number(),
+  "cavalry": zod.number(),
+  "mercenaries": zod.number().optional(),
+  "total": zod.number()
+}),
+  "enemyTroops": zod.object({
+  "infantry": zod.number(),
+  "archers": zod.number(),
+  "cavalry": zod.number(),
+  "mercenaries": zod.number().optional(),
+  "total": zod.number()
+}),
+  "loot": zod.object({
+  "gold": zod.number().optional(),
+  "food": zod.number().optional(),
+  "wood": zod.number().optional(),
+  "stone": zod.number().optional()
+}).optional(),
+  "casualties": zod.number().optional()
+}),zod.null()]).optional(),
   "createdAt": zod.string()
 })
 export const GetActivitiesResponse = zod.array(GetActivitiesResponseItem)

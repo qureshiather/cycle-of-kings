@@ -1,24 +1,19 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useGetActivities } from "@workspace/api-client-react";
+import type { Activity } from "@workspace/api-client-react";
+import MissionActivitySummaryModal from "@/components/MissionActivitySummaryModal";
 import TabBadge from "@/components/TabBadge";
 import ScreenHeader from "@/components/ScreenHeader";
 import SettingsPanel from "@/components/SettingsPanel";
 import { useColors } from "@/hooks/useColors";
 import { useActivityUnread } from "@/hooks/useActivityUnread";
 import { useGame } from "@/context/GameContext";
+import { parseMissionActivityMetadata, type MissionActivityMetadata } from "@/lib/missionMeta";
 
-type ActivityItem = {
-  id: number;
-  type: string;
-  title: string;
-  body: string;
-  icon: string;
-  iconColor: string;
-  createdAt: string;
-};
+const MISSION_RESULT_TYPES = new Set(["mission_success", "mission_fail"]);
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -39,8 +34,8 @@ const TYPE_GROUPS: Record<string, string> = {
   raid_outgoing_win: "success",
   mission_success: "success",
   trade_complete: "success",
-  upgrade_complete: "info",
-  upgrade_started: "muted",
+  upgrade_complete: "success",
+  upgrade_started: "info",
   mission_dispatched: "muted",
   building_placed: "muted",
   kingdom_reset: "danger",
@@ -50,7 +45,8 @@ export default function ActivityScreen() {
   const colors = useColors();
   const { townId } = useGame();
   const [activeTab, setActiveTab] = useState<"activity" | "settings">("activity");
-  const { unreadCount, markAllRead } = useActivityUnread(townId);
+  const [missionSummary, setMissionSummary] = useState<MissionActivityMetadata | null>(null);
+  const { unreadCount, markAllRead } = useActivityUnread();
 
   const { data: activities = [], isLoading, refetch } = useGetActivities(townId ?? 0, {
     query: { enabled: !!townId, refetchInterval: 15_000 } as any,
@@ -61,6 +57,10 @@ export default function ActivityScreen() {
       if (activeTab === "activity") markAllRead();
     }, [activeTab, markAllRead]),
   );
+
+  useEffect(() => {
+    if (activeTab === "activity") markAllRead();
+  }, [activeTab, activities, markAllRead]);
 
   const onRefresh = useCallback(() => refetch(), [refetch]);
 
@@ -129,7 +129,7 @@ export default function ActivityScreen() {
           refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.gold} />}
           showsVerticalScrollIndicator={false}
         >
-          {(activities as ActivityItem[]).length === 0 ? (
+          {(activities as Activity[]).length === 0 ? (
             <View style={styles.empty}>
               <MaterialCommunityIcons name="bell-sleep-outline" size={48} color={colors.textSecondary} />
               <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No activity yet</Text>
@@ -138,12 +138,37 @@ export default function ActivityScreen() {
               </Text>
             </View>
           ) : (
-            (activities as ActivityItem[]).map((item, i) => {
-              const prev = i > 0 ? (activities as ActivityItem[])[i - 1] : null;
+            (activities as Activity[]).map((item, i) => {
+              const prev = i > 0 ? (activities as Activity[])[i - 1] : null;
               const showDate =
                 !prev || new Date(prev.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
               const color = groupColor(item.type);
               const bg = groupBg(item.type);
+              const missionMeta = MISSION_RESULT_TYPES.has(item.type)
+                ? parseMissionActivityMetadata(item.metadata)
+                : null;
+              const tappable = !!missionMeta;
+
+              const cardInner = (
+                <>
+                  <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
+                    <MaterialCommunityIcons name={item.icon as any} size={20} color={color} />
+                  </View>
+                  <View style={styles.cardBody}>
+                    <View style={styles.cardTop}>
+                      <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.title}</Text>
+                      <Text style={[styles.cardTime, { color: colors.textSecondary }]}>{timeAgo(item.createdAt)}</Text>
+                    </View>
+                    <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{item.body}</Text>
+                    {tappable && (
+                      <Text style={[styles.tapHint, { color: color }]}>Tap for battle summary</Text>
+                    )}
+                  </View>
+                  {tappable && (
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={color} style={styles.chevron} />
+                  )}
+                </>
+              );
 
               return (
                 <React.Fragment key={item.id}>
@@ -162,18 +187,19 @@ export default function ActivityScreen() {
                       <View style={[styles.dateLine, { backgroundColor: colors.border }]} />
                     </View>
                   )}
-                  <View style={[styles.card, { backgroundColor: bg, borderColor: color + "40" }]}>
-                    <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
-                      <MaterialCommunityIcons name={item.icon as any} size={20} color={color} />
+                  {tappable ? (
+                    <TouchableOpacity
+                      style={[styles.card, { backgroundColor: bg, borderColor: color + "40" }]}
+                      onPress={() => setMissionSummary(missionMeta)}
+                      activeOpacity={0.75}
+                    >
+                      {cardInner}
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.card, { backgroundColor: bg, borderColor: color + "40" }]}>
+                      {cardInner}
                     </View>
-                    <View style={styles.cardBody}>
-                      <View style={styles.cardTop}>
-                        <Text style={[styles.cardTitle, { color: colors.foreground }]}>{item.title}</Text>
-                        <Text style={[styles.cardTime, { color: colors.textSecondary }]}>{timeAgo(item.createdAt)}</Text>
-                      </View>
-                      <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{item.body}</Text>
-                    </View>
-                  </View>
+                  )}
                 </React.Fragment>
               );
             })
@@ -184,6 +210,11 @@ export default function ActivityScreen() {
           <SettingsPanel />
         </ScrollView>
       )}
+      <MissionActivitySummaryModal
+        visible={!!missionSummary}
+        metadata={missionSummary}
+        onClose={() => setMissionSummary(null)}
+      />
     </View>
   );
 }
@@ -224,4 +255,6 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold", flex: 1 },
   cardTime: { fontSize: 11, fontFamily: "Inter_400Regular", flexShrink: 0 },
   cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 3, lineHeight: 18 },
+  tapHint: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 6 },
+  chevron: { alignSelf: "center", flexShrink: 0 },
 });

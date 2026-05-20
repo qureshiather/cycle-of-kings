@@ -16,6 +16,7 @@ import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import type { ResourceAmounts } from "@/lib/buildingMeta";
+import { formatTroopLine, missionLootEstimateLabel } from "@/lib/missionMeta";
 
 function missionLoot(card: {
   lootGold: number;
@@ -58,7 +59,7 @@ export default function MissionsScreen() {
 
   const { data: missionCards, isLoading: cardsLoading } = useGetMissions(
     { townId: townId ?? 0 },
-    { query: { enabled: !!townId, refetchInterval: 60_000 } as any }
+    { query: { enabled: !!townId, refetchInterval: 30_000 } as any }
   );
   const { data: activeMissions, refetch } = useGetTownMissions(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
@@ -207,9 +208,11 @@ export default function MissionsScreen() {
                 </View>
                 <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{card.description}</Text>
                 <View style={styles.cardFooter}>
-                  <ResourceCostRow cost={missionLoot(card)} variant="reward" compact />
+                  <Text style={[styles.lootEstimate, { color: colors.gold }]}>
+                    Spoils: {missionLootEstimateLabel(card)}
+                  </Text>
                   <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-                    {card.minTroops} troops min · {card.durationMinutes}m
+                    {card.minTroops} troops min · {card.durationMinutes}m · rolls on return
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -228,6 +231,24 @@ export default function MissionsScreen() {
                 />
                 <View style={styles.completedInfo}>
                   <Text style={[styles.completedName, { color: colors.foreground }]}>{m.missionTitle}</Text>
+                  {(m.enemyInfantry != null || m.enemyArchers != null) && (
+                    <Text style={[styles.completedVs, { color: colors.textSecondary }]}>
+                      {formatTroopLine({
+                        infantry: m.infantry ?? 0,
+                        archers: m.archers ?? 0,
+                        cavalry: m.cavalry ?? 0,
+                        mercenaries: m.mercenaries ?? 0,
+                        total: (m.infantry ?? 0) + (m.archers ?? 0) + (m.cavalry ?? 0) + (m.mercenaries ?? 0),
+                      })}{" "}
+                      vs{" "}
+                      {formatTroopLine({
+                        infantry: m.enemyInfantry ?? 0,
+                        archers: m.enemyArchers ?? 0,
+                        cavalry: m.enemyCavalry ?? 0,
+                        total: (m.enemyInfantry ?? 0) + (m.enemyArchers ?? 0) + (m.enemyCavalry ?? 0),
+                      })}
+                    </Text>
+                  )}
                   {m.result === "victory" && (
                     <ResourceCostRow
                       cost={missionLoot({
@@ -260,6 +281,9 @@ export default function MissionsScreen() {
                 <Text style={[styles.deployMission, { color: diffColor(selected.difficulty, colors) }]}>{selected.title}</Text>
                 <Text style={[styles.deployDesc, { color: colors.textSecondary }]}>
                   Min {selected.minTroops} troops · {selected.durationMinutes}min
+                </Text>
+                <Text style={[styles.deployLoot, { color: colors.gold }]}>
+                  Est. spoils: {missionLootEstimateLabel(selected)} (randomized on success)
                 </Text>
 
                 {([
@@ -357,16 +381,19 @@ const styles = StyleSheet.create({
   cardSuccessRate: { fontSize: 18, fontFamily: "Inter_700Bold" },
   cardLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
   cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
-  cardFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  cardFooter: { gap: 4, marginTop: 2 },
+  lootEstimate: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   cardMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   completedCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 8, borderWidth: 1 },
-  completedInfo: { flex: 1 },
+  completedInfo: { flex: 1, gap: 2 },
   completedName: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  completedVs: { fontSize: 10, fontFamily: "Inter_400Regular", lineHeight: 14 },
   completedCas: { fontSize: 11, fontFamily: "Inter_400Regular" },
   deploySheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, borderWidth: 1, gap: 12, paddingBottom: 40 },
   deployTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
   deployMission: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   deployDesc: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  deployLoot: { fontSize: 11, fontFamily: "Inter_500Medium", lineHeight: 16 },
   troopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   troopLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   troopControls: { flexDirection: "row", alignItems: "center", gap: 12 },

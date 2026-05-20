@@ -208,7 +208,7 @@ export function calculateBuildingCost(slotType: string, targetLevel: number): { 
 
 export function getTownHallLevel(slots: SlotLike[]): number {
   const hall = slots.find((s) => s.slotType === "townHall");
-  return Math.max(1, hall?.level ?? 1);
+  return hall?.level ?? 0;
 }
 
 /** +3 gold/h per town hall level; 5% faster builds per level above 1 (max 45% reduction). */
@@ -217,6 +217,9 @@ export function getTownHallBonuses(slots: SlotLike[]): {
   buildSpeedMultiplier: number;
 } {
   const level = getTownHallLevel(slots);
+  if (level < 1) {
+    return { bonusGoldPerHour: 0, buildSpeedMultiplier: 1 };
+  }
   const buildSpeedMultiplier = Math.max(0.55, 1 - (level - 1) * 0.05);
   return { bonusGoldPerHour: level * 3, buildSpeedMultiplier };
 }
@@ -269,9 +272,21 @@ export function applyTick(
 }
 
 const MISSION_TITLES: Record<string, string[]> = {
-  explore: ["Scout the Dark Forest", "Map the Northern Ridges", "Investigate Old Ruins", "Survey the Valley"],
-  patrol:  ["Border Guard Duty",     "Road Patrol",             "Village Watch",          "Mountain Pass Guard"],
-  raid:    ["Strike Enemy Camp",     "Raid Merchant Convoy",    "Ambush the Scouts",       "Loot the Outpost"],
+  explore: [
+    "Scout the Dark Forest", "Map the Northern Ridges", "Investigate Old Ruins", "Survey the Valley",
+    "Chart the Marshlands", "Probe the Abandoned Keep", "Trail the River Fork", "Search the Burial Mounds",
+    "Recon the Highland Pass", "Explore the Crystal Caves", "Track the Nomad Trails", "Find the Hidden Ford",
+  ],
+  patrol: [
+    "Border Guard Duty", "Road Patrol", "Village Watch", "Mountain Pass Guard",
+    "Harbor Watch", "Bridge Garrison", "Night Watch Rounds", "Farmland Patrol",
+    "Coastline Sentinel", "Forest Road Escort", "Gatehouse Inspection", "Supply Line Guard",
+  ],
+  raid: [
+    "Strike Enemy Camp", "Raid Merchant Convoy", "Ambush the Scouts", "Loot the Outpost",
+    "Burn the Siege Stores", "Hit the Bandit Den", "Storm the Watchtower", "Plunder the Tax Cart",
+    "Break the Supply Depot", "Raid the Smuggler Cove", "Sack the Rival Manor", "Intercept the War Party",
+  ],
 };
 
 const MISSION_DESCS: Record<string, string[]> = {
@@ -280,20 +295,93 @@ const MISSION_DESCS: Record<string, string[]> = {
     "Map the treacherous northern ridges.",
     "Old ruins may hold ancient treasure.",
     "Survey the valley for strategic advantage.",
+    "The marsh hides paths and peril alike.",
+    "A ruined keep may still guard forgotten riches.",
+    "Follow the river fork before rivals do.",
+    "Ancient barrows sometimes yield grave goods.",
+    "Highland passes reveal enemy movements.",
+    "Crystal caves glitter — and collapse.",
+    "Nomad trails cross contested ground.",
+    "A hidden ford could change the campaign.",
   ],
   patrol: [
     "Keep the borders safe from roving bandits.",
     "Escort caravans along the dangerous road.",
     "Protect the villages from nightly raids.",
     "Hold the mountain pass against enemy scouts.",
+    "Watch the harbor for smugglers and spies.",
+    "Hold the bridge until reinforcements arrive.",
+    "Walk the walls while the realm sleeps.",
+    "Patrol the fields before harvest raiders strike.",
+    "Scan the coast for landing parties.",
+    "Escort woodcutters through wolf country.",
+    "Inspect travelers at the main gate.",
+    "Guard the supply wagons at the crossroads.",
   ],
   raid: [
     "A swift strike on an enemy encampment.",
     "Intercept a merchant convoy for supplies.",
     "Ambush scouts before they can report back.",
     "Loot an enemy outpost for resources.",
+    "Destroy siege stores before they reach the walls.",
+    "Clear a bandit den troubling the roads.",
+    "Topple a watchtower that sees too much.",
+    "Seize coin from a hated tax collector.",
+    "Break an enemy depot before the march.",
+    "Raid smugglers who dodge your tariffs.",
+    "Humiliate a rival lord and take his stores.",
+    "Cut off a war party before it joins the siege.",
   ],
 };
+
+const MISSION_CARD_COUNT = 5;
+const LOOT_ROLL_MIN = 0.35;
+const LOOT_ROLL_MAX = 1.65;
+
+export function lootEstimateRange(base: number): { min: number; max: number } {
+  if (base <= 0) return { min: 0, max: 0 };
+  return {
+    min: Math.max(1, Math.floor(base * LOOT_ROLL_MIN)),
+    max: Math.max(1, Math.ceil(base * LOOT_ROLL_MAX)),
+  };
+}
+
+export function rollMissionLoot(
+  bases: { gold: number; food: number; wood: number; stone: number },
+  seed: number,
+): { gold: number; food: number; wood: number; stone: number } {
+  const rng = seededRandom(seed);
+  const roll = (base: number) =>
+    base <= 0 ? 0 : Math.max(1, Math.round(base * (LOOT_ROLL_MIN + rng() * (LOOT_ROLL_MAX - LOOT_ROLL_MIN))));
+  return {
+    gold: roll(bases.gold),
+    food: roll(bases.food),
+    wood: roll(bases.wood),
+    stone: roll(bases.stone),
+  };
+}
+
+export function generateEnemyForce(
+  seed: number,
+  playerTotal: number,
+  difficulty: "easy" | "medium" | "hard",
+): { infantry: number; archers: number; cavalry: number } {
+  const rng = seededRandom(seed);
+  const diffScale = { easy: 0.55, medium: 0.8, hard: 1.05 }[difficulty];
+  const enemyTotal = Math.max(
+    1,
+    Math.round(playerTotal * diffScale * (0.7 + rng() * 0.55)),
+  );
+  let inf = Math.floor(rng() * (enemyTotal + 1));
+  let arch = Math.floor(rng() * (enemyTotal - inf + 1));
+  let cav = enemyTotal - inf - arch;
+  if (cav < 0) {
+    arch = Math.max(0, arch + cav);
+    cav = 0;
+  }
+  if (inf + arch + cav === 0) inf = 1;
+  return { infantry: inf, archers: arch, cavalry: cav };
+}
 
 export interface MissionCardData {
   id: string;
@@ -313,6 +401,13 @@ export interface MissionCardData {
 export function getCurrentHourSeed(): number {
   const n = new Date();
   return n.getUTCFullYear() * 1000000 + (n.getUTCMonth() + 1) * 10000 + n.getUTCDate() * 100 + n.getUTCHours();
+}
+
+/** Mission board refreshes every 30 minutes (two rotations per hour). */
+export function getCurrentMissionSeed(): number {
+  const n = new Date();
+  const halfHour = n.getUTCMinutes() >= 30 ? 1 : 0;
+  return getCurrentHourSeed() * 10 + halfHour;
 }
 
 export type ResourceType = "gold" | "food" | "wood" | "stone";
@@ -386,12 +481,23 @@ export function generateMissionCards(hourSeed: number, totalTroops: number = 5, 
     { name: "hard"   as const, troopFrac: 0.8, successRate: 0.45, lootMult: 2.8,  durBase: 70 },
   ];
 
-  return difficulties.map((diff, i) => {
+  const used = new Set<string>();
+  const cards: MissionCardData[] = [];
+  let guard = 0;
+
+  while (cards.length < MISSION_CARD_COUNT && guard < 80) {
+    guard += 1;
     const type = types[Math.floor(rng() * types.length)];
     const titleIdx = Math.floor(rng() * MISSION_TITLES[type].length);
-    const minTroops = Math.max(1, Math.round(troopBase * diff.troopFrac));
+    const key = `${type}-${titleIdx}`;
+    if (used.has(key)) continue;
+    used.add(key);
 
-    return {
+    const diff = difficulties[Math.floor(rng() * difficulties.length)];
+    const minTroops = Math.max(1, Math.round(troopBase * diff.troopFrac));
+    const i = cards.length;
+
+    cards.push({
       id: `mission-${hourSeed}-${i}`,
       type,
       difficulty: diff.name,
@@ -399,11 +505,13 @@ export function generateMissionCards(hourSeed: number, totalTroops: number = 5, 
       description: MISSION_DESCS[type][titleIdx],
       minTroops,
       baseSuccessRate: diff.successRate,
-      lootGold:  Math.ceil(rng() * 40 * diff.lootMult * (powerBase / 50)),
-      lootFood:  Math.ceil(rng() * 30 * diff.lootMult * (powerBase / 50)),
-      lootWood:  Math.ceil(rng() * 25 * diff.lootMult * (powerBase / 50)),
-      lootStone: Math.ceil(rng() * 15 * diff.lootMult * (powerBase / 50)),
-      durationMinutes: Math.ceil(diff.durBase * (1 + rng() * 0.4)),
-    };
-  });
+      lootGold:  Math.ceil((8 + rng() * 40) * diff.lootMult * (powerBase / 50)),
+      lootFood:  Math.ceil((6 + rng() * 30) * diff.lootMult * (powerBase / 50)),
+      lootWood:  Math.ceil((5 + rng() * 25) * diff.lootMult * (powerBase / 50)),
+      lootStone: Math.ceil((3 + rng() * 15) * diff.lootMult * (powerBase / 50)),
+      durationMinutes: Math.ceil(diff.durBase * (0.85 + rng() * 0.5)),
+    });
+  }
+
+  return cards;
 }

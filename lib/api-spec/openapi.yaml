@@ -642,14 +642,18 @@ components:
 
     ActiveMission:
       type: object
-      required: [id, townId, missionCardId, missionTitle, missionType, infantry, archers, cavalry, mercenaries, successRate, status, dispatchedAt, returnsAt]
+      required: [id, townId, missionCardId, missionTitle, missionType, missionDifficulty, infantry, archers, cavalry, mercenaries, enemyInfantry, enemyArchers, enemyCavalry, successRate, status, dispatchedAt, returnsAt]
       properties:
         id: { type: integer }
         townId: { type: integer }
         missionCardId: { type: string }
         missionTitle: { type: string }
         missionType: { type: string }
+        missionDifficulty: { type: string }
         infantry: { type: integer }
+        enemyInfantry: { type: integer }
+        enemyArchers: { type: integer }
+        enemyCavalry: { type: integer }
         archers: { type: integer }
         cavalry: { type: integer }
         mercenaries: { type: integer }
@@ -745,6 +749,35 @@ components:
         cavalry: { type: integer }
         catapults: { type: integer }
 
+    MissionTroopSide:
+      type: object
+      required: [infantry, archers, cavalry, total]
+      properties:
+        infantry: { type: integer }
+        archers: { type: integer }
+        cavalry: { type: integer }
+        mercenaries: { type: integer }
+        total: { type: integer }
+
+    MissionActivityMetadata:
+      type: object
+      required: [missionTitle, success, playerTroops, enemyTroops]
+      properties:
+        missionTitle: { type: string }
+        success: { type: boolean }
+        playerTroops:
+          $ref: "#/components/schemas/MissionTroopSide"
+        enemyTroops:
+          $ref: "#/components/schemas/MissionTroopSide"
+        loot:
+          type: object
+          properties:
+            gold: { type: number }
+            food: { type: number }
+            wood: { type: number }
+            stone: { type: number }
+        casualties: { type: integer }
+
     Activity:
       type: object
       required: [id, townId, type, title, body, icon, iconColor, createdAt]
@@ -756,6 +789,10 @@ components:
         body: { type: string }
         icon: { type: string }
         iconColor: { type: string }
+        metadata:
+          oneOf:
+            - $ref: "#/components/schemas/MissionActivityMetadata"
+            - type: "null"
         createdAt: { type: string }
 
     LeaderboardEntry:

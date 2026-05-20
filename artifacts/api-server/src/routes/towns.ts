@@ -7,7 +7,7 @@ import {
   calculateArmyComposition, calculateStaticDefense, calculateTotalDefense,
   applyTick,
 } from "../lib/gameEngine.js";
-import { initSlotsForTown } from "./slots.js";
+import { initSlotsForTown, logConstructionComplete } from "./slots.js";
 
 const router = Router();
 
@@ -23,14 +23,7 @@ async function getAndTickTown(townId: number) {
   for (const slot of slots) {
     if (slot.upgrading && slot.upgradeEndsAt && slot.upgradeEndsAt <= now) {
       await db.update(buildingSlotsTable).set({ upgrading: false }).where(eq(buildingSlotsTable.id, slot.id));
-      await db.insert(activitiesTable).values({
-        townId,
-        type: "upgrade_complete",
-        title: "Building Upgraded",
-        body: `${slot.slotType} reached level ${slot.level}`,
-        icon: "arrow-up-bold-circle",
-        iconColor: "#d4a520",
-      });
+      await logConstructionComplete(townId, slot.slotType, slot.level);
     }
   }
 

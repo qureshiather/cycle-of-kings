@@ -5,6 +5,7 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
+import type { MissionActivityMetadata } from './missionActivityMetadata';
 
 export interface Activity {
   id: number;
@@ -14,5 +15,6 @@ export interface Activity {
   body: string;
   icon: string;
   iconColor: string;
+  metadata?: MissionActivityMetadata | null;
   createdAt: string;
 }

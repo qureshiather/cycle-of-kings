@@ -13,7 +13,11 @@ export interface ActiveMission {
   missionCardId: string;
   missionTitle: string;
   missionType: string;
+  missionDifficulty: string;
   infantry: number;
+  enemyInfantry: number;
+  enemyArchers: number;
+  enemyCavalry: number;
   archers: number;
   cavalry: number;
   mercenaries: number;

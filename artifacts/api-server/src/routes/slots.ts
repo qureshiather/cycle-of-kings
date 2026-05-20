@@ -25,10 +25,67 @@ const SLOT_NAMES: Record<string, string> = {
   wall: "Town Wall", tower: "Watch Tower",
 };
 
-async function initSlotsForTown(townId: number): Promise<void> {
+function formatDuration(durationMs: number): string {
+  if (durationMs < 60_000) return `${Math.round(durationMs / 1000)}s`;
+  if (durationMs < 3_600_000) return `${Math.round(durationMs / 60_000)}m`;
+  return `${Math.round(durationMs / 3_600_000)}h`;
+}
+
+async function logConstructionStarted(
+  townId: number,
+  slotType: string,
+  targetLevel: number,
+  durationMs: number,
+): Promise<void> {
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "upgrade_started",
+    title: "Construction started",
+    body: `${SLOT_NAMES[slotType] ?? slotType} building to level ${targetLevel} — ${formatDuration(durationMs)} remaining`,
+    icon: "hammer-wrench",
+    iconColor: "#7a7a9a",
+  });
+}
+
+async function logConstructionComplete(
+  townId: number,
+  slotType: string,
+  level: number,
+): Promise<void> {
+  await db.insert(activitiesTable).values({
+    townId,
+    type: "upgrade_complete",
+    title: "Construction complete",
+    body: `${SLOT_NAMES[slotType] ?? slotType} built to level ${level}`,
+    icon: "check-circle",
+    iconColor: "#d4a520",
+  });
+}
+
+/** Keep highest level per slotType; remove legacy duplicate rows. */
+async function dedupeSlotsForTown(townId: number): Promise<void> {
   const existing = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  const existingTypes = new Set(existing.map(s => s.slotType));
-  const missing = SLOT_TYPES.filter(t => !existingTypes.has(t));
+  const bestByType = new Map<string, (typeof existing)[number]>();
+  for (const slot of existing) {
+    const prev = bestByType.get(slot.slotType);
+    if (!prev || slot.level > prev.level || (slot.level === prev.level && slot.id > prev.id)) {
+      bestByType.set(slot.slotType, slot);
+    }
+  }
+  const keepIds = new Set([...bestByType.values()].map((s) => s.id));
+  const dupes = existing.filter((s) => !keepIds.has(s.id));
+  if (dupes.length > 0) {
+    for (const slot of dupes) {
+      await db.delete(buildingSlotsTable).where(eq(buildingSlotsTable.id, slot.id));
+    }
+  }
+}
+
+async function initSlotsForTown(townId: number): Promise<void> {
+  await dedupeSlotsForTown(townId);
+  const existing = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const existingTypes = new Set(existing.map((s) => s.slotType));
+  const missing = SLOT_TYPES.filter((t) => !existingTypes.has(t));
   if (missing.length > 0) {
     await db.insert(buildingSlotsTable).values(
       missing.map((slotType) => ({
@@ -51,14 +108,7 @@ async function getTickedTown(townId: number) {
   for (const slot of slots) {
     if (slot.upgrading && slot.upgradeEndsAt && slot.upgradeEndsAt <= now) {
       await db.update(buildingSlotsTable).set({ upgrading: false }).where(eq(buildingSlotsTable.id, slot.id));
-      await db.insert(activitiesTable).values({
-        townId,
-        type: "upgrade_complete",
-        title: "Building Upgraded",
-        body: `${SLOT_NAMES[slot.slotType] ?? slot.slotType} reached level ${slot.level}`,
-        icon: "arrow-up-bold-circle",
-        iconColor: "#d4a520",
-      });
+      await logConstructionComplete(townId, slot.slotType, slot.level);
     }
   }
 
@@ -115,8 +165,9 @@ router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
   const [slot] = await db.select().from(buildingSlotsTable)
     .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, slotType)));
   if (!slot) return void res.status(400).json({ error: "Slot not found" });
-  if (slotType === "townHall") return void res.status(400).json({ error: "Upgrade the Town Hall instead of building it" });
-  if (slot.level > 0) return void res.status(400).json({ error: "Already built. Use upgrade instead." });
+  if (slot.level > 0) {
+    return void res.status(400).json({ error: "Already built. Build to a higher level instead." });
+  }
 
   const allSlots = await db
     .select()
@@ -138,21 +189,20 @@ router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
     wood: town.wood - cost.wood, stone: town.stone - cost.stone,
   }).where(eq(townsTable.id, townId));
 
+  const durationMs = getUpgradeDurationMs(slotType, 0, allSlots);
+  const upgradeEndsAt = new Date(Date.now() + durationMs);
+
   const [updated] = await db.update(buildingSlotsTable)
-    .set({ level: 1, upgrading: false, upgradeEndsAt: null })
+    .set({ level: 1, upgrading: true, upgradeEndsAt })
     .where(eq(buildingSlotsTable.id, slot.id))
     .returning();
 
-  await db.insert(activitiesTable).values({
-    townId,
-    type: "building_placed",
-    title: "Building Constructed",
-    body: `${SLOT_NAMES[slotType] ?? slotType} built — Level 1`,
-    icon: "hammer-wrench",
-    iconColor: "#7a7a6a",
-  });
+  await logConstructionStarted(townId, slotType, 1, durationMs);
 
-  res.status(201).json({ ...updated, upgradeEndsAt: null });
+  res.status(201).json({
+    ...updated,
+    upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null,
+  });
 });
 
 router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
@@ -166,7 +216,7 @@ router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
   const [slot] = await db.select().from(buildingSlotsTable)
     .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, slotType)));
   if (!slot) return void res.status(400).json({ error: "Slot not found" });
-  if (slot.level === 0) return void res.status(400).json({ error: "Not built yet. Use build first." });
+  if (slot.level === 0) return void res.status(400).json({ error: "Not built yet. Build level 1 first." });
   if (slot.upgrading) return void res.status(400).json({ error: "Already upgrading" });
   if (slot.level >= 10) return void res.status(400).json({ error: "Max level reached" });
 
@@ -196,20 +246,7 @@ router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
     .where(eq(buildingSlotsTable.id, slot.id))
     .returning();
 
-  const durationStr = durationMs < 60000
-    ? `${Math.round(durationMs / 1000)}s`
-    : durationMs < 3600000
-      ? `${Math.round(durationMs / 60000)}m`
-      : `${Math.round(durationMs / 3600000)}h`;
-
-  await db.insert(activitiesTable).values({
-    townId,
-    type: "upgrade_started",
-    title: "Upgrade Started",
-    body: `${SLOT_NAMES[slotType] ?? slotType} upgrading to level ${nextLevel} — done in ${durationStr}`,
-    icon: "clock-outline",
-    iconColor: "#7a7a9a",
-  });
+  await logConstructionStarted(townId, slotType, nextLevel, durationMs);
 
   res.json({ ...updated, upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null });
 });
@@ -260,5 +297,5 @@ router.delete("/towns/:townId/slots/:slotType", async (req, res) => {
   res.json({ ...updated, upgradeEndsAt: null });
 });
 
-export { getTickedTown, initSlotsForTown };
+export { getTickedTown, initSlotsForTown, logConstructionComplete };
 export default router;

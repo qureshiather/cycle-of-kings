@@ -29,6 +29,7 @@ import {
   useUpgradeSlot,
   useDemolishSlot,
   useGetTown,
+  getGetActivitiesQueryKey,
   getGetBuildingSlotsQueryKey,
   getGetTownQueryKey,
 } from "@workspace/api-client-react";
@@ -43,6 +44,7 @@ import {
 } from "@/lib/buildingMeta";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import BuildingProgressionModal from "@/components/BuildingProgressionModal";
+import TownVista from "@/components/TownVista";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
@@ -90,16 +92,38 @@ export default function KingdomMap({
   };
 
   const slots = slotsRaw as SlotData[];
-  const slotMap = new Map(slots.map((s) => [s.slotType, s]));
+  const slotMap = new Map<string, SlotData>();
+  for (const slot of slots) {
+    const prev = slotMap.get(slot.slotType);
+    if (!prev || (slot.level ?? 0) > (prev.level ?? 0)) {
+      slotMap.set(slot.slotType, slot);
+    }
+  }
+  const slotsForRules = [...slotMap.values()];
 
   const invalidate = useCallback(() => {
     qc.invalidateQueries({ queryKey: getGetBuildingSlotsQueryKey(townId) });
     qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+    qc.invalidateQueries({ queryKey: getGetActivitiesQueryKey(townId) });
   }, [qc, townId]);
 
   const selectedSlot = selectedSlotType ? slotMap.get(selectedSlotType) : null;
   const isEmpty = (selectedSlot?.level ?? 0) === 0;
   const isUpgrading = selectedSlot?.upgrading ?? false;
+  const [sheetTimeLeft, setSheetTimeLeft] = useState(0);
+
+  useEffect(() => {
+    const endsAt = selectedSlot?.upgradeEndsAt;
+    if (!isUpgrading || !endsAt) {
+      setSheetTimeLeft(0);
+      return;
+    }
+    const tick = () =>
+      setSheetTimeLeft(Math.max(0, new Date(endsAt).getTime() - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isUpgrading, selectedSlot?.upgradeEndsAt]);
   const isMaxLevel = (selectedSlot?.level ?? 0) >= 10;
   const isTownHall = selectedSlotType === "townHall";
 
@@ -115,13 +139,12 @@ export default function KingdomMap({
   }
 
   const buildBlocked =
-    selectedSlotType && isEmpty && !isTownHall
-      ? getBuildBlockReason(selectedSlotType, slots)
+    selectedSlotType && isEmpty
+      ? getBuildBlockReason(selectedSlotType, slotsForRules)
       : null;
   const canBuild =
     selectedSlotType &&
     isEmpty &&
-    !isTownHall &&
     !buildBlocked &&
     canAfford(selectedSlotType, 1);
 
@@ -155,7 +178,7 @@ export default function KingdomMap({
         },
         onError: (e: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert("Upgrade Failed", e?.data?.error ?? e?.message ?? "Could not upgrade");
+          Alert.alert("Build Failed", e?.data?.error ?? e?.message ?? "Could not build");
         },
       },
     );
@@ -207,12 +230,14 @@ export default function KingdomMap({
           ) : undefined
         }
       >
+        <TownVista townId={townId} />
+
         <View style={styles.legendRow}>
           <View style={styles.legend}>
             <LegendChip label="Built" dotColor={colors.success} colors={colors} />
             <LegendChip label="Ready" dotColor={colors.gold} colors={colors} />
             <LegendChip label="Locked" dotColor={colors.textMuted} colors={colors} />
-            <LegendChip label="Upgrading" dotColor={colors.warning} colors={colors} />
+            <LegendChip label="Building" dotColor={colors.warning} colors={colors} />
           </View>
           <Pressable
             onPress={() => {
@@ -238,7 +263,7 @@ export default function KingdomMap({
           const sectionColor = category === "production" ? colors.food : colors.military;
           const categorySlots = BUILDINGS_BY_CATEGORY[category];
           const builtInSection = categorySlots.filter(
-            (slotType) => (slotMap.get(slotType)?.level ?? (slotType === "townHall" ? 1 : 0)) > 0,
+            (slotType) => (slotMap.get(slotType)?.level ?? 0) > 0,
           ).length;
 
           return (
@@ -275,11 +300,11 @@ export default function KingdomMap({
               {categorySlots.map((slotType) => {
                 const slot = slotMap.get(slotType) ?? {
                   slotType,
-                  level: slotType === "townHall" ? 1 : 0,
+                  level: 0,
                   upgrading: false,
                 };
                 const built = slot.level > 0;
-                const lockReason = !built ? getBuildBlockReason(slotType, slots) : null;
+                const lockReason = !built ? getBuildBlockReason(slotType, slotsForRules) : null;
                 const locked = lockReason !== null;
                 const ready = !built && !locked;
                 const color = getSlotColor(slotType, colors);
@@ -297,7 +322,6 @@ export default function KingdomMap({
                     ready={ready}
                     locked={locked}
                     upgrading={slot.upgrading}
-                    upgradeEndsAt={slot.upgradeEndsAt}
                     lockReason={lockReason}
                     canAffordBuild={ready && canAfford(slotType, 1)}
                     onPress={() => {
@@ -318,7 +342,7 @@ export default function KingdomMap({
       <BuildingProgressionModal
         visible={guideOpen}
         onClose={() => setGuideOpen(false)}
-        slots={slots}
+        slots={slotsForRules}
       />
 
       <Modal
@@ -337,8 +361,8 @@ export default function KingdomMap({
                 const level = selectedSlot?.level ?? 0;
                 const nextLevel = level + 1;
                 const sheetStatus = isUpgrading
-                  ? "upgrading"
-                  : isEmpty && !isTownHall
+                  ? "building"
+                  : isEmpty
                     ? buildBlocked
                       ? "locked"
                       : "empty"
@@ -351,7 +375,7 @@ export default function KingdomMap({
                         styles.statusBanner,
                         {
                           backgroundColor:
-                            sheetStatus === "upgrading"
+                            sheetStatus === "building"
                               ? withAlpha(colors.warning, 0.12)
                               : sheetStatus === "locked"
                                 ? withAlpha(colors.textMuted, 0.1)
@@ -359,7 +383,7 @@ export default function KingdomMap({
                                   ? withAlpha(colors.gold, 0.1)
                                   : withAlpha(color, 0.1),
                           borderColor:
-                            sheetStatus === "upgrading"
+                            sheetStatus === "building"
                               ? withAlpha(colors.warning, 0.35)
                               : sheetStatus === "locked"
                                 ? colors.border
@@ -371,7 +395,7 @@ export default function KingdomMap({
                     >
                       <MaterialCommunityIcons
                         name={
-                          sheetStatus === "upgrading"
+                          sheetStatus === "building"
                             ? "progress-clock"
                             : sheetStatus === "locked"
                               ? "lock"
@@ -381,7 +405,7 @@ export default function KingdomMap({
                         }
                         size={14}
                         color={
-                          sheetStatus === "upgrading"
+                          sheetStatus === "building"
                             ? colors.warning
                             : sheetStatus === "locked"
                               ? colors.textSecondary
@@ -395,7 +419,7 @@ export default function KingdomMap({
                           styles.statusBannerText,
                           {
                             color:
-                              sheetStatus === "upgrading"
+                              sheetStatus === "building"
                                 ? colors.warning
                                 : sheetStatus === "locked"
                                   ? colors.textSecondary
@@ -405,12 +429,12 @@ export default function KingdomMap({
                           },
                         ]}
                       >
-                        {sheetStatus === "upgrading"
-                          ? "Upgrade in progress"
+                        {sheetStatus === "building"
+                          ? `Building · ${formatTimeRemaining(sheetTimeLeft)}`
                           : sheetStatus === "locked"
                             ? `Not built · ${buildBlocked}`
                             : sheetStatus === "empty"
-                              ? "Empty slot · Ready to build"
+                              ? "Not built · Ready to build"
                               : `Built · Level ${level}`}
                       </Text>
                     </View>
@@ -422,13 +446,11 @@ export default function KingdomMap({
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{name}</Text>
                         <Text style={[styles.sheetSub, { color: colors.textSecondary }]}>
-                          {isTownHall
-                            ? `Town Hall · Level ${level}`
-                            : isEmpty
-                              ? buildBlocked
-                                ? `Requires: ${formatRequirementHint(selectedSlotType as SlotType)}`
-                                : "Tap Build below when you have resources"
-                              : `Level ${level}`}
+                          {isEmpty
+                            ? buildBlocked
+                              ? `Requires: ${formatRequirementHint(selectedSlotType as SlotType)}`
+                              : "Tap Build below when you have resources"
+                            : `Level ${level}`}
                         </Text>
                       </View>
                       {level > 0 && (
@@ -443,7 +465,7 @@ export default function KingdomMap({
                     )}
 
                     <View style={styles.actions}>
-                      {isEmpty && !isTownHall && (
+                      {isEmpty && (
                         <ActionButton
                           label={`Build ${name}`}
                           cost={getBuildingCost(selectedSlotType, 1)}
@@ -457,12 +479,12 @@ export default function KingdomMap({
                         />
                       )}
 
-                      {(!isEmpty || isTownHall) && !isMaxLevel && (
+                      {!isEmpty && !isMaxLevel && (
                         <ActionButton
-                          label={isUpgrading ? "Upgrading…" : `Upgrade to level ${nextLevel}`}
+                          label={isUpgrading ? "Building…" : `Build to level ${nextLevel}`}
                           cost={isUpgrading ? null : getBuildingCost(selectedSlotType, nextLevel)}
                           owned={owned}
-                          icon="arrow-up-bold-circle"
+                          icon="hammer-wrench"
                           color={color}
                           disabled={
                             upgradeSlot.isPending ||
@@ -526,7 +548,6 @@ function BuildingCard({
   ready,
   locked,
   upgrading,
-  upgradeEndsAt,
   lockReason,
   canAffordBuild,
   onPress,
@@ -540,25 +561,12 @@ function BuildingCard({
   ready: boolean;
   locked: boolean;
   upgrading: boolean;
-  upgradeEndsAt?: string | null;
   lockReason: string | null;
   canAffordBuild: boolean;
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const { withAlpha } = useTheme();
-  const [timeLeft, setTimeLeft] = useState(0);
-  useEffect(() => {
-    if (!upgrading || !upgradeEndsAt) {
-      setTimeLeft(0);
-      return;
-    }
-    const tick = () =>
-      setTimeLeft(Math.max(0, new Date(upgradeEndsAt).getTime() - Date.now()));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [upgrading, upgradeEndsAt]);
 
   const accentColor = upgrading
     ? colors.warning
@@ -570,15 +578,15 @@ function BuildingCard({
           : colors.textSecondary
         : colors.textMuted;
 
-  const statusLabel = upgrading
-    ? formatTimeRemaining(timeLeft)
-    : built
-      ? `Lv ${level}`
-      : ready
-        ? canAffordBuild
-          ? "BUILD"
-          : "READY"
-        : "LOCKED";
+  const displayLevel = upgrading ? Math.max(1, level - 1) : level;
+
+  const statusLabel = built || upgrading
+    ? `Lv ${displayLevel}`
+    : ready
+      ? canAffordBuild
+        ? "BUILD"
+        : "READY"
+      : "LOCKED";
 
   return (
     <TouchableOpacity
@@ -612,7 +620,7 @@ function BuildingCard({
         </Text>
         {built ? (
           <Text style={[styles.cardMeta, { color: upgrading ? colors.warning : color }]}>
-            {upgrading ? `Upgrading · ${formatTimeRemaining(timeLeft)}` : `Level ${level}`}
+            {upgrading ? "Building" : `Level ${level}`}
           </Text>
         ) : (
           <Text style={[styles.cardMeta, { color: colors.textSecondary }]} numberOfLines={2}>

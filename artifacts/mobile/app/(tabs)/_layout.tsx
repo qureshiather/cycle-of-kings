@@ -8,12 +8,11 @@ import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import TabBadge from "@/components/TabBadge";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
-import { useActivityUnread } from "@/hooks/useActivityUnread";
+import { ActivityUnreadProvider, useActivityUnread } from "@/context/ActivityUnreadContext";
 import { useGame } from "@/context/GameContext";
 
 function ActivityTabIcon({ color, size }: { color: string; size: number }) {
-  const { townId } = useGame();
-  const { unreadCount } = useActivityUnread(townId);
+  const { unreadCount } = useActivityUnread();
 
   return (
     <View style={styles.tabIconWrap}>
@@ -26,17 +25,17 @@ function ActivityTabIcon({ color, size }: { color: string; size: number }) {
 function NativeTabLayout() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "building.2", selected: "building.2.fill" }} />
-        <Label>Kingdom</Label>
+      <NativeTabs.Trigger name="missions">
+        <Icon sf={{ default: "map", selected: "map.fill" }} />
+        <Label>Missions</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="army">
         <Icon sf={{ default: "shield", selected: "shield.fill" }} />
         <Label>Army</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="missions">
-        <Icon sf={{ default: "map", selected: "map.fill" }} />
-        <Label>Missions</Label>
+      <NativeTabs.Trigger name="index">
+        <Icon sf={{ default: "building.2", selected: "building.2.fill" }} />
+        <Label>Kingdom</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="world">
         <Icon sf={{ default: "globe.americas", selected: "globe.americas.fill" }} />
@@ -82,10 +81,10 @@ function ClassicTabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="missions"
         options={{
-          title: "Kingdom",
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="castle" size={size} color={color} />,
+          title: "Missions",
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="map-legend" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -96,10 +95,10 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="missions"
+        name="index"
         options={{
-          title: "Missions",
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="map-legend" size={size} color={color} />,
+          title: "Kingdom",
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="castle" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -134,8 +133,11 @@ export default function TabLayout() {
 
   if (isSetupRequired) return <Redirect href="/setup" />;
 
-  if (isLiquidGlassAvailable()) return <NativeTabLayout />;
-  return <ClassicTabLayout />;
+  return (
+    <ActivityUnreadProvider>
+      {isLiquidGlassAvailable() ? <NativeTabLayout /> : <ClassicTabLayout />}
+    </ActivityUnreadProvider>
+  );
 }
 
 const styles = StyleSheet.create({

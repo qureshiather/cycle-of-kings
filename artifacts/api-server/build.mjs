@@ -11,10 +11,13 @@ globalThis.require = createRequire(import.meta.url);
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 
 async function buildAll() {
+  const watch = process.argv.includes("--watch");
   const distDir = path.resolve(artifactDir, "dist");
-  await rm(distDir, { recursive: true, force: true });
+  if (!watch) {
+    await rm(distDir, { recursive: true, force: true });
+  }
 
-  await esbuild({
+  const buildOptions = {
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
     platform: "node",
     bundle: true,
@@ -117,7 +120,16 @@ globalThis.__filename = __bannerUrl.fileURLToPath(import.meta.url);
 globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
-  });
+  };
+
+  if (watch) {
+    const ctx = await esbuild.context(buildOptions);
+    await ctx.watch();
+    console.log("[api] bundle watching — restart the server after changes");
+    return;
+  }
+
+  await esbuild(buildOptions);
 }
 
 buildAll().catch((err) => {
