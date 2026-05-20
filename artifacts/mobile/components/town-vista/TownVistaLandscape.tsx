@@ -1,6 +1,6 @@
 import React from "react";
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Stop } from "react-native-svg";
-import type { SeasonTheme } from "@/lib/townVista";
+import { getVistaLandClipPath, VISTA_HORIZON, type SeasonTheme } from "@/lib/townVista";
 
 type Props = {
   width: number;
@@ -21,8 +21,9 @@ export default function TownVistaLandscape({
 }: Props) {
   const w = width;
   const h = height;
-  const horizon = h * 0.4;
+  const horizon = h * VISTA_HORIZON;
   const land = theme.meadow;
+  const landClip = getVistaLandClipPath(w, h);
 
   const terrainPath = `
     M 0 ${horizon + 8}
@@ -52,10 +53,7 @@ export default function TownVistaLandscape({
       )}
 
       {/* Hills + settlement — one land color */}
-      <Path
-        d={`M 0 ${horizon} C ${w * 0.18} ${horizon - h * 0.1} ${w * 0.38} ${horizon - h * 0.04} ${w * 0.55} ${horizon} S ${w * 0.92} ${horizon - h * 0.06} ${w} ${horizon - h * 0.01} L ${w} ${h} L 0 ${h} Z`}
-        fill={land}
-      />
+      <Path d={landClip} fill={land} />
       <Path d={terrainPath} fill={land} />
 
       {/* Farm tint on same land */}

@@ -21,6 +21,7 @@ export default function KingdomQuickPanel({ gameState, onSeasonPress, onOpenVist
     <View style={styles.panel}>
       <SeasonStrip gameState={gameState} onPress={onSeasonPress} />
       <Pressable
+        testID="view-kingdom-btn"
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           onOpenVista();

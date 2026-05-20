@@ -3,6 +3,20 @@ import type { Season } from "@/lib/seasonMeta";
 
 export type VistaSlot = { slotType: string; level: number; upgrading?: boolean };
 
+/** Sky/land boundary — matches TownVistaLandscape horizon. */
+export const VISTA_HORIZON = 0.4;
+
+/** Clip path for vista art that must stay on land (walls, etc.). */
+export function getVistaLandClipPath(w: number, h: number): string {
+  const horizon = h * VISTA_HORIZON;
+  return [
+    `M 0 ${horizon}`,
+    `C ${w * 0.18} ${horizon - h * 0.1} ${w * 0.38} ${horizon - h * 0.04} ${w * 0.55} ${horizon}`,
+    `S ${w * 0.92} ${horizon - h * 0.06} ${w} ${horizon - h * 0.01}`,
+    `L ${w} ${h} L 0 ${h} Z`,
+  ].join(" ");
+}
+
 /** Normalized positions (0–1) — base center on isometric tile grid. */
 export const VISTA_LAYOUT: Record<SlotType, { x: number; y: number }> = {
   townHall: { x: 0.5, y: 0.5 },

@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Redirect, Tabs } from "expo-router";
-import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
+import { Icon, Label, NativeTabs, VectorIcon } from "expo-router/unstable-native-tabs";
 import React from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
 import TabBadge from "@/components/TabBadge";
@@ -38,7 +38,7 @@ function NativeTabLayout() {
         <Label>Army</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "building.2", selected: "building.2.fill" }} />
+        <Icon src={<VectorIcon family={MaterialCommunityIcons} name="castle" />} />
         <Label>Kingdom</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="world">

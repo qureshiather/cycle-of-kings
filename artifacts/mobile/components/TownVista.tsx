@@ -11,6 +11,7 @@ import type { SlotType } from "@workspace/building-progression";
 import IsoBuilding from "@/components/town-vista/IsoBuilding";
 import IsoWallRing, { getWallColors } from "@/components/town-vista/IsoWallRing";
 import TownVistaLandscape from "@/components/town-vista/TownVistaLandscape";
+import TownVistaSkyVeil from "@/components/town-vista/TownVistaSkyVeil";
 import VistaWalkers from "@/components/town-vista/VistaWalkers";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
@@ -153,7 +154,10 @@ export default function TownVista({ townId }: { townId: number }) {
           },
         ]}
       >
-        <View style={[styles.canvas, { width, height, backgroundColor: theme.skyBottom }]}>
+        <View
+          testID="town-vista-canvas"
+          style={[styles.canvas, { width, height, backgroundColor: theme.skyBottom }]}
+        >
           <TownVistaLandscape
             width={width}
             height={height}
@@ -162,6 +166,20 @@ export default function TownVista({ townId }: { townId: number }) {
             foodTier={foodTier}
             showSun={season !== "winter"}
           />
+
+          <View style={[styles.wallLayerBack, { width, height }]} pointerEvents="none">
+            <IsoWallRing
+              width={width}
+              height={height}
+              wallLevel={wallLevel}
+              colors={getWallColors(theme.meadow, isDark)}
+              depth="behind"
+            />
+          </View>
+
+          <View style={[styles.skyVeil, { width, height }]} pointerEvents="none">
+            <TownVistaSkyVeil width={width} height={height} theme={theme} />
+          </View>
 
           {goldTier > 0 && (slotMap.get("mine")?.level ?? 0) > 0 && (
             <View style={[styles.spark, { left: width * 0.22, top: height * 0.38 }]}>
@@ -210,13 +228,13 @@ export default function TownVista({ townId }: { townId: number }) {
             isDark={isDark}
           />
 
-          <View style={[styles.wallLayer, { width, height }]} pointerEvents="none">
+          <View style={[styles.wallLayerFront, { width, height }]} pointerEvents="none">
             <IsoWallRing
               width={width}
               height={height}
               wallLevel={wallLevel}
-              landColor={theme.meadow}
               colors={getWallColors(theme.meadow, isDark)}
+              depth="front"
             />
           </View>
 
@@ -273,7 +291,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   canvas: { position: "relative", overflow: "hidden" },
-  wallLayer: { position: "absolute", left: 0, top: 0, zIndex: 200 },
+  wallLayerBack: { position: "absolute", left: 0, top: 0, zIndex: 40 },
+  skyVeil: { position: "absolute", left: 0, top: 0, zIndex: 42 },
+  wallLayerFront: { position: "absolute", left: 0, top: 0, zIndex: 195 },
   loading: { alignItems: "center", justifyContent: "center", alignSelf: "center" },
   statsBar: {
     position: "absolute",
