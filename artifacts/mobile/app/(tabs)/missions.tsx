@@ -21,7 +21,7 @@ import {
   missionPossibleLootResources,
   missionRewardTierLabel,
 } from "@/lib/missionMeta";
-import { RESOURCE_META, type ResourceKey } from "@/lib/resourceMeta";
+import { RESOURCE_META } from "@/lib/resourceMeta";
 
 function missionLoot(card: {
   lootGold: number;
@@ -242,11 +242,9 @@ export default function MissionsScreen() {
                 </View>
                 <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{card.description}</Text>
                 <View style={styles.cardFooter}>
-                  <Text style={[styles.lootEstimate, { color: colors.gold }]}>
-                    Spoils: {missionLootEstimateLabel(card)}
-                  </Text>
+                  <MissionRewardHint card={card} colors={colors} />
                   <Text style={[styles.cardMeta, { color: colors.textSecondary }]}>
-                    {card.minTroops} troops min · {card.durationMinutes}m · rolls on return
+                    Rolls on return · {card.minTroops} troops min · {card.durationMinutes}m
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -316,8 +314,9 @@ export default function MissionsScreen() {
                 <Text style={[styles.deployDesc, { color: colors.textSecondary }]}>
                   Min {selected.minTroops} troops · {selected.durationMinutes}min
                 </Text>
-                <Text style={[styles.deployLoot, { color: colors.gold }]}>
-                  Est. spoils: {missionLootEstimateLabel(selected)} (randomized on success)
+                <MissionRewardHint card={selected} colors={colors} />
+                <Text style={[styles.deployLoot, { color: colors.textSecondary }]}>
+                  Amount rolls on return if you win
                 </Text>
 
                 {([
@@ -416,7 +415,16 @@ const styles = StyleSheet.create({
   cardLabel: { fontSize: 10, fontFamily: "Inter_400Regular" },
   cardDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 18 },
   cardFooter: { gap: 4, marginTop: 2 },
-  lootEstimate: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  rewardRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  rewardTier: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  rewardIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   cardMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
   completedCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 8, borderWidth: 1 },
   completedInfo: { flex: 1, gap: 2 },
