@@ -9,6 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import type { SlotType } from "@workspace/building-progression";
 import IsoBuilding from "@/components/town-vista/IsoBuilding";
+import IsoWallRing, { getWallColors } from "@/components/town-vista/IsoWallRing";
 import TownVistaLandscape from "@/components/town-vista/TownVistaLandscape";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
@@ -149,21 +150,27 @@ export default function TownVista({ townId }: { townId: number }) {
         style={[
           styles.frame,
           {
-            borderColor: withAlpha(seasonColor, 0.4),
-            backgroundColor: isDark ? colors.surface : colors.card,
+            borderColor: withAlpha(seasonColor, 0.35),
+            backgroundColor: theme.skyBottom,
             shadowColor: isDark ? "#000" : "#1a1612",
           },
         ]}
       >
-        <View style={[styles.canvas, { width, height }]}>
+        <View style={[styles.canvas, { width, height, backgroundColor: theme.skyBottom }]}>
           <TownVistaLandscape
             width={width}
             height={height}
             theme={theme}
-            wallLevel={wallLevel}
             hasFarm={farmLevel > 0}
             foodTier={foodTier}
             showSun={season !== "winter"}
+          />
+
+          <IsoWallRing
+            width={width}
+            height={height}
+            wallLevel={wallLevel}
+            colors={getWallColors(theme.hill, theme.meadow, isDark)}
           />
 
           {goldTier > 0 && (slotMap.get("mine")?.level ?? 0) > 0 && (

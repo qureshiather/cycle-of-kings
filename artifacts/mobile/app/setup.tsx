@@ -63,7 +63,7 @@ export default function SetupScreen() {
       {
         onSuccess: (player) => {
           setPlayer((player as any).id, (player as any).townId, (player as any).name);
-          router.replace("/(tabs)" as any);
+          router.replace("/(tabs)/index" as any);
         },
         onError: (err: unknown) => {
           setError(formatConnectError(err));

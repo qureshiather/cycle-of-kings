@@ -11,6 +11,10 @@ import { useTheme } from "@/hooks/useTheme";
 import { ActivityUnreadProvider, useActivityUnread } from "@/context/ActivityUnreadContext";
 import { useGame } from "@/context/GameContext";
 
+export const unstable_settings = {
+  initialRouteName: "index",
+};
+
 function ActivityTabIcon({ color, size }: { color: string; size: number }) {
   const { unreadCount } = useActivityUnread();
 
@@ -66,6 +70,7 @@ function ClassicTabLayout() {
 
   return (
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.gold,
