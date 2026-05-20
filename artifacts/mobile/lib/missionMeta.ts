@@ -1,39 +1,32 @@
 import type { ResourceAmounts } from "@/lib/buildingMeta";
+import type { ResourceKey } from "@/lib/resourceMeta";
 
-const LOOT_ROLL_MIN = 0.35;
-const LOOT_ROLL_MAX = 1.65;
+const REWARD_TIER: Record<string, string> = {
+  easy: "Low",
+  medium: "Medium",
+  hard: "High",
+};
 
-export function lootEstimateRange(base: number): { min: number; max: number } {
-  if (base <= 0) return { min: 0, max: 0 };
-  return {
-    min: Math.max(1, Math.floor(base * LOOT_ROLL_MIN)),
-    max: Math.max(1, Math.ceil(base * LOOT_ROLL_MAX)),
-  };
+export function missionRewardTierLabel(difficulty: string): string {
+  return REWARD_TIER[difficulty] ?? "Medium";
 }
 
-export function formatLootRangeLabel(base: number): string | null {
-  const { min, max } = lootEstimateRange(base);
-  if (max <= 0) return null;
-  if (min === max) return `${min}`;
-  return `${min}–${max}`;
-}
-
-export function missionLootEstimateLabel(card: {
-  lootGold: number;
-  lootFood: number;
-  lootWood: number;
-  lootStone: number;
-}): string {
-  const parts: string[] = [];
-  const g = formatLootRangeLabel(card.lootGold ?? 0);
-  const f = formatLootRangeLabel(card.lootFood ?? 0);
-  const w = formatLootRangeLabel(card.lootWood ?? 0);
-  const s = formatLootRangeLabel(card.lootStone ?? 0);
-  if (g) parts.push(`${g} gold`);
-  if (f) parts.push(`${f} food`);
-  if (w) parts.push(`${w} wood`);
-  if (s) parts.push(`${s} stone`);
-  return parts.length ? parts.join(" · ") : "Random spoils";
+/** Top loot types for this card (bases are hidden; amounts roll on return). */
+export function missionPossibleLootResources(
+  card: { lootGold: number; lootFood: number; lootWood: number; lootStone: number },
+  max = 2,
+): ResourceKey[] {
+  const ranked: { key: ResourceKey; base: number }[] = [
+    { key: "gold", base: card.lootGold ?? 0 },
+    { key: "food", base: card.lootFood ?? 0 },
+    { key: "wood", base: card.lootWood ?? 0 },
+    { key: "stone", base: card.lootStone ?? 0 },
+  ];
+  return ranked
+    .filter((e) => e.base > 0)
+    .sort((a, b) => b.base - a.base)
+    .slice(0, max)
+    .map((e) => e.key);
 }
 
 export type MissionActivityMetadata = {

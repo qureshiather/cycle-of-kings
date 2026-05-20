@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import React, { useMemo } from "react";
-import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import {
   useGetBuildingSlots,
   useGetGameState,
@@ -92,7 +92,13 @@ function MilitaryCamp({
   );
 }
 
-export default function TownVista({ townId }: { townId: number }) {
+export default function TownVista({
+  townId,
+  onSeasonPress,
+}: {
+  townId: number;
+  onSeasonPress?: () => void;
+}) {
   const colors = useColors();
   const { withAlpha, isDark } = useTheme();
 
@@ -151,7 +157,7 @@ export default function TownVista({ townId }: { townId: number }) {
           styles.frame,
           {
             borderColor: withAlpha(seasonColor, 0.35),
-            backgroundColor: theme.skyBottom,
+            backgroundColor: theme.meadow,
             shadowColor: isDark ? "#000" : "#1a1612",
           },
         ]}
@@ -220,15 +226,20 @@ export default function TownVista({ townId }: { townId: number }) {
             isDark={isDark}
           />
 
-          {/* Season header */}
-          <View
-            style={[
+          {/* Season header — opens calendar */}
+          <Pressable
+            onPress={onSeasonPress}
+            disabled={!onSeasonPress}
+            style={({ pressed }) => [
               styles.seasonHeader,
               {
                 backgroundColor: withAlpha(colors.background, isDark ? 0.72 : 0.88),
                 borderColor: withAlpha(seasonColor, 0.35),
+                opacity: pressed && onSeasonPress ? 0.85 : 1,
               },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${seasonMeta.label} season, ${seasonMeta.tagline}. Tap for calendar.`}
           >
             <View style={[styles.seasonIconWrap, { backgroundColor: withAlpha(seasonColor, 0.18) }]}>
               <MaterialCommunityIcons name={seasonMeta.icon as any} size={16} color={seasonColor} />
@@ -255,7 +266,10 @@ export default function TownVista({ townId }: { townId: number }) {
                 </View>
               </View>
             )}
-          </View>
+            {onSeasonPress && (
+              <MaterialCommunityIcons name="chevron-right" size={18} color={seasonColor} />
+            )}
+          </Pressable>
 
           {/* Stats footer */}
           <View

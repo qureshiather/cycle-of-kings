@@ -113,7 +113,8 @@ export type SeasonTheme = {
   ambientCount: number;
 };
 
-function terrainFromHill(hill: string, isDark: boolean): {
+/** Single land color for hills, terrain, and plots. */
+function groundFromHill(hill: string): {
   terrain: string;
   meadow: string;
   meadowEdge: string;
@@ -121,24 +122,13 @@ function terrainFromHill(hill: string, isDark: boolean): {
   pathEdge: string;
   tileStroke: string;
 } {
-  if (isDark) {
-    return {
-      terrain: hill,
-      meadow: hill,
-      meadowEdge: hill,
-      path: "#2e2a22",
-      pathEdge: "#242018",
-      tileStroke: "#1a1814",
-    };
-  }
-  const meadow = blendHex(hill, "#3d6a38", 0.35);
   return {
     terrain: hill,
-    meadow,
-    meadowEdge: blendHex(meadow, "#000000", 0.12),
-    path: blendHex(meadow, "#000000", 0.22),
-    pathEdge: blendHex(meadow, "#000000", 0.3),
-    tileStroke: blendHex(meadow, "#ffffff", 0.12),
+    meadow: hill,
+    meadowEdge: hill,
+    path: hill,
+    pathEdge: hill,
+    tileStroke: hill,
   };
 }
 
@@ -211,7 +201,7 @@ export function getSeasonTheme(season: Season, palette: SeasonPalette): SeasonTh
     }
   })();
 
-  const ground = terrainFromHill(base.hill, isDark);
+  const ground = groundFromHill(base.hill);
   return {
     ...base,
     skyBottom: isDark ? base.hill : blendHex(base.hill, base.skyMid, 0.35),

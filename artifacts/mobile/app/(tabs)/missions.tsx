@@ -16,7 +16,12 @@ import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import type { ResourceAmounts } from "@/lib/buildingMeta";
-import { formatTroopLine, missionLootEstimateLabel } from "@/lib/missionMeta";
+import {
+  formatTroopLine,
+  missionPossibleLootResources,
+  missionRewardTierLabel,
+} from "@/lib/missionMeta";
+import { RESOURCE_META, type ResourceKey } from "@/lib/resourceMeta";
 
 function missionLoot(card: {
   lootGold: number;
@@ -49,6 +54,35 @@ function timeLeft(returnsAt: string): string {
   const hrs = Math.floor(mins / 60);
   if (hrs > 0) return `${hrs}h ${mins % 60}m`;
   return `${mins}m`;
+}
+
+function MissionRewardHint({
+  card,
+  colors,
+}: {
+  card: { difficulty: string; lootGold: number; lootFood: number; lootWood: number; lootStone: number };
+  colors: ReturnType<typeof useColors>;
+}) {
+  const resources = missionPossibleLootResources(card);
+  return (
+    <View style={styles.rewardRow}>
+      <Text style={[styles.rewardTier, { color: colors.gold }]}>
+        Reward: {missionRewardTierLabel(card.difficulty)}
+      </Text>
+      {resources.map((key) => {
+        const meta = RESOURCE_META[key];
+        const resColor = colors[meta.colorKey] as string;
+        return (
+          <View
+            key={key}
+            style={[styles.rewardIcon, { backgroundColor: resColor + "18", borderColor: resColor + "44" }]}
+          >
+            <MaterialCommunityIcons name={meta.icon as any} size={12} color={resColor} />
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function MissionsScreen() {

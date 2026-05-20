@@ -61,10 +61,12 @@ export default function KingdomMap({
   townId,
   refreshing,
   onRefresh,
+  onSeasonPress,
 }: {
   townId: number;
   refreshing?: boolean;
   onRefresh?: () => void;
+  onSeasonPress?: () => void;
 }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
@@ -230,7 +232,7 @@ export default function KingdomMap({
           ) : undefined
         }
       >
-        <TownVista townId={townId} />
+        <TownVista townId={townId} onSeasonPress={onSeasonPress} />
 
         <View style={styles.legendRow}>
           <View style={styles.legend}>
