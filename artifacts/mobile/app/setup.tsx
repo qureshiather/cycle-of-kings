@@ -135,7 +135,7 @@ export default function SetupScreen() {
             { icon: "home-city",   text: "Build your kingdom across 12 strategic building slots" },
             { icon: "sword-cross", text: "Armies grow from your military buildings" },
             { icon: "earth",       text: "Raid other kingdoms and dominate the leaderboard" },
-            { icon: "trophy",      text: "Earn permanent trophies across seasonal cycles" },
+            { icon: "trophy",      text: "Earn achievements each cycle — keep your hall of fame" },
           ].map(({ icon, text }) => (
             <View key={icon} style={styles.feature}>
               <MaterialCommunityIcons name={icon as any} size={15} color={colors.gold} />

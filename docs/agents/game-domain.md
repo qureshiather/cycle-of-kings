@@ -94,7 +94,7 @@ Card types/difficulties generated in `missions.ts` using `gameEngine` helpers. A
 
 ## Trophies
 
-`players/:id/trophies` — persistent across cycles (`cycleNumber` on trophy rows).
+`players/:id/trophies` — one row per achievement per cycle (`cycleNumber`); progress resets each wipe but past cycles remain visible.
 
 ## When changing game rules
 

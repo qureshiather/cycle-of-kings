@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useGetActivities } from "@workspace/api-client-react";
 import type { Activity } from "@workspace/api-client-react";
+import AchievementsModal from "@/components/AchievementsModal";
 import MissionActivitySummaryModal from "@/components/MissionActivitySummaryModal";
 import TabBadge from "@/components/TabBadge";
 import ScreenHeader from "@/components/ScreenHeader";
@@ -39,6 +40,7 @@ const TYPE_GROUPS: Record<string, string> = {
   mission_dispatched: "muted",
   building_placed: "muted",
   kingdom_reset: "danger",
+  achievement_unlocked: "success",
 };
 
 export default function ActivityScreen() {
@@ -46,6 +48,7 @@ export default function ActivityScreen() {
   const { townId } = useGame();
   const [activeTab, setActiveTab] = useState<"activity" | "settings">("activity");
   const [missionSummary, setMissionSummary] = useState<MissionActivityMetadata | null>(null);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const { unreadCount, markAllRead } = useActivityUnread();
 
   const { data: activities = [], isLoading, refetch } = useGetActivities(townId ?? 0, {
@@ -144,15 +147,17 @@ export default function ActivityScreen() {
                 !prev || new Date(prev.createdAt).toDateString() !== new Date(item.createdAt).toDateString();
               const color = groupColor(item.type);
               const bg = groupBg(item.type);
+              const isAchievement = item.type === "achievement_unlocked";
               const missionMeta = MISSION_RESULT_TYPES.has(item.type)
                 ? parseMissionActivityMetadata(item.metadata)
                 : null;
-              const tappable = !!missionMeta;
+              const tappable = !!missionMeta || isAchievement;
+              const displayIcon = (item.icon || (isAchievement ? "trophy" : "bell-outline")) as any;
 
               const cardInner = (
                 <>
                   <View style={[styles.iconBox, { backgroundColor: color + "22" }]}>
-                    <MaterialCommunityIcons name={item.icon as any} size={20} color={color} />
+                    <MaterialCommunityIcons name={displayIcon} size={20} color={color} />
                   </View>
                   <View style={styles.cardBody}>
                     <View style={styles.cardTop}>
@@ -161,7 +166,9 @@ export default function ActivityScreen() {
                     </View>
                     <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{item.body}</Text>
                     {tappable && (
-                      <Text style={[styles.tapHint, { color: color }]}>Tap for battle summary</Text>
+                      <Text style={[styles.tapHint, { color: color }]}>
+                        {isAchievement ? "Tap to view achievements" : "Tap for battle summary"}
+                      </Text>
                     )}
                   </View>
                   {tappable && (
@@ -190,7 +197,10 @@ export default function ActivityScreen() {
                   {tappable ? (
                     <TouchableOpacity
                       style={[styles.card, { backgroundColor: bg, borderColor: color + "40" }]}
-                      onPress={() => setMissionSummary(missionMeta)}
+                      onPress={() => {
+                        if (isAchievement) setAchievementsOpen(true);
+                        else if (missionMeta) setMissionSummary(missionMeta);
+                      }}
                       activeOpacity={0.75}
                     >
                       {cardInner}
@@ -207,7 +217,7 @@ export default function ActivityScreen() {
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <SettingsPanel />
+          <SettingsPanel onOpenAchievements={() => setAchievementsOpen(true)} />
         </ScrollView>
       )}
       <MissionActivitySummaryModal
@@ -215,6 +225,7 @@ export default function ActivityScreen() {
         metadata={missionSummary}
         onClose={() => setMissionSummary(null)}
       />
+      <AchievementsModal visible={achievementsOpen} onClose={() => setAchievementsOpen(false)} />
     </View>
   );
 }

@@ -2,20 +2,31 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 
-export default function TabBadge({ count, inline }: { count: number; inline?: boolean }) {
+export default function TabBadge({
+  count,
+  inline,
+  variant = "alert",
+}: {
+  count: number;
+  inline?: boolean;
+  variant?: "alert" | "gold";
+}) {
   const colors = useColors();
   if (count <= 0) return null;
 
   const label = count > 99 ? "99+" : String(count);
+  const bg = variant === "gold" ? colors.gold : colors.destructive;
+  const fg = variant === "gold" ? colors.background : colors.destructiveForeground;
+  const border = inline ? bg : variant === "gold" ? colors.surface : colors.surface;
 
   return (
     <View
       style={[
         inline ? styles.inlineBadge : styles.badge,
-        { backgroundColor: colors.destructive, borderColor: inline ? colors.destructive : colors.surface },
+        { backgroundColor: bg, borderColor: border },
       ]}
     >
-      <Text style={[styles.text, { color: colors.destructiveForeground }]}>{label}</Text>
+      <Text style={[styles.text, { color: fg }]}>{label}</Text>
     </View>
   );
 }

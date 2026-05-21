@@ -6,13 +6,13 @@ export type NormPoint = { x: number; y: number; gate?: boolean; corner?: boolean
 
 /** Closed loop around the settlement (normalized). North edge sits on land, not sky. */
 export const WALL_PERIMETER: NormPoint[] = [
-  { x: 0.1, y: 0.44, corner: true },
-  { x: 0.24, y: 0.38 },
-  { x: 0.38, y: 0.36 },
-  { x: 0.5, y: 0.34 },
-  { x: 0.62, y: 0.36 },
-  { x: 0.76, y: 0.38 },
-  { x: 0.9, y: 0.44, corner: true },
+  { x: 0.1, y: 0.46, corner: true },
+  { x: 0.24, y: 0.42 },
+  { x: 0.38, y: 0.4 },
+  { x: 0.5, y: 0.39 },
+  { x: 0.62, y: 0.4 },
+  { x: 0.76, y: 0.42 },
+  { x: 0.9, y: 0.46, corner: true },
   { x: 0.95, y: 0.52 },
   { x: 0.92, y: 0.64, corner: true },
   { x: 0.78, y: 0.74 },
@@ -126,12 +126,13 @@ export function clampWallRise(
   footprintH: number,
   rise: number,
   canvasHeight: number,
-  pad = 10,
+  pad = 4,
 ): number {
   const horizon = canvasHeight * VISTA_HORIZON;
   const hh = footprintH / 2;
   const maxRise = anchorY - hh - horizon - pad;
-  return Math.max(2, Math.min(rise, maxRise));
+  if (maxRise < 3) return Math.min(rise, 3);
+  return Math.min(rise, maxRise);
 }
 
 export function insetPoint(

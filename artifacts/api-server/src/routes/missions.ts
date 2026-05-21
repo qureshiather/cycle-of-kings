@@ -10,6 +10,7 @@ import {
   rollMissionLoot,
   calculateArmyComposition,
 } from "../lib/gameEngine.js";
+import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown } from "./slots.js";
 
 const MERCENARY_GOLD_COST = 10;
@@ -40,9 +41,34 @@ function troopSide(
   };
 }
 
+function enemyForceForMission(m: {
+  id: number;
+  missionDifficulty: string;
+  infantry: number;
+  archers: number;
+  cavalry: number;
+  mercenaries: number;
+  enemyInfantry: number;
+  enemyArchers: number;
+  enemyCavalry: number;
+}) {
+  const stored = m.enemyInfantry + m.enemyArchers + m.enemyCavalry;
+  if (stored > 0) {
+    return { infantry: m.enemyInfantry, archers: m.enemyArchers, cavalry: m.enemyCavalry };
+  }
+  const playerTotal = m.infantry + m.archers + m.cavalry + m.mercenaries;
+  const diff =
+    m.missionDifficulty === "easy" || m.missionDifficulty === "hard"
+      ? m.missionDifficulty
+      : "medium";
+  return generateEnemyForce(m.id * 31 + 7, playerTotal, diff);
+}
+
 function buildMissionMetadata(
   m: {
+    id: number;
     missionTitle: string;
+    missionDifficulty: string;
     infantry: number;
     archers: number;
     cavalry: number;
@@ -58,11 +84,12 @@ function buildMissionMetadata(
   },
   success: boolean,
 ) {
+  const enemy = enemyForceForMission(m);
   return {
     missionTitle: m.missionTitle,
     success,
     playerTroops: troopSide(m.infantry, m.archers, m.cavalry, m.mercenaries),
-    enemyTroops: troopSide(m.enemyInfantry, m.enemyArchers, m.enemyCavalry, 0),
+    enemyTroops: troopSide(enemy.infantry, enemy.archers, enemy.cavalry, 0),
     loot: success
       ? {
           gold: m.lootGold ?? 0,
@@ -153,7 +180,8 @@ async function resolvePendingMissions(townId: number) {
       }
 
       const playerTotal = troopSide(m.infantry, m.archers, m.cavalry, m.mercenaries).total;
-      const enemyTotal = troopSide(m.enemyInfantry, m.enemyArchers, m.enemyCavalry).total;
+      const enemy = enemyForceForMission(m);
+      const enemyTotal = enemy.infantry + enemy.archers + enemy.cavalry;
       const metadata = buildMissionMetadata(resolved, success);
 
       await db.insert(activitiesTable).values({
@@ -167,6 +195,10 @@ async function resolvePendingMissions(townId: number) {
         iconColor: success ? "#3d7a35" : "#cc4040",
         metadata: JSON.stringify(metadata),
       });
+
+      if (success) {
+        await checkAchievementsForTown(townId, { mission_victory: true });
+      }
     }
   }
 }
@@ -175,11 +207,17 @@ router.get("/towns/:townId/missions", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
   await resolvePendingMissions(townId);
   const missions = await db.select().from(missionsTable).where(eq(missionsTable.townId, townId));
-  res.json(missions.map(m => ({
-    ...m,
-    dispatchedAt: m.dispatchedAt.toISOString(),
-    returnsAt: m.returnsAt.toISOString(),
-  })));
+  res.json(missions.map((m) => {
+    const enemy = enemyForceForMission(m);
+    return {
+      ...m,
+      enemyInfantry: enemy.infantry,
+      enemyArchers: enemy.archers,
+      enemyCavalry: enemy.cavalry,
+      dispatchedAt: m.dispatchedAt.toISOString(),
+      returnsAt: m.returnsAt.toISOString(),
+    };
+  }));
 });
 
 router.post("/towns/:townId/missions", async (req, res) => {

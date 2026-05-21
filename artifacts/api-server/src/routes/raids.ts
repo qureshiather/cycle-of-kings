@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { raidsTable, townsTable, armyTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, or } from "drizzle-orm";
 import { simulateCombat, calculateArmyComposition, calculateTotalDefense } from "../lib/gameEngine.js";
+import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown } from "./slots.js";
 
 const router = Router();
@@ -106,6 +107,10 @@ router.post("/raids", async (req, res) => {
     lootGold, lootFood, lootWood, lootStone,
     attackerCasualties: casualties,
   }).returning();
+
+  if (victory) {
+    await checkAchievementsForTown(attackerTownId, { raid_conqueror: true });
+  }
 
   await db.insert(activitiesTable).values({
     townId: attackerTownId,

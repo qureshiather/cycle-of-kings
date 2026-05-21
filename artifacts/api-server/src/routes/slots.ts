@@ -4,6 +4,7 @@ import { townsTable, buildingSlotsTable, activitiesTable, armyTable } from "@wor
 import { eq, and } from "drizzle-orm";
 import { getBuildBlockReason } from "@workspace/building-progression";
 import { SLOT_TYPES } from "@workspace/db";
+import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateBuildingCost,
   getUpgradeDurationMs, applyTick, calculateEconomyScore,
@@ -134,6 +135,8 @@ async function getTickedTown(townId: number) {
     defenseRating: staticDefense,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));
+
+  await checkAchievementsForTown(townId);
 
   return {
     town: { ...town, ...tickedResources, defenseRating: staticDefense },

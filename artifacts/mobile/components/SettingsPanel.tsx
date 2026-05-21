@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -8,17 +8,19 @@ import {
   useSetPeacefulMode,
   useGetGameState,
   useResetTown,
+  useGetBuildingSlots,
   getGetTownQueryKey,
   getGetBuildingSlotsQueryKey,
   getGetTownArmyQueryKey,
   getGetTownRaidsQueryKey,
 } from "@workspace/api-client-react";
+import BuildingProgressionModal from "@/components/BuildingProgressionModal";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
 
-export default function SettingsPanel() {
+export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const { townId } = useGame();
@@ -29,6 +31,8 @@ export default function SettingsPanel() {
   const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
   const setPeacefulMode = useSetPeacefulMode();
   const resetTown = useResetTown();
+  const { data: slots = [] } = useGetBuildingSlots(townId ?? 0, { query: { enabled: !!townId } as any });
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const isPeaceful = myTown?.peacefulMode ?? false;
   const peacefulLocked = (myTown as any)?.peacefulOptedInCycle != null;
@@ -99,8 +103,64 @@ export default function SettingsPanel() {
     );
   };
 
+  const slotsForGuide = slots.map((s) => ({
+    slotType: s.slotType,
+    level: s.level ?? 0,
+    upgrading: s.upgrading,
+  }));
+
   return (
     <View style={styles.wrap}>
+      <TouchableOpacity
+        style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onOpenAchievements();
+        }}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="View achievements"
+      >
+        <View style={styles.linkRow}>
+          <MaterialCommunityIcons name="trophy" size={20} color={colors.gold} />
+          <View style={styles.linkText}>
+            <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Achievements</Text>
+            <Text style={[styles.linkDesc, { color: colors.textSecondary }]}>
+              Re-earn each cycle · view past cycle history
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          setGuideOpen(true);
+        }}
+        activeOpacity={0.75}
+        accessibilityRole="button"
+        accessibilityLabel="Open building progression guide"
+      >
+        <View style={styles.linkRow}>
+          <MaterialCommunityIcons name="book-open-page-variant" size={20} color={colors.gold} />
+          <View style={styles.linkText}>
+            <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Building progression guide</Text>
+            <Text style={[styles.linkDesc, { color: colors.textSecondary }]}>
+              Town Hall requirements and unlock order
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
+        </View>
+      </TouchableOpacity>
+
+      <BuildingProgressionModal
+        visible={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        slots={slotsForGuide}
+      />
+
       <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.settingsHeader}>
           <MaterialCommunityIcons name="theme-light-dark" size={16} color={colors.textSecondary} />
@@ -216,6 +276,9 @@ export default function SettingsPanel() {
 const styles = StyleSheet.create({
   wrap: { gap: 10 },
   settingsCard: { borderRadius: 12, borderWidth: 1, overflow: "hidden" },
+  linkRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
+  linkText: { flex: 1, gap: 3 },
+  linkDesc: { fontSize: 12, fontFamily: "Inter_400Regular", lineHeight: 17 },
   settingsHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 14 },
   settingsTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
   divider: { height: 1 },

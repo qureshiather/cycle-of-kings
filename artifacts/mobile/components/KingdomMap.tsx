@@ -9,10 +9,11 @@ import {
   type SlotType,
 } from "@workspace/building-progression";
 import * as Haptics from "expo-haptics";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Modal,
   Pressable,
   RefreshControl,
@@ -43,8 +44,10 @@ import {
   type ResourceAmounts,
 } from "@/lib/buildingMeta";
 import ResourceCostRow from "@/components/ResourceCostRow";
-import BuildingProgressionModal from "@/components/BuildingProgressionModal";
+import BuildCelebrationModal, { type BuildCelebration } from "@/components/BuildCelebrationModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
+import TabBadge from "@/components/TabBadge";
+import { slotBuildStates } from "@/lib/buildableSlots";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
@@ -83,7 +86,8 @@ export default function KingdomMap({
     production: false,
     army: false,
   });
-  const [guideOpen, setGuideOpen] = useState(false);
+  const [celebration, setCelebration] = useState<BuildCelebration | null>(null);
+  const prevActionableRef = useRef(0);
 
   const toggleSection = (category: BuildingCategory) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -133,6 +137,34 @@ export default function KingdomMap({
 
   const owned = normalizeResources({ gold, food, wood, stone });
 
+  const buildStates = useMemo(() => slotBuildStates(slotsForRules, owned), [slotsForRules, owned]);
+  const buildStateByType = useMemo(() => {
+    const map = new Map<string, (typeof buildStates)[number]>();
+    for (const state of buildStates) map.set(state.slotType, state);
+    return map;
+  }, [buildStates]);
+  const actionableCount = useMemo(
+    () => buildStates.filter((s) => s.actionable).length,
+    [buildStates],
+  );
+  const firstActionable = buildStates.find((s) => s.actionable)?.slotType ?? null;
+
+  useEffect(() => {
+    if (actionableCount > 0 && prevActionableRef.current === 0) {
+      setCollapsedSections((prev) => {
+        const next = { ...prev };
+        for (const category of BUILDING_CATEGORY_ORDER) {
+          const hasActionable = BUILDINGS_BY_CATEGORY[category].some(
+            (slotType) => buildStateByType.get(slotType)?.actionable,
+          );
+          if (hasActionable) next[category] = false;
+        }
+        return next;
+      });
+    }
+    prevActionableRef.current = actionableCount;
+  }, [actionableCount, buildStateByType]);
+
   function canAfford(slotType: string, level: number): boolean {
     return canAffordCost(getBuildingCost(slotType, level), owned);
   }
@@ -154,8 +186,12 @@ export default function KingdomMap({
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const builtType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
+          if (builtType) {
+            setCelebration({ slotType: builtType, level: 1, kind: "built" });
+          }
         },
         onError: (e: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -167,13 +203,18 @@ export default function KingdomMap({
 
   const handleUpgrade = () => {
     if (!selectedSlotType) return;
+    const nextLevel = (selectedSlot?.level ?? 0) + 1;
     upgradeSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
         onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          const upgradedType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
+          if (upgradedType) {
+            setCelebration({ slotType: upgradedType, level: nextLevel, kind: "upgrade" });
+          }
         },
         onError: (e: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -229,10 +270,58 @@ export default function KingdomMap({
           ) : undefined
         }
       >
+        {actionableCount > 0 && (
+          <Pressable
+            onPress={() => {
+              if (!firstActionable) return;
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setSelectedSlotType(firstActionable);
+            }}
+            style={({ pressed }) => [
+              styles.buildBanner,
+              {
+                backgroundColor: withAlpha(colors.gold, pressed ? 0.2 : 0.14),
+                borderColor: withAlpha(colors.gold, 0.55),
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`${actionableCount} buildings ready to construct`}
+          >
+            <View style={[styles.buildBannerIcon, { backgroundColor: withAlpha(colors.gold, 0.25) }]}>
+              <MaterialCommunityIcons name="hammer-wrench" size={22} color={colors.gold} />
+            </View>
+            <View style={styles.buildBannerText}>
+              <Text style={[styles.buildBannerTitle, { color: colors.foreground }]}>
+                {actionableCount === 1
+                  ? "A building is ready to raise"
+                  : `${actionableCount} buildings ready to raise`}
+              </Text>
+              <Text style={[styles.buildBannerSub, { color: colors.gold }]}>
+                Tap to start construction
+              </Text>
+            </View>
+            <TabBadge count={actionableCount} inline variant="gold" />
+            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.gold} />
+          </Pressable>
+        )}
+
         {BUILDING_CATEGORY_ORDER.map((category) => {
           const isCollapsed = collapsedSections[category];
           const sectionColor = category === "production" ? colors.food : colors.military;
           const categorySlots = BUILDINGS_BY_CATEGORY[category];
+          const sectionActionable = categorySlots.filter(
+            (slotType) => buildStateByType.get(slotType)?.actionable,
+          ).length;
+          const sortedSlots = [...categorySlots].sort((a, b) => {
+            const rank = (slotType: string) => {
+              const state = buildStateByType.get(slotType);
+              if (state?.actionable) return 0;
+              if (state?.ready && state.canAfford) return 1;
+              if (state?.ready) return 2;
+              return 3;
+            };
+            return rank(a) - rank(b);
+          });
           const builtInSection = categorySlots.filter(
             (slotType) => (slotMap.get(slotType)?.level ?? 0) > 0,
           ).length;
@@ -259,25 +348,8 @@ export default function KingdomMap({
               <Text style={[styles.sectionTitle, { color: sectionColor, flex: 1 }]}>
                 {BUILDING_CATEGORY_LABELS[category]}
               </Text>
-              {category === "production" && (
-                <Pressable
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setGuideOpen(true);
-                  }}
-                  style={({ pressed }) => [
-                    styles.guideBtn,
-                    {
-                      backgroundColor: withAlpha(colors.gold, pressed ? 0.18 : 0.1),
-                      borderColor: withAlpha(colors.gold, 0.35),
-                    },
-                  ]}
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Open building guide"
-                >
-                  <MaterialCommunityIcons name="book-open-page-variant" size={16} color={colors.gold} />
-                </Pressable>
+              {sectionActionable > 0 && (
+                <TabBadge count={sectionActionable} inline variant="gold" />
               )}
               {isCollapsed && (
                 <Text style={[styles.sectionSummary, { color: colors.textSecondary }]}>
@@ -288,12 +360,13 @@ export default function KingdomMap({
             </Pressable>
             {!isCollapsed && (
             <View style={styles.grid}>
-              {categorySlots.map((slotType) => {
+              {sortedSlots.map((slotType) => {
                 const slot = slotMap.get(slotType) ?? {
                   slotType,
                   level: 0,
                   upgrading: false,
                 };
+                const state = buildStateByType.get(slotType);
                 const built = slot.level > 0;
                 const lockReason = !built ? getBuildBlockReason(slotType, slotsForRules) : null;
                 const locked = lockReason !== null;
@@ -301,6 +374,8 @@ export default function KingdomMap({
                 const color = getSlotColor(slotType, colors);
                 const icon = SLOT_ICONS[slotType] ?? "help";
                 const name = SLOT_NAMES[slotType] ?? slotType;
+                const canAffordBuild = state?.canAfford ?? (ready && canAfford(slotType, 1));
+                const highlight = state?.actionable ?? false;
 
                 return (
                   <BuildingCard
@@ -314,9 +389,12 @@ export default function KingdomMap({
                     locked={locked}
                     upgrading={slot.upgrading}
                     lockReason={lockReason}
-                    canAffordBuild={ready && canAfford(slotType, 1)}
+                    canAffordBuild={canAffordBuild}
+                    highlight={highlight}
                     onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      Haptics.impactAsync(
+                        highlight ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
+                      );
                       setSelectedSlotType(slotType);
                     }}
                     colors={colors}
@@ -329,12 +407,6 @@ export default function KingdomMap({
           );
         })}
       </ScrollView>
-
-      <BuildingProgressionModal
-        visible={guideOpen}
-        onClose={() => setGuideOpen(false)}
-        slots={slotsForRules}
-      />
 
       <Modal
         visible={!!selectedSlotType}
@@ -361,74 +433,64 @@ export default function KingdomMap({
 
                 return (
                   <>
-                    <View
-                      style={[
-                        styles.statusBanner,
-                        {
-                          backgroundColor:
-                            sheetStatus === "building"
-                              ? withAlpha(colors.warning, 0.12)
-                              : sheetStatus === "locked"
-                                ? withAlpha(colors.textMuted, 0.1)
-                                : sheetStatus === "empty"
-                                  ? withAlpha(colors.gold, 0.1)
-                                  : withAlpha(color, 0.1),
-                          borderColor:
-                            sheetStatus === "building"
-                              ? withAlpha(colors.warning, 0.35)
-                              : sheetStatus === "locked"
-                                ? colors.border
-                                : sheetStatus === "empty"
-                                  ? withAlpha(colors.gold, 0.35)
-                                  : withAlpha(color, 0.35),
-                        },
-                      ]}
-                    >
-                      <MaterialCommunityIcons
-                        name={
-                          sheetStatus === "building"
-                            ? "progress-clock"
-                            : sheetStatus === "locked"
-                              ? "lock"
-                              : sheetStatus === "empty"
-                                ? "hammer-wrench"
-                                : "check-circle"
-                        }
-                        size={14}
-                        color={
-                          sheetStatus === "building"
-                            ? colors.warning
-                            : sheetStatus === "locked"
-                              ? colors.textSecondary
-                              : sheetStatus === "empty"
-                                ? colors.gold
-                                : color
-                        }
-                      />
-                      <Text
+                    {sheetStatus !== "built" && (
+                      <View
                         style={[
-                          styles.statusBannerText,
+                          styles.statusBanner,
                           {
-                            color:
+                            backgroundColor:
                               sheetStatus === "building"
-                                ? colors.warning
+                                ? withAlpha(colors.warning, 0.12)
                                 : sheetStatus === "locked"
-                                  ? colors.textSecondary
-                                  : sheetStatus === "empty"
-                                    ? colors.gold
-                                    : color,
+                                  ? withAlpha(colors.textMuted, 0.1)
+                                  : withAlpha(colors.gold, 0.1),
+                            borderColor:
+                              sheetStatus === "building"
+                                ? withAlpha(colors.warning, 0.35)
+                                : sheetStatus === "locked"
+                                  ? colors.border
+                                  : withAlpha(colors.gold, 0.35),
                           },
                         ]}
                       >
-                        {sheetStatus === "building"
-                          ? `Building · ${formatTimeRemaining(sheetTimeLeft)}`
-                          : sheetStatus === "locked"
-                            ? `Not built · ${buildBlocked}`
-                            : sheetStatus === "empty"
-                              ? "Not built · Ready to build"
-                              : `Built · Level ${level}`}
-                      </Text>
-                    </View>
+                        <MaterialCommunityIcons
+                          name={
+                            sheetStatus === "building"
+                              ? "progress-clock"
+                              : sheetStatus === "locked"
+                                ? "lock"
+                                : "hammer-wrench"
+                          }
+                          size={14}
+                          color={
+                            sheetStatus === "building"
+                              ? colors.warning
+                              : sheetStatus === "locked"
+                                ? colors.textSecondary
+                                : colors.gold
+                          }
+                        />
+                        <Text
+                          style={[
+                            styles.statusBannerText,
+                            {
+                              color:
+                                sheetStatus === "building"
+                                  ? colors.warning
+                                  : sheetStatus === "locked"
+                                    ? colors.textSecondary
+                                    : colors.gold,
+                            },
+                          ]}
+                        >
+                          {sheetStatus === "building"
+                            ? `Building · ${formatTimeRemaining(sheetTimeLeft)}`
+                            : sheetStatus === "locked"
+                              ? `Not built · ${buildBlocked}`
+                              : "Not built · Ready to build"}
+                        </Text>
+                      </View>
+                    )}
 
                     <View style={styles.sheetHeader}>
                       <View style={[styles.sheetIcon, { backgroundColor: withAlpha(color, 0.12) }]}>
@@ -444,9 +506,6 @@ export default function KingdomMap({
                             : `Level ${level}`}
                         </Text>
                       </View>
-                      {level > 0 && (
-                        <Text style={[styles.lvBadge, { color }]}>{level}</Text>
-                      )}
                     </View>
 
                     {level > 0 && (
@@ -509,6 +568,12 @@ export default function KingdomMap({
           </TouchableOpacity>
         </ModalOverlay>
       </Modal>
+
+      <BuildCelebrationModal
+        visible={!!celebration}
+        celebration={celebration}
+        onClose={() => setCelebration(null)}
+      />
     </>
   );
 }
@@ -524,6 +589,7 @@ function BuildingCard({
   upgrading,
   lockReason,
   canAffordBuild,
+  highlight,
   onPress,
   colors,
 }: {
@@ -537,10 +603,27 @@ function BuildingCard({
   upgrading: boolean;
   lockReason: string | null;
   canAffordBuild: boolean;
+  highlight?: boolean;
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const { withAlpha } = useTheme();
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!highlight) {
+      pulse.setValue(1);
+      return;
+    }
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.5, duration: 850, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [highlight, pulse]);
 
   const accentColor = upgrading
     ? colors.warning
@@ -568,19 +651,41 @@ function BuildingCard({
       activeOpacity={0.8}
       style={[
         styles.card,
+        highlight && styles.cardHighlight,
         {
-          backgroundColor: built ? colors.surfaceElevated : ready ? withAlpha(colors.gold, 0.04) : colors.surface,
-          borderColor: built
-            ? withAlpha(color, 0.45)
-            : ready
-              ? withAlpha(canAffordBuild ? colors.gold : colors.border, canAffordBuild ? 0.5 : 1)
-              : colors.border,
+          backgroundColor: highlight
+            ? withAlpha(colors.gold, 0.12)
+            : built
+              ? colors.surfaceElevated
+              : ready
+                ? withAlpha(colors.gold, 0.04)
+                : colors.surface,
+          borderColor: highlight
+            ? colors.gold
+            : built
+              ? withAlpha(color, 0.45)
+              : ready
+                ? withAlpha(canAffordBuild ? colors.gold : colors.border, canAffordBuild ? 0.5 : 1)
+                : colors.border,
           borderStyle: ready && !built ? "dashed" : "solid",
+          borderWidth: highlight ? 2 : 1,
           opacity: locked ? 0.65 : 1,
         },
       ]}
     >
-      <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
+      {highlight && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.cardGlow,
+            {
+              borderColor: colors.gold,
+              opacity: pulse,
+            },
+          ]}
+        />
+      )}
+      <View style={[styles.cardAccent, { backgroundColor: accentColor, width: highlight ? 5 : 4 }]} />
       <View style={[styles.cardIcon, { backgroundColor: withAlpha(color, built || ready ? 0.14 : 0.06) }]}>
         {locked ? (
           <MaterialCommunityIcons name="lock" size={20} color={colors.textMuted} />
@@ -597,8 +702,20 @@ function BuildingCard({
             {upgrading ? "Building" : `Level ${level}`}
           </Text>
         ) : (
-          <Text style={[styles.cardMeta, { color: colors.textSecondary }]} numberOfLines={2}>
-            {locked ? lockReason : canAffordBuild ? "Ready — tap to build" : "Needs resources"}
+          <Text
+            style={[
+              styles.cardMeta,
+              { color: highlight ? colors.gold : canAffordBuild ? colors.foreground : colors.textSecondary },
+            ]}
+            numberOfLines={2}
+          >
+            {locked
+              ? lockReason
+              : highlight
+                ? "Ready now — tap to build"
+                : canAffordBuild
+                  ? "Ready — tap to build"
+                  : "Needs resources"}
           </Text>
         )}
       </View>
@@ -685,16 +802,26 @@ function ActionButton({
 
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
-  scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 4 },
-  guideBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    borderWidth: 1,
+  scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 4, gap: 12 },
+  buildBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    marginBottom: 4,
+  },
+  buildBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: "auto",
   },
+  buildBannerText: { flex: 1, gap: 2 },
+  buildBannerTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
+  buildBannerSub: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { gap: 8, marginBottom: 16 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
@@ -710,6 +837,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     overflow: "hidden",
+  },
+  cardHighlight: {
+    shadowColor: "#d4a520",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  cardGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 10,
+    borderWidth: 2,
   },
   cardAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   cardIcon: {
@@ -742,7 +881,6 @@ const styles = StyleSheet.create({
   sheetIcon: { width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  lvBadge: { fontSize: 22, fontFamily: "Inter_700Bold" },
   statusBanner: {
     flexDirection: "row",
     alignItems: "center",

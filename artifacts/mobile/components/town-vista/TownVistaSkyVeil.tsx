@@ -21,7 +21,7 @@ export default function TownVistaSkyVeil({ width, height, theme }: Props) {
           <Stop offset="1" stopColor={theme.skyBottom} stopOpacity="1" />
         </LinearGradient>
       </Defs>
-      <Path d={`M 0 0 H ${width} V ${horizon + 14} H 0 Z`} fill="url(#veilSky)" />
+      <Path d={`M 0 0 H ${width} V ${horizon + 22} H 0 Z`} fill="url(#veilSky)" />
     </Svg>
   );
 }

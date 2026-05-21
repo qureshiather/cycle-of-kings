@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
+import * as Haptics from "expo-haptics";
+import React, { useEffect, useMemo } from "react";
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import ModalOverlay from "@/components/ui/ModalOverlay";
@@ -7,6 +8,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import {
   formatTroopLine,
+  missionBattleFlavor,
   type MissionActivityMetadata,
 } from "@/lib/missionMeta";
 
@@ -16,59 +18,146 @@ type Props = {
   onClose: () => void;
 };
 
+function ForceCard({
+  label,
+  troops,
+  total,
+  side,
+  won,
+}: {
+  label: string;
+  troops: string;
+  total: number;
+  side: "player" | "enemy";
+  won: boolean;
+}) {
+  const colors = useColors();
+  const { withAlpha } = useTheme();
+  const isWinner = (side === "player" && won) || (side === "enemy" && !won);
+  const accent = side === "player" ? colors.gold : colors.destructive;
+  const icon = side === "player" ? "shield-sword" : "skull-outline";
+
+  return (
+    <View
+      style={[
+        styles.forceCard,
+        {
+          backgroundColor: withAlpha(accent, isWinner ? 0.14 : 0.06),
+          borderColor: withAlpha(accent, isWinner ? 0.45 : 0.2),
+        },
+      ]}
+    >
+      <View style={styles.forceCardTop}>
+        <MaterialCommunityIcons name={icon as any} size={16} color={accent} />
+        <Text style={[styles.forceLabel, { color: colors.textSecondary }]}>{label}</Text>
+        {isWinner && (
+          <View style={[styles.winnerChip, { backgroundColor: withAlpha(accent, 0.2) }]}>
+            <Text style={[styles.winnerChipText, { color: accent }]}>
+              {side === "player" ? "WON" : "HELD"}
+            </Text>
+          </View>
+        )}
+      </View>
+      <Text style={[styles.forceTroops, { color: colors.foreground }]}>{troops}</Text>
+      <Text style={[styles.forceTotal, { color: accent }]}>{total} fighters</Text>
+    </View>
+  );
+}
+
 export default function MissionActivitySummaryModal({ visible, metadata, onClose }: Props) {
   const colors = useColors();
   const { withAlpha } = useTheme();
 
-  if (!metadata) return null;
+  const flavor = useMemo(
+    () => (metadata ? missionBattleFlavor(metadata) : null),
+    [metadata],
+  );
+
+  useEffect(() => {
+    if (!visible || !metadata) return;
+    Haptics.notificationAsync(
+      metadata.success
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Error,
+    );
+  }, [visible, metadata]);
+
+  if (!metadata || !flavor) return null;
 
   const won = metadata.success;
   const accent = won ? colors.success : colors.destructive;
+  const heroIcon = won ? "flag-checkered" : "weather-lightning-rainy";
+  const yours = metadata.playerTroops.total;
+  const theirs = metadata.enemyTroops.total;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <ModalOverlay onPress={onClose}>
-        <View style={[styles.sheet, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <MaterialCommunityIcons
-              name={won ? "flag-checkered" : "skull-crossbones"}
-              size={22}
-              color={accent}
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.surface,
+              borderColor: withAlpha(accent, 0.4),
+            },
+          ]}
+        >
+          <View style={[styles.sheetAccent, { backgroundColor: accent }]} />
+
+          <TouchableOpacity onPress={onClose} hitSlop={12} style={styles.closeBtn}>
+            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={[styles.hero, { backgroundColor: withAlpha(accent, 0.12), borderColor: withAlpha(accent, 0.35) }]}>
+            <MaterialCommunityIcons name={heroIcon as any} size={40} color={accent} />
+          </View>
+
+          <View style={[styles.stamp, { backgroundColor: withAlpha(accent, 0.18), borderColor: withAlpha(accent, 0.5) }]}>
+            <Text style={[styles.stampText, { color: accent }]}>{flavor.stamp}</Text>
+          </View>
+
+          <Text style={[styles.missionTitle, { color: colors.foreground }]}>{metadata.missionTitle}</Text>
+          <Text style={[styles.tagline, { color: accent }]}>{flavor.tagline}</Text>
+
+          <View style={styles.tallyRow}>
+            <Text style={[styles.tallySide, { color: colors.gold }]}>{yours}</Text>
+            <View style={[styles.tallyVs, { backgroundColor: withAlpha(colors.gold, 0.15) }]}>
+              <Text style={[styles.tallyVsText, { color: colors.gold }]}>vs</Text>
+            </View>
+            <Text style={[styles.tallySide, { color: colors.destructive }]}>{theirs}</Text>
+          </View>
+          <Text style={[styles.tallyHint, { color: colors.textSecondary }]}>
+            {won ? "Fortune smiled on your host" : "The dice favored the other side"}
+          </Text>
+
+          <View style={styles.forceRow}>
+            <ForceCard
+              label={flavor.playerLabel}
+              troops={formatTroopLine(metadata.playerTroops)}
+              total={yours}
+              side="player"
+              won={won}
             />
-            <View style={styles.headerText}>
-              <Text style={[styles.title, { color: colors.foreground }]}>{metadata.missionTitle}</Text>
-              <Text style={[styles.subtitle, { color: accent }]}>
-                {won ? "Victory — spoils secured" : "Defeat — forces routed"}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} hitSlop={12}>
-              <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
-            </TouchableOpacity>
+            <ForceCard
+              label={flavor.enemyLabel}
+              troops={formatTroopLine(metadata.enemyTroops)}
+              total={theirs}
+              side="enemy"
+              won={won}
+            />
           </View>
 
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>YOUR FORCES</Text>
-            <Text style={[styles.troopLine, { color: colors.foreground }]}>
-              {formatTroopLine(metadata.playerTroops)}
-            </Text>
-          </View>
-
-          <View style={styles.vsRow}>
-            <View style={[styles.vsBadge, { backgroundColor: withAlpha(colors.gold, 0.15) }]}>
-              <Text style={[styles.vsText, { color: colors.gold }]}>VS</Text>
-            </View>
-          </View>
-
-          <View style={styles.section}>
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>ENEMY FORCES</Text>
-            <Text style={[styles.troopLine, { color: colors.foreground }]}>
-              {formatTroopLine(metadata.enemyTroops)}
-            </Text>
+          <View style={[styles.scoutBox, { backgroundColor: withAlpha(colors.textMuted, 0.08), borderColor: colors.border }]}>
+            <MaterialCommunityIcons name="feather" size={14} color={colors.textSecondary} />
+            <Text style={[styles.scoutNote, { color: colors.textSecondary }]}>{flavor.scoutNote}</Text>
           </View>
 
           {won && metadata.loot && (
-            <View style={[styles.spoilsBox, { backgroundColor: withAlpha(colors.success, 0.1), borderColor: colors.success + "44" }]}>
-              <Text style={[styles.sectionLabel, { color: colors.success }]}>SPOILS WON</Text>
+            <View style={[styles.spoilsBox, { backgroundColor: withAlpha(colors.success, 0.12), borderColor: withAlpha(colors.success, 0.4) }]}>
+              <View style={styles.spoilsHeader}>
+                <MaterialCommunityIcons name="treasure-chest" size={18} color={colors.success} />
+                <Text style={[styles.spoilsTitle, { color: colors.success }]}>Loot hauled home</Text>
+              </View>
               <ResourceCostRow
                 cost={{
                   gold: metadata.loot.gold ?? 0,
@@ -82,16 +171,26 @@ export default function MissionActivitySummaryModal({ visible, metadata, onClose
           )}
 
           {!won && (metadata.casualties ?? 0) > 0 && (
-            <Text style={[styles.casualties, { color: colors.destructive }]}>
-              {metadata.casualties} troops lost in the retreat
-            </Text>
+            <View style={[styles.casualtyBox, { backgroundColor: withAlpha(colors.destructive, 0.1), borderColor: withAlpha(colors.destructive, 0.35) }]}>
+              <MaterialCommunityIcons name="heart-broken" size={16} color={colors.destructive} />
+              <Text style={[styles.casualtyText, { color: colors.destructive }]}>
+                {metadata.casualties} troops did not return from the retreat
+              </Text>
+            </View>
           )}
 
           <TouchableOpacity
-            style={[styles.doneBtn, { backgroundColor: colors.gold }]}
+            style={[styles.doneBtn, { backgroundColor: won ? colors.gold : colors.muted }]}
             onPress={onClose}
           >
-            <Text style={[styles.doneText, { color: colors.background }]}>Close</Text>
+            <MaterialCommunityIcons
+              name={won ? "trophy" : "shield-sync"}
+              size={18}
+              color={won ? colors.background : colors.foreground}
+            />
+            <Text style={[styles.doneText, { color: won ? colors.background : colors.foreground }]}>
+              {flavor.doneLabel}
+            </Text>
           </TouchableOpacity>
         </View>
       </ModalOverlay>
@@ -101,31 +200,94 @@ export default function MissionActivitySummaryModal({ visible, metadata, onClose
 
 const styles = StyleSheet.create({
   sheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    paddingBottom: 28,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 2,
+    padding: 20,
+    paddingBottom: 32,
     gap: 10,
+    alignItems: "center",
+    overflow: "hidden",
   },
-  header: {
+  sheetAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+  },
+  closeBtn: { position: "absolute", top: 14, right: 14, zIndex: 2 },
+  hero: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+  stamp: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  stampText: { fontSize: 13, fontFamily: "Inter_700Bold", letterSpacing: 1.2 },
+  missionTitle: { fontSize: 17, fontFamily: "Inter_700Bold", textAlign: "center", marginTop: 2 },
+  tagline: { fontSize: 14, fontFamily: "Inter_500Medium", textAlign: "center", lineHeight: 20, paddingHorizontal: 8 },
+  tallyRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 4 },
+  tallySide: { fontSize: 28, fontFamily: "Inter_700Bold", minWidth: 36, textAlign: "center" },
+  tallyVs: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  tallyVsText: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  tallyHint: { fontSize: 11, fontFamily: "Inter_400Regular", fontStyle: "italic" },
+  forceRow: { flexDirection: "row", gap: 8, width: "100%", marginTop: 4 },
+  forceCard: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 6,
+  },
+  forceCardTop: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" },
+  forceLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.6, flex: 1 },
+  winnerChip: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  winnerChipText: { fontSize: 8, fontFamily: "Inter_700Bold", letterSpacing: 0.4 },
+  forceTroops: { fontSize: 12, fontFamily: "Inter_500Medium", lineHeight: 17 },
+  forceTotal: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  scoutBox: {
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    width: "100%",
+    alignItems: "flex-start",
+  },
+  scoutNote: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", fontStyle: "italic", lineHeight: 18 },
+  spoilsBox: { width: "100%", padding: 12, borderRadius: 10, borderWidth: 1, gap: 8 },
+  spoilsHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  spoilsTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+  casualtyBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+    gap: 8,
+    width: "100%",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  headerText: { flex: 1 },
-  title: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  subtitle: { fontSize: 12, fontFamily: "Inter_500Medium", marginTop: 2 },
-  section: { gap: 4 },
-  sectionLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 },
-  troopLine: { fontSize: 14, fontFamily: "Inter_500Medium", lineHeight: 20 },
-  vsRow: { alignItems: "center", marginVertical: 2 },
-  vsBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  vsText: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 1 },
-  spoilsBox: { padding: 12, borderRadius: 10, borderWidth: 1, gap: 8, marginTop: 4 },
-  casualties: { fontSize: 13, fontFamily: "Inter_500Medium", marginTop: 4 },
-  doneBtn: { marginTop: 8, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
-  doneText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  casualtyText: { flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  doneBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    width: "100%",
+  },
+  doneText: { fontSize: 15, fontFamily: "Inter_700Bold" },
 });

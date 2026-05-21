@@ -7,6 +7,7 @@ import {
   calculateArmyComposition, calculateStaticDefense, calculateTotalDefense,
   applyTick,
 } from "../lib/gameEngine.js";
+import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown, logConstructionComplete } from "./slots.js";
 
 const router = Router();
@@ -46,6 +47,8 @@ async function getAndTickTown(townId: number) {
     defenseRating: staticDefense,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));
+
+  await checkAchievementsForTown(townId);
 
   return { ...town, ...tickedResources, defenseRating: staticDefense, production, economyScore, armyScore, staticDefense, totalDefense };
 }
@@ -131,6 +134,8 @@ router.patch("/towns/:townId/peaceful", async (req, res) => {
     peacefulMode: true,
     peacefulOptedInCycle: cycleNumber,
   }).where(eq(townsTable.id, townId));
+
+  await checkAchievementsForTown(townId);
 
   res.json({
     peacefulMode: true,

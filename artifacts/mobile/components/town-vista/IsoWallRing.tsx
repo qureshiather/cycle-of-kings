@@ -155,8 +155,6 @@ function CornerTower({
   colors,
   tier,
   canvasHeight,
-  prev,
-  next,
 }: {
   cx: number;
   cy: number;
@@ -165,8 +163,6 @@ function CornerTower({
   colors: WallColors;
   tier: number;
   canvasHeight: number;
-  prev?: ScreenPt;
-  next?: ScreenPt;
 }) {
   const h = 12 + tier * 2;
   const r = clampWallRise(cy, h, rise, canvasHeight);
@@ -175,28 +171,8 @@ function CornerTower({
   const topY = Math.max(horizon + 4, cy - h / 2 - r);
   const hw = w / 2;
   const crenelleCount = 3 + tier;
-  const wingLen = hw + 10;
-
-  const wingAlong = (toward: ScreenPt | undefined) => {
-    if (!toward) return null;
-    const dx = toward.x - cx;
-    const dy = toward.y - cy;
-    const len = Math.hypot(dx, dy) || 1;
-    const ux = (dx / len) * wingLen;
-    const uy = (dy / len) * wingLen;
-    return (
-      <Path
-        d={`M ${cx} ${cy} L ${cx + ux} ${cy + uy} L ${cx + ux * 0.85} ${cy + uy * 0.85 - 6} L ${cx} ${cy - 5} Z`}
-        fill={colors.rampartDark}
-        opacity={0.9}
-      />
-    );
-  };
-
   return (
     <G>
-      {wingAlong(prev)}
-      {wingAlong(next)}
       <Path
         d={`M ${cx - hw - 6} ${cy + 3} L ${cx + hw + 6} ${cy + 3} L ${cx + hw + 4} ${cy - 5} L ${cx - hw - 4} ${cy - 5} Z`}
         fill={colors.rampart}
@@ -430,9 +406,6 @@ export default function IsoWallRing({ width, height, wallLevel, colors, depth = 
     for (let i = 0; i < points.length; i++) {
       if (!points[i].corner) continue;
       const s = screenPts[i];
-      const prev = screenPts[(i - 1 + screenPts.length) % screenPts.length];
-      const next = screenPts[(i + 1) % screenPts.length];
-
       pushItem(
         items,
         s.y,
@@ -461,8 +434,6 @@ export default function IsoWallRing({ width, height, wallLevel, colors, depth = 
           colors={colors}
           tier={style.tier}
           canvasHeight={height}
-          prev={prev}
-          next={next}
         />,
       );
     }

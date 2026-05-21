@@ -83,7 +83,7 @@ paths:
     get:
       operationId: getPlayerTrophies
       tags: [players]
-      summary: Get permanent trophies for a player
+      summary: Get achievement history for a player (all cycles)
       parameters:
         - name: playerId
           in: path

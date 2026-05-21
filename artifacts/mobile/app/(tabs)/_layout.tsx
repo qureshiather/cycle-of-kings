@@ -3,13 +3,15 @@ import { BlurView } from "expo-blur";
 import { isLiquidGlassAvailable } from "expo-glass-effect";
 import { Redirect, Tabs } from "expo-router";
 import { Icon, Label, NativeTabs, VectorIcon } from "expo-router/unstable-native-tabs";
-import React from "react";
+import React, { useMemo } from "react";
 import { ActivityIndicator, Platform, StyleSheet, View } from "react-native";
+import { useGetBuildingSlots, useGetTown } from "@workspace/api-client-react";
 import TabBadge from "@/components/TabBadge";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { ActivityUnreadProvider, useActivityUnread } from "@/context/ActivityUnreadContext";
 import { useGame } from "@/context/GameContext";
+import { countActionableBuilds } from "@/lib/buildableSlots";
 
 export const unstable_settings = {
   initialRouteName: "index",
@@ -22,6 +24,34 @@ function ActivityTabIcon({ color, size }: { color: string; size: number }) {
     <View style={styles.tabIconWrap}>
       <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
       <TabBadge count={unreadCount} />
+    </View>
+  );
+}
+
+function KingdomTabIcon({ color, size }: { color: string; size: number }) {
+  const { townId } = useGame();
+  const { data: slots = [] } = useGetBuildingSlots(townId ?? 0, {
+    query: { enabled: !!townId, staleTime: 15_000 } as any,
+  });
+  const { data: town } = useGetTown(townId ?? 0, { query: { enabled: !!townId, staleTime: 15_000 } as any });
+
+  const buildableCount = useMemo(
+    () =>
+      townId && town
+        ? countActionableBuilds(slots as { slotType: string; level: number }[], {
+            gold: town.gold,
+            food: town.food,
+            wood: town.wood,
+            stone: town.stone,
+          })
+        : 0,
+    [townId, town, slots],
+  );
+
+  return (
+    <View style={styles.tabIconWrap}>
+      <MaterialCommunityIcons name="castle" size={size} color={color} />
+      <TabBadge count={buildableCount} variant="gold" />
     </View>
   );
 }
@@ -103,7 +133,7 @@ function ClassicTabLayout() {
         name="index"
         options={{
           title: "Kingdom",
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="castle" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <KingdomTabIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
