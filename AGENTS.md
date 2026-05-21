@@ -77,13 +77,17 @@ Setup flow: `app/setup.tsx` → creates player via API, stores IDs in AsyncStora
 | `pnpm --filter @workspace/api-server run dev` | API only |
 | `pnpm --filter @workspace/mobile run dev` | Expo only |
 
-## Docs for agents
+## Docs
+
+**Game mechanics (design / balance, no code):** [docs/mechanics/README.md](docs/mechanics/README.md)
+
+**Agents & implementation:**
 
 - [Architecture & data flow](docs/agents/architecture.md)
 - [Development workflow](docs/agents/development.md)
 - [API & codegen](docs/agents/api.md)
 - [Mobile app](docs/agents/mobile.md)
-- [Game domain rules](docs/agents/game-domain.md)
+- [Game domain index](docs/agents/game-domain.md) → links to mechanics docs
 
 ## Stale / ignore
 

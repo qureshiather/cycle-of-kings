@@ -1,105 +1,39 @@
-# Game domain rules
+# Game domain rules (agents)
 
-Source of truth for mechanics agents must not contradict.
+**Human-readable design reference:** [../mechanics/README.md](../mechanics/README.md) — use that for balance and fun review without code.
 
-## Buildings & progression
+This file is a **short index** for implementation. Do not contradict `docs/mechanics/`.
 
-**Package:** `lib/building-progression/src/index.ts`
+## Where to change what
 
-First-time **build** requirements (upgrades only need resources once built):
+| Topic | Design doc | Code |
+|-------|------------|------|
+| Buildings, unlocks, mission slots | [buildings.md](../mechanics/buildings.md) | `lib/building-progression/`, `slots.ts` |
+| Resources, seasons, ticks | [core-loop-and-resources.md](../mechanics/core-loop-and-resources.md) | `gameEngine.ts`, `towns.ts` |
+| Population / food | [population.md](../mechanics/population.md) | `gameEngine.ts` `applyFullTick` |
+| Army, raids | [combat-forces.md](../mechanics/combat-forces.md) | `gameEngine.ts`, `raids.ts`, `army.ts` |
+| Missions, navy, spies | [missions-and-operations.md](../mechanics/missions-and-operations.md) | `missions.ts`, `spy.ts` |
+| Trade, peaceful, meta | [world-meta.md](../mechanics/world-meta.md) | `trade.ts`, `towns.ts`, `leaderboard.ts` |
+| All constants | [balance-reference.md](../mechanics/balance-reference.md) | `gameEngine.ts` |
 
-| Town Hall | Unlocks | Also requires |
-|-----------|---------|---------------|
-| 1 | Farm, House (TH starts Lv 1) | — |
-| 2 | Lumber Mill, Quarry, Mine, Wall | — |
-| 3 | Market, Tavern, Barracks | Wall Lv 1 |
-| 4 | Archery Range, Stables | Barracks Lv 1 |
-| 5 | Watch Tower | Wall Lv 2 |
+## Agent rules (unchanged)
 
-Exports used by API and mobile:
+1. **Contract-first API** — `lib/api-spec/openapi.yaml` → `pnpm codegen`
+2. **Enforce on server** — never UI-only locks for exploits
+3. **Sync mobile display** — `buildingMeta.ts` when costs/production strings change
+4. **Update mechanics docs** when changing player-visible rules
+5. `pnpm typecheck` after schema/balance changes
 
-- `BUILD_REQUIREMENTS`, `BUILDING_GRID_ORDER`
-- `getBuildBlockReason(slotType, slots)` → string or null
-- `getTownHallLevel(slots)`
-- `formatRequirementHint(slotType)`
+## Quick facts (easy to get wrong)
 
-**Enforcement:** `artifacts/api-server/src/routes/slots.ts` on `POST .../build`.
+- **Food is not a build cost** — only population upkeep and economy pressure.
+- **House → population cap**, not troop cap. Troops = sum of military building levels.
+- **Net food** = gross production − `0.4 × population`.
+- **Naval / spies** = missions only, not raids.
+- **Peaceful** is permanent; excludes leaderboard and raids.
+- Mission + spy boards refresh every **30m**, not hourly.
 
-**Town Hall:** Cannot build or demolish via slot APIs. Upgrade like other buildings. Bonuses in `gameEngine.ts` (gold/h, build speed).
+## Stale / ignore
 
-## Costs & production
-
-**File:** `artifacts/api-server/src/lib/gameEngine.ts`
-
-- `BUILDING_COSTS`, `UPGRADE_COST_MULTIPLIER` (1.8 per level)
-- `calculateBuildingCost(slotType, level)`
-- `calculateProduction(slots, season)` — season modifiers from `getSeasonModifiers`
-- `REFUND_RATIO` = 0.75 on demolish
-- Upgrade timers: `getUpgradeDurationMs` (Town Hall level speeds builds)
-
-When changing balance, update **both** `gameEngine.ts` and `artifacts/mobile/lib/buildingMeta.ts` (display costs).
-
-## Seasons & cycles
-
-- `getCurrentSeasonInfo()` → `season`, `cycleNumber`, `cycleStartedAt`, `nextWipeAt`
-- Four seasons per cycle; production modifiers vary by season
-- Mission cards: hourly seed (see `missions.ts` route) — deterministic per hour
-
-## Army & raids
-
-- Troop types: infantry, archers, cavalry (catapults in API schema where applicable)
-- `calculateArmyComposition`, `calculateStaticDefense`, `calculateTotalDefense`
-- Raids: `POST /api/raids` with attacker/defender town IDs + troop counts
-- Victory loot ~30% of defender resources (see raids route / gameEngine)
-
-## Peaceful mode (permanent PvE opt-out)
-
-**DB:** `towns.peaceful_mode`, `towns.peaceful_opted_in_cycle`
-
-**Rules:**
-
-1. Player may only send `PATCH /towns/:id/peaceful` with `{ "peaceful": true }`
-2. **Cannot disable** once opted in (`peacefulOptedInCycle` set)
-3. One opt-in per kingdom lifetime (tracked by `peacefulOptedInCycle` = cycle number when enabled)
-4. While peaceful: cannot raid or be raided (`raids.ts`)
-5. **Excluded from leaderboard** (`leaderboard.ts` filters `peacefulMode`)
-
-**Mobile:** World → Settings — enable only, strong confirmation, banner on leaderboard when peaceful.
-
-## Leaderboard
-
-- Score = `economyScore + armyScore` from building slots
-- Peaceful towns not listed
-- Mobile: `useGetLeaderboard` on World tab
-
-## Kingdom reset
-
-`POST /towns/:townId/reset`:
-
-- Clears buildings (except TH behavior via init), army, missions
-- Restores starter resources
-- Does **not** clear peaceful mode
-
-## Activities
-
-Server inserts rows into `activities` for upgrades, builds, raids, reset, etc. Mobile may show feed via activities API.
-
-## Missions
-
-Card types/difficulties generated in `missions.ts` using `gameEngine` helpers. Active missions stored per town.
-
-## Trade routes
-
-`trade.ts` — list/create/delete routes per town.
-
-## Trophies
-
-`players/:id/trophies` — one row per achievement per cycle (`cycleNumber`); progress resets each wipe but past cycles remain visible.
-
-## When changing game rules
-
-1. Update shared package or `gameEngine.ts`
-2. Enforce in the relevant **route** (never UI-only for exploits)
-3. Update mobile copy/locks if player-visible
-4. Update [README.md](../../README.md) progression section if build tree changes
-5. `pnpm typecheck`
+- `replit.md` — outdated grid references
+- `TownGrid.tsx` — legacy UI; use `KingdomMap.tsx`
