@@ -1,11 +1,15 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { townsTable, buildingSlotsTable, playersTable, armyTable, missionsTable, activitiesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import {
+  townsTable, buildingSlotsTable, playersTable, armyTable, missionsTable,
+  spyOperationsTable, activitiesTable,
+} from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateEconomyScore,
   calculateArmyComposition, calculateStaticDefense, calculateTotalDefense,
-  applyTick,
+  applyFullTick, calculatePopulationCap, calculatePopulationGrowthPerHour,
+  calculateFoodUpkeepPerHour, calculateMorale, canPopulationGrow,
 } from "../lib/gameEngine.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown, logConstructionComplete } from "./slots.js";
@@ -30,27 +34,56 @@ async function getAndTickTown(townId: number) {
 
   const freshSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
-  const onMission = armyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
+  const onMission = armyRows[0] ?? {
+    onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0,
+    onMissionSpies: 0, onMissionShips: 0,
+  };
 
   const { season } = getCurrentSeasonInfo();
   const production = calculateProduction(freshSlots, season);
-  const tickedResources = applyTick(town, production);
+  const ticked = applyFullTick(town, freshSlots, production);
   const economyScore = calculateEconomyScore(freshSlots);
   const comp = calculateArmyComposition(freshSlots);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
   const totalDefense = calculateTotalDefense(freshSlots, onMission);
+  const populationCap = calculatePopulationCap(freshSlots);
+  const morale = calculateMorale(freshSlots);
+  const foodUpkeepPerHour = calculateFoodUpkeepPerHour(ticked.population);
+  const populationPerHour = calculatePopulationGrowthPerHour(
+    freshSlots,
+    morale,
+    ticked.food,
+    production.food,
+    ticked.population,
+  );
+  const populationGrowing = canPopulationGrow(ticked.food, production.food, ticked.population);
 
   await db.update(townsTable).set({
-    gold: tickedResources.gold, food: tickedResources.food,
-    wood: tickedResources.wood, stone: tickedResources.stone,
+    gold: ticked.gold, food: ticked.food,
+    wood: ticked.wood, stone: ticked.stone,
+    population: ticked.population,
     defenseRating: staticDefense,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));
 
   await checkAchievementsForTown(townId);
 
-  return { ...town, ...tickedResources, defenseRating: staticDefense, production, economyScore, armyScore, staticDefense, totalDefense };
+  return {
+    ...town,
+    ...ticked,
+    defenseRating: staticDefense,
+    production,
+    economyScore,
+    armyScore,
+    staticDefense,
+    totalDefense,
+    populationCap,
+    morale,
+    foodUpkeepPerHour,
+    populationPerHour,
+    populationGrowing,
+  };
 }
 
 router.get("/towns", async (_req, res) => {
@@ -81,12 +114,20 @@ router.get("/towns/:townId", async (req, res) => {
   const data = await getAndTickTown(townId);
   if (!data) return void res.status(404).json({ error: "Not found" });
   const { production, ...town } = data;
+  const netFoodPerHour = production.food - town.foodUpkeepPerHour;
   res.json({
     ...town,
     goldPerHour: production.gold,
     foodPerHour: production.food,
     woodPerHour: production.wood,
     stonePerHour: production.stone,
+    netFoodPerHour,
+    population: town.population ?? 0,
+    populationCap: town.populationCap ?? 0,
+    populationPerHour: town.populationPerHour ?? 0,
+    foodUpkeepPerHour: town.foodUpkeepPerHour ?? 0,
+    morale: town.morale ?? 0,
+    populationGrowing: town.populationGrowing ?? false,
     lastTickAt: town.lastTickAt instanceof Date ? town.lastTickAt.toISOString() : town.lastTickAt,
   });
 });
@@ -156,9 +197,19 @@ router.post("/towns/:townId/reset", async (req, res) => {
   await db.insert(armyTable).values({ townId });
 
   await db.delete(missionsTable).where(eq(missionsTable.townId, townId));
+  await db.delete(spyOperationsTable).where(eq(spyOperationsTable.townId, townId));
+
+  await initSlotsForTown(townId);
+  const halls = await db.select().from(buildingSlotsTable)
+    .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, "townHall")));
+  const hall = halls[0];
+  if (hall) {
+    await db.update(buildingSlotsTable).set({ level: 1 }).where(eq(buildingSlotsTable.id, hall.id));
+  }
 
   await db.update(townsTable).set({
     gold: 200, food: 200, wood: 150, stone: 100,
+    population: 10,
     defenseRating: 10,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));

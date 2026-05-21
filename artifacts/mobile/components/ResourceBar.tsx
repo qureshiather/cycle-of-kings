@@ -11,7 +11,8 @@ interface ResourceBarProps {
   wood: number;
   stone: number;
   goldPerHour?: number;
-  foodPerHour?: number;
+  /** Production minus population food upkeep. */
+  foodNetPerHour?: number;
   woodPerHour?: number;
   stonePerHour?: number;
   /** When true, omits top safe-area padding (parent handles insets). */
@@ -24,10 +25,12 @@ interface ResourceCellProps {
   value: number;
   color: string;
   perHour?: number;
+  /** Show signed rate (+/−) and allow zero/negative (food net). */
+  signedPerHour?: boolean;
   showDivider: boolean;
 }
 
-function ResourceCell({ icon, label, value, color, perHour, showDivider }: ResourceCellProps) {
+function ResourceCell({ icon, label, value, color, perHour, signedPerHour, showDivider }: ResourceCellProps) {
   const colors = useColors();
   const { withAlpha } = useTheme();
 
@@ -48,10 +51,31 @@ function ResourceCell({ icon, label, value, color, perHour, showDivider }: Resou
         {formatResourceAmount(value)}
       </Text>
       <Text
-        style={[styles.rate, { color: perHour && perHour > 0 ? color : colors.textSecondary + "88" }]}
+        style={[
+          styles.rate,
+          {
+            color: signedPerHour
+              ? perHour != null && perHour < 0
+                ? colors.destructive
+                : perHour != null && perHour > 0
+                  ? color
+                  : colors.textSecondary + "88"
+              : perHour && perHour > 0
+                ? color
+                : colors.textSecondary + "88",
+          },
+        ]}
         numberOfLines={1}
       >
-        {perHour && perHour > 0 ? `+${formatResourceAmount(perHour)}/h` : "—"}
+        {signedPerHour
+          ? perHour != null && perHour !== 0
+            ? `${perHour > 0 ? "+" : ""}${formatResourceAmount(perHour)}/h`
+            : perHour === 0
+              ? "0/h"
+              : "—"
+          : perHour && perHour > 0
+            ? `+${formatResourceAmount(perHour)}/h`
+            : "—"}
       </Text>
     </View>
   );
@@ -63,7 +87,7 @@ export default function ResourceBar({
   wood,
   stone,
   goldPerHour,
-  foodPerHour,
+  foodNetPerHour,
   woodPerHour,
   stonePerHour,
   embedded = false,
@@ -72,7 +96,14 @@ export default function ResourceBar({
 
   const resources: Omit<ResourceCellProps, "showDivider">[] = [
     { icon: "gold", label: "Gold", value: gold, color: colors.gold, perHour: goldPerHour },
-    { icon: "food-apple", label: "Food", value: food, color: colors.food, perHour: foodPerHour },
+    {
+      icon: "food-apple",
+      label: "Food",
+      value: food,
+      color: colors.food,
+      perHour: foodNetPerHour,
+      signedPerHour: true,
+    },
     { icon: "tree", label: "Wood", value: wood, color: colors.wood, perHour: woodPerHour },
     { icon: "cube-outline", label: "Stone", value: stone, color: colors.stone, perHour: stonePerHour },
   ];

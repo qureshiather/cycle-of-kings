@@ -3,6 +3,7 @@ export * from "./towns";
 export * from "./buildingSlots";
 export * from "./army";
 export * from "./missions";
+export * from "./spyOperations";
 export * from "./tradeRoutes";
 export * from "./tradeDealCompletions";
 export * from "./raids";

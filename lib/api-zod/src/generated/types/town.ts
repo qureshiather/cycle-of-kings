@@ -18,11 +18,17 @@ export interface Town {
   foodPerHour: number;
   woodPerHour: number;
   stonePerHour: number;
+  netFoodPerHour?: number;
   economyScore: number;
   armyScore: number;
   staticDefense: number;
   totalDefense: number;
   peacefulMode: boolean;
   peacefulOptedInCycle?: number | null;
+  population: number;
+  populationCap: number;
+  populationPerHour: number;
+  foodUpkeepPerHour: number;
+  morale: number;
   lastTickAt: string;
 }

@@ -144,11 +144,6 @@ export default function ArmyScreen() {
               <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>POWER</Text>
               <Text style={[styles.summaryValue, { color: colors.gold }]}>{totalPower}</Text>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>CAPACITY</Text>
-              <Text style={[styles.summaryValue, { color: colors.foreground }]}>{army?.capacity ?? 10}</Text>
-            </View>
           </View>
 
           <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated + "aa", borderColor: colors.border }]}>
@@ -158,9 +153,51 @@ export default function ArmyScreen() {
             </Text>
           </View>
 
+          {(army?.ships ?? 0) > 0 && (
+            <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.unitIcon, { backgroundColor: withAlpha(colors.slots.shipyard, 0.12) }]}>
+                <MaterialCommunityIcons name="ferry" size={28} color={colors.slots.shipyard} />
+              </View>
+              <View style={styles.unitBody}>
+                <Text style={[styles.unitName, { color: colors.foreground }]}>Fleet</Text>
+                <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>
+                  Naval missions only. Built from Shipyard (+2 ships per level).
+                </Text>
+              </View>
+              <View style={styles.unitCounts}>
+                <Text style={[styles.unitTotal, { color: colors.foreground }]}>{army?.ships ?? 0}</Text>
+                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>TOTAL</Text>
+                {(army?.onMissionShips ?? 0) > 0 && (
+                  <Text style={[styles.unitOnMission, { color: colors.raid }]}>{army?.onMissionShips}</Text>
+                )}
+                <Text style={[styles.unitAvailable, { color: colors.gold }]}>{army?.availableShips ?? 0}</Text>
+                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>READY</Text>
+              </View>
+            </View>
+          )}
+
+          {(army?.spies ?? 0) > 0 && (
+            <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <View style={[styles.unitIcon, { backgroundColor: withAlpha(colors.slots.spyGuild, 0.12) }]}>
+                <MaterialCommunityIcons name="incognito" size={28} color={colors.slots.spyGuild} />
+              </View>
+              <View style={styles.unitBody}>
+                <Text style={[styles.unitName, { color: colors.foreground }]}>Spies</Text>
+                <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>
+                  Espionage on the Missions tab. Spy Guild (+3 per level).
+                </Text>
+              </View>
+              <View style={styles.unitCounts}>
+                <Text style={[styles.unitTotal, { color: colors.foreground }]}>{army?.spies ?? 0}</Text>
+                <Text style={[styles.unitAvailable, { color: colors.gold }]}>{army?.availableSpies ?? 0}</Text>
+                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>READY</Text>
+              </View>
+            </View>
+          )}
+
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>YOUR FORCES</Text>
 
-          {totalTroops === 0 ? (
+          {totalTroops === 0 && (army?.ships ?? 0) === 0 && (army?.spies ?? 0) === 0 ? (
             <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <MaterialCommunityIcons name="castle" size={36} color={colors.textSecondary} />
               <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No troops yet</Text>
@@ -189,7 +226,8 @@ export default function ArmyScreen() {
             { building: "Barracks",      icon: "shield-sword", color: colors.slots.barracks, unit: "Infantry", formula: "5 troops per level" },
             { building: "Archery Range", icon: "bow-arrow",    color: colors.slots.archeryRange, unit: "Archers",  formula: "5 troops per level" },
             { building: "Stables",       icon: "horse",        color: colors.slots.stables, unit: "Cavalry",  formula: "3 troops per level" },
-            { building: "House",         icon: "home",         color: colors.slots.house, unit: "Capacity", formula: "+10 capacity per level" },
+            { building: "Shipyard",      icon: "ferry",        color: colors.slots.shipyard, unit: "Ships", formula: "2 ships per level" },
+            { building: "Spy Guild",     icon: "incognito",    color: colors.slots.spyGuild, unit: "Spies", formula: "3 spies per level" },
           ].map(({ building, icon, color, unit, formula }) => (
             <View key={building} style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={[styles.guideIcon, { backgroundColor: withAlpha(color, 0.12) }]}>

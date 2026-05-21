@@ -14,6 +14,7 @@ export const townsTable = pgTable("towns", {
   peacefulMode: boolean("peaceful_mode").notNull().default(false),
   /** Cycle number when peaceful mode was permanently enabled (null = never opted in). */
   peacefulOptedInCycle: integer("peaceful_opted_in_cycle"),
+  population: real("population").notNull().default(10),
   lastTickAt: timestamp("last_tick_at", { withTimezone: true }).notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

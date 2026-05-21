@@ -11,12 +11,18 @@ export interface Army {
   infantry: number;
   archers: number;
   cavalry: number;
+  ships: number;
+  spies?: number;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;
+  onMissionSpies: number;
+  onMissionShips: number;
   availableInfantry: number;
   availableArchers: number;
   availableCavalry: number;
+  availableSpies: number;
+  availableShips: number;
   infantryAttackMult?: number;
   archerAttackMult?: number;
   cavalryAttackMult?: number;

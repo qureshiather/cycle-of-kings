@@ -5,25 +5,18 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
-import type { ActiveMissionStatus } from './activeMissionStatus';
+import type { SpyOperationStatus } from './spyOperationStatus';
 
-export interface ActiveMission {
+export interface SpyOperation {
   id: number;
   townId: number;
-  missionCardId: string;
-  missionTitle: string;
-  missionType: string;
-  missionDifficulty: string;
-  infantry: number;
-  enemyInfantry: number;
-  enemyArchers: number;
-  enemyCavalry: number;
-  archers: number;
-  cavalry: number;
-  mercenaries: number;
-  ships: number;
+  cardId: string;
+  title: string;
+  operationType: string;
+  difficulty: string;
+  spiesDeployed: number;
   successRate: number;
-  status: ActiveMissionStatus;
+  status: SpyOperationStatus;
   dispatchedAt: string;
   returnsAt: string;
   /** @nullable */
@@ -37,6 +30,5 @@ export interface ActiveMission {
   /** @nullable */
   lootStone?: number | null;
   /** @nullable */
-  casualties?: number | null;
-  awardedAchievements?: string[];
+  spiesLost?: number | null;
 }

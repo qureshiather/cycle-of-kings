@@ -8,6 +8,8 @@ export const armyTable = pgTable("army", {
   onMissionInfantry: integer("on_mission_infantry").notNull().default(0),
   onMissionArchers: integer("on_mission_archers").notNull().default(0),
   onMissionCavalry: integer("on_mission_cavalry").notNull().default(0),
+  onMissionSpies: integer("on_mission_spies").notNull().default(0),
+  onMissionShips: integer("on_mission_ships").notNull().default(0),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

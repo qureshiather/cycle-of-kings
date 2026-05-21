@@ -9,10 +9,14 @@ export const BUILDING_SLOT_TYPES = [
   "wall",
   "market",
   "tavern",
+  "museum",
+  "monument",
   "tower",
   "barracks",
   "archeryRange",
   "stables",
+  "spyGuild",
+  "shipyard",
 ] as const;
 
 export type AchievementId =
@@ -23,7 +27,12 @@ export type AchievementId =
   | "military_might"
   | "mission_victory"
   | "raid_conqueror"
-  | "peaceful_realm";
+  | "peaceful_realm"
+  | "shadow_network"
+  | "treasure_hoard"
+  | "admiral"
+  | "thriving_realm"
+  | "cultural_capital";
 
 export type AchievementDefinition = {
   id: AchievementId;
@@ -91,6 +100,41 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     icon: "shield-check",
     points: 10,
   },
+  {
+    id: "shadow_network",
+    title: "Shadow Network",
+    description: "Complete a successful spy operation.",
+    icon: "incognito",
+    points: 20,
+  },
+  {
+    id: "treasure_hoard",
+    title: "Treasure Hoard",
+    description: "Loot over 200 total resources from a single spy operation.",
+    icon: "gold",
+    points: 30,
+  },
+  {
+    id: "admiral",
+    title: "Admiral",
+    description: "Complete a successful naval mission.",
+    icon: "ferry",
+    points: 20,
+  },
+  {
+    id: "thriving_realm",
+    title: "Thriving Realm",
+    description: "Grow your population to at least 50.",
+    icon: "account-group",
+    points: 25,
+  },
+  {
+    id: "cultural_capital",
+    title: "Cultural Capital",
+    description: "Build both a Museum and a Monument in one cycle.",
+    icon: "bank",
+    points: 30,
+  },
 ];
 
 export const ACHIEVEMENT_BY_ID: Record<AchievementId, AchievementDefinition> = Object.fromEntries(
@@ -101,6 +145,8 @@ export const BUILDING_SLOT_COUNT = BUILDING_SLOT_TYPES.length;
 
 export const RESOURCE_WEALTH_MIN = 1000;
 export const SCORE_MILESTONE = 150;
+export const THRIVING_REALM_POP = 50;
+export const SPY_HOARD_LOOT_THRESHOLD = 200;
 
 export type SlotSnapshot = { slotType: string; level: number };
 
@@ -112,7 +158,16 @@ export type TownAchievementSnapshot = {
   peacefulMode: boolean;
   economyScore: number;
   armyScore: number;
+  population: number;
   slots: SlotSnapshot[];
+};
+
+export type AchievementProgress = {
+  id: AchievementId;
+  percent: number;
+  unlocked: boolean;
+  missingSlotTypes?: string[];
+  hint?: string;
 };
 
 function slotLevel(slots: SlotSnapshot[], slotType: string): number {
@@ -152,8 +207,80 @@ export function evaluateAchievements(
   tryAdd("economic_power", snapshot.economyScore >= SCORE_MILESTONE);
   tryAdd("military_might", snapshot.armyScore >= SCORE_MILESTONE);
   tryAdd("peaceful_realm", snapshot.peacefulMode);
+  tryAdd("thriving_realm", snapshot.population >= THRIVING_REALM_POP);
+  tryAdd(
+    "cultural_capital",
+    slotLevel(snapshot.slots, "museum") >= 1 && slotLevel(snapshot.slots, "monument") >= 1,
+  );
   tryAdd("mission_victory", triggers?.mission_victory === true);
   tryAdd("raid_conqueror", triggers?.raid_conqueror === true);
+  tryAdd("shadow_network", triggers?.shadow_network === true);
+  tryAdd("treasure_hoard", triggers?.treasure_hoard === true);
+  tryAdd("admiral", triggers?.admiral === true);
 
   return earned;
+}
+
+export function getAchievementProgress(
+  snapshot: TownAchievementSnapshot,
+  unlockedIds: Set<string>,
+): AchievementProgress[] {
+  const builtCount = BUILDING_SLOT_TYPES.filter((t) => slotLevel(snapshot.slots, t) >= 1).length;
+  const missingSlots = BUILDING_SLOT_TYPES.filter((t) => slotLevel(snapshot.slots, t) < 1);
+  const maxLevel = Math.max(0, ...BUILDING_SLOT_TYPES.map((t) => slotLevel(snapshot.slots, t)));
+
+  const entries: { id: AchievementId; percent: number; hint?: string; missingSlotTypes?: string[] }[] = [
+    {
+      id: "master_builder",
+      percent: Math.round((builtCount / BUILDING_SLOT_COUNT) * 100),
+      missingSlotTypes: missingSlots,
+      hint: `${builtCount}/${BUILDING_SLOT_COUNT} building types raised`,
+    },
+    {
+      id: "skyline",
+      percent: Math.round((maxLevel / 10) * 100),
+      hint: maxLevel >= 10 ? "Complete" : `Highest building: level ${maxLevel}/10`,
+    },
+    {
+      id: "grand_treasury",
+      percent: Math.round(
+        (Math.min(snapshot.gold, RESOURCE_WEALTH_MIN) / RESOURCE_WEALTH_MIN +
+          Math.min(snapshot.food, RESOURCE_WEALTH_MIN) / RESOURCE_WEALTH_MIN +
+          Math.min(snapshot.wood, RESOURCE_WEALTH_MIN) / RESOURCE_WEALTH_MIN +
+          Math.min(snapshot.stone, RESOURCE_WEALTH_MIN) / RESOURCE_WEALTH_MIN) /
+          4 *
+          100,
+      ),
+    },
+    {
+      id: "economic_power",
+      percent: Math.min(100, Math.round((snapshot.economyScore / SCORE_MILESTONE) * 100)),
+      hint: `Economy ${Math.round(snapshot.economyScore)}/${SCORE_MILESTONE}`,
+    },
+    {
+      id: "military_might",
+      percent: Math.min(100, Math.round((snapshot.armyScore / SCORE_MILESTONE) * 100)),
+      hint: `Army ${Math.round(snapshot.armyScore)}/${SCORE_MILESTONE}`,
+    },
+    {
+      id: "thriving_realm",
+      percent: Math.min(100, Math.round((snapshot.population / THRIVING_REALM_POP) * 100)),
+      hint: `Population ${Math.round(snapshot.population)}/${THRIVING_REALM_POP}`,
+    },
+    {
+      id: "cultural_capital",
+      percent:
+        (slotLevel(snapshot.slots, "museum") >= 1 ? 50 : 0) +
+        (slotLevel(snapshot.slots, "monument") >= 1 ? 50 : 0),
+      hint: "Build Museum and Monument",
+    },
+  ];
+
+  return entries.map((e) => ({
+    id: e.id,
+    percent: Math.min(100, e.percent),
+    unlocked: unlockedIds.has(e.id),
+    missingSlotTypes: e.missingSlotTypes,
+    hint: e.hint,
+  }));
 }

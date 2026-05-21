@@ -44,12 +44,18 @@ export interface Town {
   foodPerHour: number;
   woodPerHour: number;
   stonePerHour: number;
+  netFoodPerHour?: number;
   economyScore: number;
   armyScore: number;
   staticDefense: number;
   totalDefense: number;
   peacefulMode: boolean;
   peacefulOptedInCycle?: number | null;
+  population: number;
+  populationCap: number;
+  populationPerHour: number;
+  foodUpkeepPerHour: number;
+  morale: number;
   lastTickAt: string;
 }
 
@@ -99,6 +105,7 @@ export interface BuildingSlot {
   upgrading: boolean;
   /** @nullable */
   upgradeEndsAt: string | null;
+  awardedAchievements?: string[];
 }
 
 export interface Army {
@@ -106,12 +113,18 @@ export interface Army {
   infantry: number;
   archers: number;
   cavalry: number;
+  ships: number;
+  spies?: number;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;
+  onMissionSpies: number;
+  onMissionShips: number;
   availableInfantry: number;
   availableArchers: number;
   availableCavalry: number;
+  availableSpies: number;
+  availableShips: number;
   infantryAttackMult?: number;
   archerAttackMult?: number;
   cavalryAttackMult?: number;
@@ -127,6 +140,7 @@ export const MissionCardType = {
   explore: 'explore',
   patrol: 'patrol',
   raid: 'raid',
+  naval: 'naval',
 } as const;
 
 export type MissionCardDifficulty = typeof MissionCardDifficulty[keyof typeof MissionCardDifficulty];
@@ -145,6 +159,7 @@ export interface MissionCard {
   title: string;
   description: string;
   minTroops: number;
+  minShips: number;
   baseSuccessRate: number;
   lootGold: number;
   lootFood: number;
@@ -159,6 +174,7 @@ export interface MissionDispatch {
   archers?: number;
   cavalry?: number;
   mercenaries?: number;
+  ships?: number;
 }
 
 export type ActiveMissionStatus = typeof ActiveMissionStatus[keyof typeof ActiveMissionStatus];
@@ -184,6 +200,7 @@ export interface ActiveMission {
   archers: number;
   cavalry: number;
   mercenaries: number;
+  ships: number;
   successRate: number;
   status: ActiveMissionStatus;
   dispatchedAt: string;
@@ -200,6 +217,85 @@ export interface ActiveMission {
   lootStone?: number | null;
   /** @nullable */
   casualties?: number | null;
+  awardedAchievements?: string[];
+}
+
+export type SpyCardType = typeof SpyCardType[keyof typeof SpyCardType];
+
+
+export const SpyCardType = {
+  infiltrate: 'infiltrate',
+  steal: 'steal',
+  sabotage: 'sabotage',
+} as const;
+
+export type SpyCardDifficulty = typeof SpyCardDifficulty[keyof typeof SpyCardDifficulty];
+
+
+export const SpyCardDifficulty = {
+  easy: 'easy',
+  medium: 'medium',
+  hard: 'hard',
+} as const;
+
+export interface SpyCard {
+  id: string;
+  type: SpyCardType;
+  difficulty: SpyCardDifficulty;
+  title: string;
+  description: string;
+  minSpies: number;
+  baseSuccessRate: number;
+  lootGold: number;
+  lootFood: number;
+  lootWood: number;
+  lootStone: number;
+  durationMinutes: number;
+}
+
+export interface SpyDispatch {
+  cardId: string;
+  spies: number;
+}
+
+export type SpyOperationStatus = typeof SpyOperationStatus[keyof typeof SpyOperationStatus];
+
+
+export const SpyOperationStatus = {
+  active: 'active',
+  returned: 'returned',
+  failed: 'failed',
+} as const;
+
+export interface SpyOperation {
+  id: number;
+  townId: number;
+  cardId: string;
+  title: string;
+  operationType: string;
+  difficulty: string;
+  spiesDeployed: number;
+  successRate: number;
+  status: SpyOperationStatus;
+  dispatchedAt: string;
+  returnsAt: string;
+  /** @nullable */
+  result?: string | null;
+  /** @nullable */
+  lootGold?: number | null;
+  /** @nullable */
+  lootFood?: number | null;
+  /** @nullable */
+  lootWood?: number | null;
+  /** @nullable */
+  lootStone?: number | null;
+  /** @nullable */
+  spiesLost?: number | null;
+}
+
+export interface SpyOperationDispatchResult {
+  operation: SpyOperation;
+  awardedAchievements: string[];
 }
 
 export type TradeDealPayResource = typeof TradeDealPayResource[keyof typeof TradeDealPayResource];

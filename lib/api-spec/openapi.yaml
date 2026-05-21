@@ -17,6 +17,8 @@ tags:
     description: Army recruitment and management
   - name: missions
     description: Mission cards and dispatches
+  - name: spy
+    description: Espionage operations
   - name: raids
     description: PvP raids
   - name: trade
@@ -154,7 +156,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower, spyGuild, shipyard, museum, monument]
       responses:
         "201":
           description: Building constructed
@@ -180,7 +182,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower, spyGuild, shipyard, museum, monument]
       responses:
         "200":
           description: Upgrade started
@@ -206,7 +208,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower]
+            enum: [townHall, farm, mine, quarry, lumberMill, barracks, archeryRange, stables, market, tavern, house, wall, tower, spyGuild, shipyard, museum, monument]
       responses:
         "200":
           description: Demolished, refund granted
@@ -344,6 +346,70 @@ paths:
                 $ref: "#/components/schemas/ActiveMission"
         "400":
           description: Insufficient troops or invalid mission
+
+  /towns/{townId}/spy-board:
+    get:
+      operationId: getSpyBoard
+      tags: [spy]
+      summary: Get espionage cards available this rotation
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Spy cards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpyCard"
+
+  /towns/{townId}/spy-operations:
+    get:
+      operationId: getSpyOperations
+      tags: [spy]
+      summary: Get active and recent spy operations
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Spy operations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SpyOperation"
+    post:
+      operationId: dispatchSpyOperation
+      tags: [spy]
+      summary: Dispatch spies on an espionage card
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpyDispatch"
+      responses:
+        "201":
+          description: Spy operation dispatched
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpyOperationDispatchResult"
+        "400":
+          description: Insufficient spies or invalid card
 
   /towns/{townId}/trades:
     get:
@@ -529,7 +595,7 @@ components:
 
     Town:
       type: object
-      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, economyScore, armyScore, staticDefense, totalDefense, peacefulMode, lastTickAt]
+      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, economyScore, armyScore, staticDefense, totalDefense, peacefulMode, population, populationCap, populationPerHour, foodUpkeepPerHour, morale, lastTickAt]
       properties:
         id: { type: integer }
         playerId: { type: integer }
@@ -542,12 +608,18 @@ components:
         foodPerHour: { type: number }
         woodPerHour: { type: number }
         stonePerHour: { type: number }
+        netFoodPerHour: { type: number }
         economyScore: { type: number }
         armyScore: { type: number }
         staticDefense: { type: number }
         totalDefense: { type: number }
         peacefulMode: { type: boolean }
         peacefulOptedInCycle: { type: integer, nullable: true }
+        population: { type: number }
+        populationCap: { type: number }
+        populationPerHour: { type: number }
+        foodUpkeepPerHour: { type: number }
+        morale: { type: number }
         lastTickAt: { type: string }
 
     PeacefulModeInput:
@@ -587,21 +659,30 @@ components:
         level: { type: integer }
         upgrading: { type: boolean }
         upgradeEndsAt: { type: ["string", "null"] }
+        awardedAchievements:
+          type: array
+          items: { type: string }
 
     Army:
       type: object
-      required: [townId, infantry, archers, cavalry, onMissionInfantry, onMissionArchers, onMissionCavalry, availableInfantry, availableArchers, availableCavalry, totalTroops, totalPower, capacity]
+      required: [townId, infantry, archers, cavalry, ships, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionSpies, onMissionShips, availableInfantry, availableArchers, availableCavalry, availableSpies, availableShips, totalTroops, totalPower, capacity]
       properties:
         townId: { type: integer }
         infantry: { type: integer }
         archers: { type: integer }
         cavalry: { type: integer }
+        ships: { type: integer }
+        spies: { type: integer }
         onMissionInfantry: { type: integer }
         onMissionArchers: { type: integer }
         onMissionCavalry: { type: integer }
+        onMissionSpies: { type: integer }
+        onMissionShips: { type: integer }
         availableInfantry: { type: integer }
         availableArchers: { type: integer }
         availableCavalry: { type: integer }
+        availableSpies: { type: integer }
+        availableShips: { type: integer }
         infantryAttackMult: { type: number }
         archerAttackMult: { type: number }
         cavalryAttackMult: { type: number }
@@ -611,18 +692,19 @@ components:
 
     MissionCard:
       type: object
-      required: [id, type, difficulty, title, description, minTroops, baseSuccessRate, lootGold, lootFood, lootWood, lootStone, durationMinutes]
+      required: [id, type, difficulty, title, description, minTroops, minShips, baseSuccessRate, lootGold, lootFood, lootWood, lootStone, durationMinutes]
       properties:
         id: { type: string }
         type:
           type: string
-          enum: [explore, patrol, raid]
+          enum: [explore, patrol, raid, naval]
         difficulty:
           type: string
           enum: [easy, medium, hard]
         title: { type: string }
         description: { type: string }
         minTroops: { type: integer }
+        minShips: { type: integer }
         baseSuccessRate: { type: number }
         lootGold: { type: number }
         lootFood: { type: number }
@@ -639,10 +721,11 @@ components:
         archers: { type: integer, default: 0 }
         cavalry: { type: integer, default: 0 }
         mercenaries: { type: integer, default: 0 }
+        ships: { type: integer, default: 0 }
 
     ActiveMission:
       type: object
-      required: [id, townId, missionCardId, missionTitle, missionType, missionDifficulty, infantry, archers, cavalry, mercenaries, enemyInfantry, enemyArchers, enemyCavalry, successRate, status, dispatchedAt, returnsAt]
+      required: [id, townId, missionCardId, missionTitle, missionType, missionDifficulty, infantry, archers, cavalry, mercenaries, ships, enemyInfantry, enemyArchers, enemyCavalry, successRate, status, dispatchedAt, returnsAt]
       properties:
         id: { type: integer }
         townId: { type: integer }
@@ -657,6 +740,7 @@ components:
         archers: { type: integer }
         cavalry: { type: integer }
         mercenaries: { type: integer }
+        ships: { type: integer }
         successRate: { type: number }
         status:
           type: string
@@ -669,6 +753,71 @@ components:
         lootWood: { type: ["number", "null"] }
         lootStone: { type: ["number", "null"] }
         casualties: { type: ["integer", "null"] }
+        awardedAchievements:
+          type: array
+          items: { type: string }
+
+    SpyCard:
+      type: object
+      required: [id, type, difficulty, title, description, minSpies, baseSuccessRate, lootGold, lootFood, lootWood, lootStone, durationMinutes]
+      properties:
+        id: { type: string }
+        type:
+          type: string
+          enum: [infiltrate, steal, sabotage]
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+        title: { type: string }
+        description: { type: string }
+        minSpies: { type: integer }
+        baseSuccessRate: { type: number }
+        lootGold: { type: number }
+        lootFood: { type: number }
+        lootWood: { type: number }
+        lootStone: { type: number }
+        durationMinutes: { type: integer }
+
+    SpyDispatch:
+      type: object
+      required: [cardId, spies]
+      properties:
+        cardId: { type: string }
+        spies: { type: integer }
+
+    SpyOperation:
+      type: object
+      required: [id, townId, cardId, title, operationType, difficulty, spiesDeployed, successRate, status, dispatchedAt, returnsAt]
+      properties:
+        id: { type: integer }
+        townId: { type: integer }
+        cardId: { type: string }
+        title: { type: string }
+        operationType: { type: string }
+        difficulty: { type: string }
+        spiesDeployed: { type: integer }
+        successRate: { type: number }
+        status:
+          type: string
+          enum: [active, returned, failed]
+        dispatchedAt: { type: string }
+        returnsAt: { type: string }
+        result: { type: ["string", "null"] }
+        lootGold: { type: ["number", "null"] }
+        lootFood: { type: ["number", "null"] }
+        lootWood: { type: ["number", "null"] }
+        lootStone: { type: ["number", "null"] }
+        spiesLost: { type: ["integer", "null"] }
+
+    SpyOperationDispatchResult:
+      type: object
+      required: [operation, awardedAchievements]
+      properties:
+        operation:
+          $ref: "#/components/schemas/SpyOperation"
+        awardedAchievements:
+          type: array
+          items: { type: string }
 
     TradeDeal:
       type: object

@@ -5,13 +5,17 @@ export const BUILDING_COSTS: Record<string, { wood: number; stone: number; gold:
   lumberMill:   { wood: 0,   stone: 30,  gold: 0,  food: 0 },
   barracks:     { wood: 60,  stone: 40,  gold: 30, food: 0 },
   archeryRange: { wood: 50,  stone: 30,  gold: 20, food: 0 },
-  stables:      { wood: 70,  stone: 20,  gold: 40, food: 10 },
+  stables:      { wood: 70,  stone: 20,  gold: 40, food: 0 },
   market:       { wood: 40,  stone: 0,   gold: 20, food: 0 },
   tavern:       { wood: 50,  stone: 20,  gold: 10, food: 0 },
   house:        { wood: 30,  stone: 20,  gold: 0,  food: 0 },
-  townHall:     { wood: 80,  stone: 60,  gold: 50, food: 20 },
+  townHall:     { wood: 80,  stone: 60,  gold: 50, food: 0 },
   wall:         { wood: 0,   stone: 40,  gold: 0,  food: 0 },
   tower:        { wood: 20,  stone: 60,  gold: 20, food: 0 },
+  spyGuild:     { wood: 55,  stone: 25,  gold: 35, food: 0 },
+  shipyard:     { wood: 80,  stone: 30,  gold: 25, food: 0 },
+  museum:       { wood: 60,  stone: 50,  gold: 40, food: 0 },
+  monument:     { wood: 100, stone: 120, gold: 80, food: 0 },
 };
 
 export const UPGRADE_COST_MULTIPLIER = 1.8;
@@ -33,12 +37,26 @@ export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood
   townHall:     { food: 0,  gold: 3, wood: 0, stone: 0 },
   wall:         { food: 0,  gold: 0, wood: 0, stone: 0 },
   tower:        { food: 0,  gold: 0, wood: 0, stone: 0 },
+  spyGuild:     { food: 0,  gold: 0, wood: 0, stone: 0 },
+  shipyard:     { food: 0,  gold: 0, wood: 0, stone: 0 },
+  museum:       { food: 0,  gold: 0, wood: 0, stone: 0 },
+  monument:     { food: 0,  gold: 0, wood: 0, stone: 0 },
 };
 
 const ECONOMY_WEIGHTS: Record<string, number> = {
   farm: 8, mine: 6, quarry: 7, lumberMill: 10,
-  market: 12, tavern: 5, house: 8,
+  market: 12, tavern: 8, house: 8, museum: 15, monument: 25,
 };
+
+/** Balance knobs — tune in one place. */
+export const FOOD_PER_CAPITA = 0.4;
+export const POP_GROWTH_BASE = 1.5;
+export const POP_DEPOP_RATE = 0.08;
+export const POP_FLOOR = 5;
+/** Starting population for new towns and when repopulating an empty realm. */
+export const STARTING_POPULATION = 10;
+export const THRIVING_REALM_POP = 50;
+export const SPY_HOARD_LOOT_THRESHOLD = 200;
 
 export type Season = "spring" | "summer" | "autumn" | "winter";
 
@@ -174,6 +192,63 @@ export function calculateArmyCapacity(slots: SlotLike[]): number {
   return 10 + (house?.level ?? 0) * 10;
 }
 
+function slotLvl(slots: SlotLike[], slotType: string): number {
+  return slots.find((s) => s.slotType === slotType)?.level ?? 0;
+}
+
+export function calculatePopulationCap(slots: SlotLike[]): number {
+  const th = slotLvl(slots, "townHall");
+  if (th < 1) return 0;
+  const house = slotLvl(slots, "house");
+  return Math.round(20 + house * 15 + th * 5);
+}
+
+export function calculateMorale(slots: SlotLike[]): number {
+  const tavern = slotLvl(slots, "tavern");
+  const museum = slotLvl(slots, "museum");
+  const monument = slotLvl(slots, "monument");
+  return Math.min(100, Math.round(tavern * 4 + museum * 6 + monument * 10));
+}
+
+export function calculateFoodUpkeepPerHour(population: number): number {
+  return Math.max(0, population) * FOOD_PER_CAPITA;
+}
+
+/** True when farms can feed people (stockpile or production beats upkeep at current pop). */
+export function canPopulationGrow(
+  foodStockpile: number,
+  foodProductionPerHour: number,
+  population: number,
+): boolean {
+  if (foodStockpile <= 0 && foodProductionPerHour <= 0) return false;
+  const upkeep = calculateFoodUpkeepPerHour(population);
+  return foodStockpile > 0 || foodProductionPerHour > upkeep;
+}
+
+export function calculatePopulationGrowthPerHour(
+  slots: SlotLike[],
+  morale: number,
+  foodStockpile: number,
+  foodProductionPerHour: number,
+  population: number,
+): number {
+  if (!canPopulationGrow(foodStockpile, foodProductionPerHour, population)) return 0;
+  const tavern = slotLvl(slots, "tavern");
+  const museum = slotLvl(slots, "museum");
+  const monument = slotLvl(slots, "monument");
+  const cultureBonus = tavern * 0.5 + museum * 1 + monument * 2;
+  const moraleBonus = morale * 0.02;
+  return POP_GROWTH_BASE + cultureBonus + moraleBonus;
+}
+
+export function calculateSpyCount(slots: SlotLike[]): number {
+  return slotLvl(slots, "spyGuild") * 3;
+}
+
+export function calculateShipCount(slots: SlotLike[]): number {
+  return slotLvl(slots, "shipyard") * 2;
+}
+
 export function calculateStaticDefense(slots: SlotLike[]): number {
   const wall  = slots.find(s => s.slotType === "wall");
   const tower = slots.find(s => s.slotType === "tower");
@@ -234,6 +309,7 @@ export function getUpgradeDurationMs(
     barracks: 10, archeryRange: 10, stables: 12,
     market: 10, tavern: 12, house: 7,
     townHall: 15, wall: 8, tower: 12,
+    spyGuild: 14, shipyard: 16, museum: 18, monument: 25,
   };
   const base = baseMins[slotType] ?? 10;
   const raw = base * Math.pow(2, currentLevel - 1) * 60 * 1000;
@@ -271,6 +347,71 @@ export function applyTick(
   };
 }
 
+export function applyFullTick(
+  town: {
+    gold: number;
+    food: number;
+    wood: number;
+    stone: number;
+    population: number;
+    lastTickAt: Date | string;
+  },
+  slots: SlotLike[],
+  production: { gold: number; food: number; wood: number; stone: number },
+): {
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
+  population: number;
+} {
+  const lastTick = typeof town.lastTickAt === "string" ? new Date(town.lastTickAt) : town.lastTickAt;
+  const hours = Math.min((Date.now() - lastTick.getTime()) / 3_600_000, 24);
+
+  const resources = {
+    gold: town.gold + production.gold * hours,
+    food: town.food + production.food * hours,
+    wood: town.wood + production.wood * hours,
+    stone: town.stone + production.stone * hours,
+  };
+
+  const upkeep = calculateFoodUpkeepPerHour(town.population) * hours;
+  resources.food -= upkeep;
+
+  const cap = calculatePopulationCap(slots);
+  const morale = calculateMorale(slots);
+  let population = Math.max(0, town.population ?? 0);
+
+  // Repopulate towns that were created before the population column or hit zero cap bug.
+  if (cap > 0 && population < POP_FLOOR) {
+    population = Math.min(cap, STARTING_POPULATION);
+  }
+
+  if (canPopulationGrow(resources.food, production.food, population)) {
+    const growthPerHour = calculatePopulationGrowthPerHour(
+      slots,
+      morale,
+      resources.food,
+      production.food,
+      population,
+    );
+    population = Math.min(cap, population + growthPerHour * hours);
+  }
+
+  if (resources.food <= 0) {
+    const loss = Math.max(1, Math.floor(population * POP_DEPOP_RATE * hours));
+    population = Math.max(0, population - loss);
+  }
+
+  if (cap > 0) {
+    population = Math.min(cap, Math.max(POP_FLOOR, population));
+  } else {
+    population = 0;
+  }
+
+  return { ...resources, population };
+}
+
 const MISSION_TITLES: Record<string, string[]> = {
   explore: [
     "Scout the Dark Forest", "Map the Northern Ridges", "Investigate Old Ruins", "Survey the Valley",
@@ -281,6 +422,10 @@ const MISSION_TITLES: Record<string, string[]> = {
     "Border Guard Duty", "Road Patrol", "Village Watch", "Mountain Pass Guard",
     "Harbor Watch", "Bridge Garrison", "Night Watch Rounds", "Farmland Patrol",
     "Coastline Sentinel", "Forest Road Escort", "Gatehouse Inspection", "Supply Line Guard",
+  ],
+  naval: [
+    "Coastal Raid", "Harbor Smuggling Run", "Island Supply Run", "Blockade Breaker",
+    "Treasure Fleet Intercept", "Smuggler's Cove", "Lighthouse Sortie", "River Estuary Strike",
   ],
   raid: [
     "Strike Enemy Camp", "Raid Merchant Convoy", "Ambush the Scouts", "Loot the Outpost",
@@ -317,6 +462,16 @@ const MISSION_DESCS: Record<string, string[]> = {
     "Escort woodcutters through wolf country.",
     "Inspect travelers at the main gate.",
     "Guard the supply wagons at the crossroads.",
+  ],
+  naval: [
+    "Send ships to raid coastal stores and return with timber and stone.",
+    "Run contraband past harbor patrols for a risky payout.",
+    "Ferry supplies from an offshore island before rivals claim it.",
+    "Break an enemy blockade and seize what you can carry.",
+    "Intercept a treasure fleet — fortune favors the bold.",
+    "Raid a smuggler cove; they won't report you to the crown.",
+    "Sortie from the lighthouse to scout and seize coastal goods.",
+    "Strike upriver where defenses are thin but loot is rich.",
   ],
   raid: [
     "A swift strike on an enemy encampment.",
@@ -385,11 +540,27 @@ export function generateEnemyForce(
 
 export interface MissionCardData {
   id: string;
-  type: "explore" | "patrol" | "raid";
+  type: "explore" | "patrol" | "raid" | "naval";
   difficulty: "easy" | "medium" | "hard";
   title: string;
   description: string;
   minTroops: number;
+  minShips: number;
+  baseSuccessRate: number;
+  lootGold: number;
+  lootFood: number;
+  lootWood: number;
+  lootStone: number;
+  durationMinutes: number;
+}
+
+export interface SpyCardData {
+  id: string;
+  type: "infiltrate" | "steal" | "sabotage";
+  difficulty: "easy" | "medium" | "hard";
+  title: string;
+  description: string;
+  minSpies: number;
   baseSuccessRate: number;
   lootGold: number;
   lootFood: number;
@@ -468,34 +639,49 @@ export function generateTradeDeals(hourSeed: number, townId: number): TradeDealD
   });
 }
 
-export function generateMissionCards(hourSeed: number, totalTroops: number = 5, armyPower: number = 50): MissionCardData[] {
+export function generateMissionCards(
+  hourSeed: number,
+  totalTroops: number = 5,
+  armyPower: number = 50,
+  shipyardLevel: number = 0,
+  totalShips: number = 0,
+): MissionCardData[] {
   const rng = seededRandom(hourSeed);
-  const types = ["explore", "patrol", "raid"] as const;
+  const landTypes = ["explore", "patrol", "raid"] as const;
 
   const powerBase = Math.max(30, armyPower);
   const troopBase = Math.max(3, totalTroops);
+  const shipBase = Math.max(1, totalShips);
 
   const difficulties = [
-    { name: "easy"   as const, troopFrac: 0.2, successRate: 0.85, lootMult: 0.8,  durBase: 20 },
-    { name: "medium" as const, troopFrac: 0.5, successRate: 0.65, lootMult: 1.6,  durBase: 40 },
-    { name: "hard"   as const, troopFrac: 0.8, successRate: 0.45, lootMult: 2.8,  durBase: 70 },
+    { name: "easy"   as const, troopFrac: 0.2, shipFrac: 0.25, successRate: 0.85, lootMult: 0.8,  durBase: 20 },
+    { name: "medium" as const, troopFrac: 0.5, shipFrac: 0.5,  successRate: 0.65, lootMult: 1.6,  durBase: 40 },
+    { name: "hard"   as const, troopFrac: 0.8, shipFrac: 0.75, successRate: 0.45, lootMult: 2.8,  durBase: 70 },
   ];
 
   const used = new Set<string>();
   const cards: MissionCardData[] = [];
   let guard = 0;
+  const navalSlots = shipyardLevel > 0 ? Math.min(2, Math.max(1, Math.floor(shipyardLevel / 2))) : 0;
+  let navalAdded = 0;
 
   while (cards.length < MISSION_CARD_COUNT && guard < 80) {
     guard += 1;
-    const type = types[Math.floor(rng() * types.length)];
+    const wantNaval = navalAdded < navalSlots && cards.length >= MISSION_CARD_COUNT - navalSlots;
+    const type = wantNaval
+      ? "naval"
+      : landTypes[Math.floor(rng() * landTypes.length)];
     const titleIdx = Math.floor(rng() * MISSION_TITLES[type].length);
     const key = `${type}-${titleIdx}`;
     if (used.has(key)) continue;
     used.add(key);
+    if (type === "naval") navalAdded += 1;
 
     const diff = difficulties[Math.floor(rng() * difficulties.length)];
-    const minTroops = Math.max(1, Math.round(troopBase * diff.troopFrac));
+    const minTroops = type === "naval" ? 0 : Math.max(1, Math.round(troopBase * diff.troopFrac));
+    const minShips = type === "naval" ? Math.max(1, Math.round(shipBase * diff.shipFrac)) : 0;
     const i = cards.length;
+    const navalLoot = type === "naval" ? 1.35 : 1;
 
     cards.push({
       id: `mission-${hourSeed}-${i}`,
@@ -504,14 +690,122 @@ export function generateMissionCards(hourSeed: number, totalTroops: number = 5, 
       title: MISSION_TITLES[type][titleIdx],
       description: MISSION_DESCS[type][titleIdx],
       minTroops,
-      baseSuccessRate: diff.successRate,
-      lootGold:  Math.ceil((8 + rng() * 40) * diff.lootMult * (powerBase / 50)),
-      lootFood:  Math.ceil((6 + rng() * 30) * diff.lootMult * (powerBase / 50)),
-      lootWood:  Math.ceil((5 + rng() * 25) * diff.lootMult * (powerBase / 50)),
-      lootStone: Math.ceil((3 + rng() * 15) * diff.lootMult * (powerBase / 50)),
-      durationMinutes: Math.ceil(diff.durBase * (0.85 + rng() * 0.5)),
+      minShips,
+      baseSuccessRate: type === "naval"
+        ? Math.min(0.92, diff.successRate + shipyardLevel * 0.02)
+        : diff.successRate,
+      lootGold:  Math.ceil((8 + rng() * 40) * diff.lootMult * (powerBase / 50) * (type === "naval" ? 0.7 : 1)),
+      lootFood:  Math.ceil((6 + rng() * 30) * diff.lootMult * (powerBase / 50) * (type === "naval" ? 0.5 : 1)),
+      lootWood:  Math.ceil((5 + rng() * 25) * diff.lootMult * (powerBase / 50) * navalLoot),
+      lootStone: Math.ceil((3 + rng() * 15) * diff.lootMult * (powerBase / 50) * navalLoot),
+      durationMinutes: Math.ceil((type === "naval" ? diff.durBase * 1.2 : diff.durBase) * (0.85 + rng() * 0.5)),
     });
   }
 
   return cards;
+}
+
+const SPY_TITLES: Record<string, string[]> = {
+  infiltrate: [
+    "Infiltrate the Rival Court", "Pose as Merchants", "Bribe the Gatekeeper",
+    "Forge Travel Papers", "Sneak Through the Servants' Wing",
+  ],
+  steal: [
+    "Raid the Granary Ledgers", "Lift the Tax Strongbox", "Empty the Wine Cellar Stores",
+    "Swipe the Armory Requisition", "Clean Out the Counting House",
+  ],
+  sabotage: [
+    "Sabotage the Siege Towers", "Poison the War Council's Maps",
+    "Burn the Supply Manifests", "Spook the Mercenary Camp",
+  ],
+};
+
+const SPY_DESCS: Record<string, string[]> = {
+  infiltrate: [
+    "Blend in and learn where the gold is kept.",
+    "Merchants hear everything worth selling.",
+    "A few coins at the gate open many doors.",
+    "Paperwork opens paths guards never watch.",
+    "Servants know which lord is hoarding grain.",
+  ],
+  steal: [
+    "Grain records reveal hidden stores.",
+    "The strongbox holds more than the ledger admits.",
+    "A lord's cellar can feed an army.",
+    "Requisitions hide weapons and coin.",
+    "Counting houses spill secrets and silver.",
+  ],
+  sabotage: [
+    "Slow their march without open battle.",
+    "Bad maps send armies into marshes.",
+    "Fire in the archive buys you time.",
+    "Rumors empty camps faster than swords.",
+  ],
+};
+
+const SPY_CARD_COUNT = 4;
+
+export function generateSpyCards(hourSeed: number, spyCount: number = 3): SpyCardData[] {
+  const rng = seededRandom(hourSeed * 13 + 7);
+  const types = ["infiltrate", "steal", "sabotage"] as const;
+  const spyBase = Math.max(1, spyCount);
+
+  const difficulties = [
+    { name: "easy"   as const, spyFrac: 0.25, successRate: 0.7,  lootMult: 1.0, durBase: 25 },
+    { name: "medium" as const, spyFrac: 0.5,  successRate: 0.5,  lootMult: 2.2, durBase: 45 },
+    { name: "hard"   as const, spyFrac: 0.75, successRate: 0.32, lootMult: 4.5, durBase: 65 },
+  ];
+
+  const used = new Set<string>();
+  const cards: SpyCardData[] = [];
+  let guard = 0;
+
+  while (cards.length < SPY_CARD_COUNT && guard < 60) {
+    guard += 1;
+    const type = types[Math.floor(rng() * types.length)];
+    const titleIdx = Math.floor(rng() * SPY_TITLES[type].length);
+    const key = `${type}-${titleIdx}`;
+    if (used.has(key)) continue;
+    used.add(key);
+
+    const diff = difficulties[Math.floor(rng() * difficulties.length)];
+    const minSpies = Math.max(1, Math.round(spyBase * diff.spyFrac));
+    const hoardRoll = rng();
+    const hoardMult = hoardRoll < 0.08 ? 6 + rng() * 4 : 1;
+
+    cards.push({
+      id: `spy-${hourSeed}-${cards.length}`,
+      type,
+      difficulty: diff.name,
+      title: SPY_TITLES[type][titleIdx],
+      description: SPY_DESCS[type][titleIdx],
+      minSpies,
+      baseSuccessRate: diff.successRate,
+      lootGold:  Math.ceil((15 + rng() * 80) * diff.lootMult * hoardMult),
+      lootFood:  Math.ceil((20 + rng() * 100) * diff.lootMult * hoardMult),
+      lootWood:  Math.ceil((5 + rng() * 40) * diff.lootMult * hoardMult),
+      lootStone: Math.ceil((5 + rng() * 35) * diff.lootMult * hoardMult),
+      durationMinutes: Math.ceil(diff.durBase * (0.9 + rng() * 0.4)),
+    });
+  }
+
+  return cards;
+}
+
+export function rollSpyLoot(
+  bases: { gold: number; food: number; wood: number; stone: number },
+  seed: number,
+): { gold: number; food: number; wood: number; stone: number } {
+  const rng = seededRandom(seed);
+  const roll = (base: number) => {
+    if (base <= 0) return 0;
+    const mult = LOOT_ROLL_MIN + rng() * (LOOT_ROLL_MAX - LOOT_ROLL_MIN);
+    return Math.max(1, Math.round(base * mult));
+  };
+  return {
+    gold: roll(bases.gold),
+    food: roll(bases.food),
+    wood: roll(bases.wood),
+    stone: roll(bases.stone),
+  };
 }

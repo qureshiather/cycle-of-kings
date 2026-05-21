@@ -13,6 +13,7 @@ export const missionsTable = pgTable("missions", {
   archers: integer("archers").notNull().default(0),
   cavalry: integer("cavalry").notNull().default(0),
   mercenaries: integer("mercenaries").notNull().default(0),
+  ships: integer("ships").notNull().default(0),
   enemyInfantry: integer("enemy_infantry").notNull().default(0),
   enemyArchers: integer("enemy_archers").notNull().default(0),
   enemyCavalry: integer("enemy_cavalry").notNull().default(0),

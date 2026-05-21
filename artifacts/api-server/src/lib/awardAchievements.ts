@@ -123,6 +123,7 @@ export async function checkAchievementsForTown(
     peacefulMode: town.peacefulMode,
     economyScore: calculateEconomyScore(slots),
     armyScore: calculateArmyComposition(slots).totalPower,
+    population: town.population,
     slots,
   };
 

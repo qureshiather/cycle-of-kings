@@ -6,7 +6,9 @@ export const SLOT_TYPES = [
   "townHall",
   "farm", "mine", "quarry", "lumberMill",
   "barracks", "archeryRange", "stables",
+  "spyGuild", "shipyard",
   "market", "tavern", "house",
+  "museum", "monument",
   "wall", "tower",
 ] as const;
 

@@ -15,7 +15,7 @@ type Props = {
   width: number;
   height: number;
   economyScore: number;
-  housingCapacity: number;
+  populationCap: number;
   totalTroops: number;
   builtStructures: number;
   isDark: boolean;
@@ -44,14 +44,14 @@ export default function VistaWalkers({
   width,
   height,
   economyScore,
-  housingCapacity,
+  populationCap,
   totalTroops,
   builtStructures,
   isDark,
 }: Props) {
   const count = getWalkerCount({
     economyScore,
-    housingCapacity,
+    populationCap,
     totalTroops,
     builtStructures,
   });

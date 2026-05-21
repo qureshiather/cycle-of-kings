@@ -52,7 +52,7 @@ export const GetPlayerResponse = zod.object({
 
 
 /**
- * @summary Get permanent trophies for a player
+ * @summary Get achievement history for a player (all cycles)
  */
 export const GetPlayerTrophiesParams = zod.object({
   "playerId": zod.coerce.number()
@@ -88,12 +88,18 @@ export const GetTownResponse = zod.object({
   "foodPerHour": zod.number(),
   "woodPerHour": zod.number(),
   "stonePerHour": zod.number(),
+  "netFoodPerHour": zod.number().optional(),
   "economyScore": zod.number(),
   "armyScore": zod.number(),
   "staticDefense": zod.number(),
   "totalDefense": zod.number(),
   "peacefulMode": zod.boolean(),
   "peacefulOptedInCycle": zod.number().nullish(),
+  "population": zod.number(),
+  "populationCap": zod.number(),
+  "populationPerHour": zod.number(),
+  "foodUpkeepPerHour": zod.number(),
+  "morale": zod.number(),
   "lastTickAt": zod.string()
 })
 
@@ -111,7 +117,8 @@ export const GetBuildingSlotsResponseItem = zod.object({
   "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
-  "upgradeEndsAt": zod.string().nullable()
+  "upgradeEndsAt": zod.string().nullable(),
+  "awardedAchievements": zod.array(zod.string()).optional()
 })
 export const GetBuildingSlotsResponse = zod.array(GetBuildingSlotsResponseItem)
 
@@ -121,7 +128,7 @@ export const GetBuildingSlotsResponse = zod.array(GetBuildingSlotsResponseItem)
  */
 export const BuildSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower', 'spyGuild', 'shipyard', 'museum', 'monument'])
 })
 
 
@@ -130,7 +137,7 @@ export const BuildSlotParams = zod.object({
  */
 export const UpgradeSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower', 'spyGuild', 'shipyard', 'museum', 'monument'])
 })
 
 export const UpgradeSlotResponse = zod.object({
@@ -139,7 +146,8 @@ export const UpgradeSlotResponse = zod.object({
   "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
-  "upgradeEndsAt": zod.string().nullable()
+  "upgradeEndsAt": zod.string().nullable(),
+  "awardedAchievements": zod.array(zod.string()).optional()
 })
 
 
@@ -148,7 +156,7 @@ export const UpgradeSlotResponse = zod.object({
  */
 export const DemolishSlotParams = zod.object({
   "townId": zod.coerce.number(),
-  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower'])
+  "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower', 'spyGuild', 'shipyard', 'museum', 'monument'])
 })
 
 export const DemolishSlotResponse = zod.object({
@@ -157,7 +165,8 @@ export const DemolishSlotResponse = zod.object({
   "slotType": zod.enum(['townHall', 'farm', 'mine', 'quarry', 'lumberMill', 'barracks', 'archeryRange', 'stables', 'market', 'tavern', 'house', 'wall', 'tower']),
   "level": zod.number(),
   "upgrading": zod.boolean(),
-  "upgradeEndsAt": zod.string().nullable()
+  "upgradeEndsAt": zod.string().nullable(),
+  "awardedAchievements": zod.array(zod.string()).optional()
 })
 
 
@@ -173,12 +182,18 @@ export const GetTownArmyResponse = zod.object({
   "infantry": zod.number(),
   "archers": zod.number(),
   "cavalry": zod.number(),
+  "ships": zod.number(),
+  "spies": zod.number().optional(),
   "onMissionInfantry": zod.number(),
   "onMissionArchers": zod.number(),
   "onMissionCavalry": zod.number(),
+  "onMissionSpies": zod.number(),
+  "onMissionShips": zod.number(),
   "availableInfantry": zod.number(),
   "availableArchers": zod.number(),
   "availableCavalry": zod.number(),
+  "availableSpies": zod.number(),
+  "availableShips": zod.number(),
   "infantryAttackMult": zod.number().optional(),
   "archerAttackMult": zod.number().optional(),
   "cavalryAttackMult": zod.number().optional(),
@@ -230,11 +245,12 @@ export const GetMissionsQueryParams = zod.object({
 
 export const GetMissionsResponseItem = zod.object({
   "id": zod.string(),
-  "type": zod.enum(['explore', 'patrol', 'raid']),
+  "type": zod.enum(['explore', 'patrol', 'raid', 'naval']),
   "difficulty": zod.enum(['easy', 'medium', 'hard']),
   "title": zod.string(),
   "description": zod.string(),
   "minTroops": zod.number(),
+  "minShips": zod.number(),
   "baseSuccessRate": zod.number(),
   "lootGold": zod.number(),
   "lootFood": zod.number(),
@@ -266,6 +282,7 @@ export const GetTownMissionsResponseItem = zod.object({
   "archers": zod.number(),
   "cavalry": zod.number(),
   "mercenaries": zod.number(),
+  "ships": zod.number(),
   "successRate": zod.number(),
   "status": zod.enum(['active', 'returned', 'failed']),
   "dispatchedAt": zod.string(),
@@ -275,7 +292,8 @@ export const GetTownMissionsResponseItem = zod.object({
   "lootFood": zod.number().nullish(),
   "lootWood": zod.number().nullish(),
   "lootStone": zod.number().nullish(),
-  "casualties": zod.number().nullish()
+  "casualties": zod.number().nullish(),
+  "awardedAchievements": zod.array(zod.string()).optional()
 })
 export const GetTownMissionsResponse = zod.array(GetTownMissionsResponseItem)
 
@@ -291,13 +309,81 @@ export const dispatchMissionBodyInfantryDefault = 0;
 export const dispatchMissionBodyArchersDefault = 0;
 export const dispatchMissionBodyCavalryDefault = 0;
 export const dispatchMissionBodyMercenariesDefault = 0;
+export const dispatchMissionBodyShipsDefault = 0;
 
 export const DispatchMissionBody = zod.object({
   "missionCardId": zod.string(),
   "infantry": zod.number().default(dispatchMissionBodyInfantryDefault),
   "archers": zod.number().default(dispatchMissionBodyArchersDefault),
   "cavalry": zod.number().default(dispatchMissionBodyCavalryDefault),
-  "mercenaries": zod.number().default(dispatchMissionBodyMercenariesDefault)
+  "mercenaries": zod.number().default(dispatchMissionBodyMercenariesDefault),
+  "ships": zod.number().default(dispatchMissionBodyShipsDefault)
+})
+
+
+/**
+ * @summary Get espionage cards available this rotation
+ */
+export const GetSpyBoardParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const GetSpyBoardResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.enum(['infiltrate', 'steal', 'sabotage']),
+  "difficulty": zod.enum(['easy', 'medium', 'hard']),
+  "title": zod.string(),
+  "description": zod.string(),
+  "minSpies": zod.number(),
+  "baseSuccessRate": zod.number(),
+  "lootGold": zod.number(),
+  "lootFood": zod.number(),
+  "lootWood": zod.number(),
+  "lootStone": zod.number(),
+  "durationMinutes": zod.number()
+})
+export const GetSpyBoardResponse = zod.array(GetSpyBoardResponseItem)
+
+
+/**
+ * @summary Get active and recent spy operations
+ */
+export const GetSpyOperationsParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const GetSpyOperationsResponseItem = zod.object({
+  "id": zod.number(),
+  "townId": zod.number(),
+  "cardId": zod.string(),
+  "title": zod.string(),
+  "operationType": zod.string(),
+  "difficulty": zod.string(),
+  "spiesDeployed": zod.number(),
+  "successRate": zod.number(),
+  "status": zod.enum(['active', 'returned', 'failed']),
+  "dispatchedAt": zod.string(),
+  "returnsAt": zod.string(),
+  "result": zod.string().nullish(),
+  "lootGold": zod.number().nullish(),
+  "lootFood": zod.number().nullish(),
+  "lootWood": zod.number().nullish(),
+  "lootStone": zod.number().nullish(),
+  "spiesLost": zod.number().nullish()
+})
+export const GetSpyOperationsResponse = zod.array(GetSpyOperationsResponseItem)
+
+
+/**
+ * @summary Dispatch spies on an espionage card
+ */
+export const DispatchSpyOperationParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const DispatchSpyOperationBody = zod.object({
+  "cardId": zod.string(),
+  "spies": zod.number()
 })
 
 

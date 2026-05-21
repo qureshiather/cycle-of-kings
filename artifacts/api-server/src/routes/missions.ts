@@ -9,6 +9,7 @@ import {
   getCurrentMissionSeed,
   rollMissionLoot,
   calculateArmyComposition,
+  calculateShipCount,
 } from "../lib/gameEngine.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown } from "./slots.js";
@@ -109,9 +110,19 @@ router.get("/missions", async (req, res) => {
   await initSlotsForTown(townId);
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const composition = calculateArmyComposition(slots);
+  const shipyardLevel = slots.find((s) => s.slotType === "shipyard")?.level ?? 0;
+  const totalShips = calculateShipCount(slots);
   const seed = getCurrentMissionSeed();
 
-  res.json(generateMissionCards(seed, composition.totalTroops, composition.totalPower));
+  res.json(
+    generateMissionCards(
+      seed,
+      composition.totalTroops,
+      composition.totalPower,
+      shipyardLevel,
+      totalShips,
+    ),
+  );
 });
 
 async function resolvePendingMissions(townId: number) {
@@ -163,6 +174,7 @@ async function resolvePendingMissions(townId: number) {
           onMissionInfantry: Math.max(0, army.onMissionInfantry - m.infantry),
           onMissionArchers:  Math.max(0, army.onMissionArchers  - m.archers),
           onMissionCavalry:  Math.max(0, army.onMissionCavalry  - m.cavalry),
+          onMissionShips:    Math.max(0, army.onMissionShips - (m.ships ?? 0)),
           updatedAt: new Date(),
         }).where(eq(armyTable.townId, townId));
       }
@@ -197,7 +209,10 @@ async function resolvePendingMissions(townId: number) {
       });
 
       if (success) {
-        await checkAchievementsForTown(townId, { mission_victory: true });
+        await checkAchievementsForTown(townId, {
+          mission_victory: true,
+          ...(m.missionType === "naval" ? { admiral: true } : {}),
+        });
       }
     }
   }
@@ -228,7 +243,15 @@ router.post("/towns/:townId/missions", async (req, res) => {
     archers = 0,
     cavalry = 0,
     mercenaries = 0,
-  } = req.body as { missionCardId?: string; infantry?: number; archers?: number; cavalry?: number; mercenaries?: number };
+    ships = 0,
+  } = req.body as {
+    missionCardId?: string;
+    infantry?: number;
+    archers?: number;
+    cavalry?: number;
+    mercenaries?: number;
+    ships?: number;
+  };
 
   if (!missionCardId) return void res.status(400).json({ error: "missionCardId required" });
 
@@ -248,23 +271,42 @@ router.post("/towns/:townId/missions", async (req, res) => {
   }
   const composition = calculateArmyComposition(slots);
   const seed = getCurrentMissionSeed();
-  const cards = generateMissionCards(seed, composition.totalTroops, composition.totalPower);
+  const shipyardLevel = slots.find((s) => s.slotType === "shipyard")?.level ?? 0;
+  const totalShips = calculateShipCount(slots);
+  const cards = generateMissionCards(
+    seed,
+    composition.totalTroops,
+    composition.totalPower,
+    shipyardLevel,
+    totalShips,
+  );
   const card = cards.find(c => c.id === missionCardId);
   if (!card) return void res.status(400).json({ error: "Invalid mission card" });
 
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
-  const onMission = armyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
+  const onMission = armyRows[0] ?? {
+    onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0, onMissionShips: 0,
+  };
 
   const availInfantry = Math.max(0, composition.infantry - onMission.onMissionInfantry);
   const availArchers  = Math.max(0, composition.archers  - onMission.onMissionArchers);
   const availCavalry  = Math.max(0, composition.cavalry  - onMission.onMissionCavalry);
+  const availShips    = Math.max(0, totalShips - onMission.onMissionShips);
 
   if (infantry > availInfantry || archers > availArchers || cavalry > availCavalry) {
     return void res.status(400).json({ error: "Not enough available troops" });
   }
 
+  if (ships > availShips) {
+    return void res.status(400).json({ error: "Not enough available ships" });
+  }
+
   const totalTroops = infantry + archers + cavalry + mercenaries;
-  if (totalTroops < card.minTroops) {
+  if (card.type === "naval") {
+    if (ships < card.minShips) {
+      return void res.status(400).json({ error: `Need at least ${card.minShips} ships` });
+    }
+  } else if (totalTroops < card.minTroops) {
     return void res.status(400).json({ error: `Need at least ${card.minTroops} troops (including mercenaries)` });
   }
 
@@ -290,6 +332,7 @@ router.post("/towns/:townId/missions", async (req, res) => {
       onMissionInfantry: onMission.onMissionInfantry + infantry,
       onMissionArchers:  onMission.onMissionArchers  + archers,
       onMissionCavalry:  onMission.onMissionCavalry  + cavalry,
+      onMissionShips:    onMission.onMissionShips + ships,
       updatedAt: new Date(),
     }).where(eq(armyTable.townId, townId));
   } else {
@@ -298,6 +341,7 @@ router.post("/towns/:townId/missions", async (req, res) => {
       onMissionInfantry: infantry,
       onMissionArchers:  archers,
       onMissionCavalry:  cavalry,
+      onMissionShips: ships,
     });
   }
 
@@ -312,6 +356,7 @@ router.post("/towns/:townId/missions", async (req, res) => {
     archers,
     cavalry,
     mercenaries,
+    ships,
     enemyInfantry: enemy.infantry,
     enemyArchers: enemy.archers,
     enemyCavalry: enemy.cavalry,
@@ -328,6 +373,7 @@ router.post("/towns/:townId/missions", async (req, res) => {
     infantry ? `${infantry} inf` : "",
     archers ? `${archers} arch` : "",
     cavalry ? `${cavalry} cav` : "",
+    ships ? `${ships} ships` : "",
     mercenaries ? `${mercenaries} merc` : "",
   ].filter(Boolean).join(", ");
 

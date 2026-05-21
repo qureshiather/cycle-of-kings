@@ -48,16 +48,16 @@ export function pointOnLoop(waypoints: WalkPoint[], t: number): WalkPoint {
 
 export function getWalkerCount(input: {
   economyScore: number;
-  housingCapacity: number;
+  populationCap: number;
   totalTroops: number;
   builtStructures: number;
 }): number {
-  const { economyScore, housingCapacity, totalTroops, builtStructures } = input;
+  const { economyScore, populationCap, totalTroops, builtStructures } = input;
   const raw =
     2 +
     Math.floor(builtStructures / 2) +
     Math.floor(economyScore / 25) +
-    Math.floor(housingCapacity / 20) +
+    Math.floor(populationCap / 20) +
     Math.floor(totalTroops / 30);
   return Math.max(2, Math.min(10, raw));
 }

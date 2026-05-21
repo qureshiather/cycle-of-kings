@@ -15,4 +15,5 @@ export interface BuildingSlot {
   upgrading: boolean;
   /** @nullable */
   upgradeEndsAt: string | null;
+  awardedAchievements?: string[];
 }

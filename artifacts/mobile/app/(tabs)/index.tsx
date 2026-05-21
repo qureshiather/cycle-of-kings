@@ -50,7 +50,10 @@ export default function KingdomScreen() {
                 wood: town.wood ?? 0,
                 stone: town.stone ?? 0,
                 goldPerHour: town.goldPerHour ?? 0,
-                foodPerHour: town.foodPerHour ?? 0,
+                foodNetPerHour: Math.round(
+                  (town.netFoodPerHour ??
+                    (town.foodPerHour ?? 0) - (town.foodUpkeepPerHour ?? 0)) * 10,
+                ) / 10,
                 woodPerHour: town.woodPerHour ?? 0,
                 stonePerHour: town.stonePerHour ?? 0,
               }

@@ -147,6 +147,7 @@ export default function BuildingProgressionModal({
 
   const [collapsedSections, setCollapsedSections] = useState<Record<BuildingCategory, boolean>>({
     production: false,
+    culture: false,
     army: false,
   });
 
@@ -157,10 +158,12 @@ export default function BuildingProgressionModal({
 
   const sectionIcon: Record<BuildingCategory, keyof typeof MaterialCommunityIcons.glyphMap> = {
     production: "warehouse",
+    culture: "bank",
     army: "sword-cross",
   };
   const sectionColor: Record<BuildingCategory, string> = {
     production: colors.food,
+    culture: colors.gold,
     army: colors.military,
   };
 

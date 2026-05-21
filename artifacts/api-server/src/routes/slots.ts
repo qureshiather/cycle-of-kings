@@ -7,8 +7,10 @@ import { SLOT_TYPES } from "@workspace/db";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateBuildingCost,
-  getUpgradeDurationMs, applyTick, calculateEconomyScore,
+  getUpgradeDurationMs, applyFullTick, calculateEconomyScore,
   calculateArmyComposition, calculateStaticDefense, calculateTotalDefense,
+  calculatePopulationCap, calculatePopulationGrowthPerHour,
+  calculateFoodUpkeepPerHour, calculateMorale, canPopulationGrow,
   REFUND_RATIO,
 } from "../lib/gameEngine.js";
 
@@ -24,6 +26,8 @@ const SLOT_NAMES: Record<string, string> = {
   market: "Market", tavern: "Tavern", house: "House",
   townHall: "Town Hall",
   wall: "Town Wall", tower: "Watch Tower",
+  spyGuild: "Spy Guild", shipyard: "Shipyard",
+  museum: "Museum", monument: "Monument",
 };
 
 function formatDuration(durationMs: number): string {
@@ -116,30 +120,45 @@ async function getTickedTown(townId: number) {
   const freshSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const { season } = getCurrentSeasonInfo();
   const production = calculateProduction(freshSlots, season);
-  const tickedResources = applyTick(town, production);
+  const ticked = applyFullTick(town, freshSlots, production);
 
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
-  const onMission = armyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
+  const onMission = armyRows[0] ?? {
+    onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0,
+    onMissionSpies: 0, onMissionShips: 0,
+  };
 
   const economyScore = calculateEconomyScore(freshSlots);
   const comp = calculateArmyComposition(freshSlots);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
   const totalDefense = calculateTotalDefense(freshSlots, onMission);
+  const populationCap = calculatePopulationCap(freshSlots);
+  const morale = calculateMorale(freshSlots);
+  const foodUpkeepPerHour = calculateFoodUpkeepPerHour(ticked.population);
+  const populationPerHour = calculatePopulationGrowthPerHour(
+    freshSlots,
+    morale,
+    ticked.food,
+    production.food,
+    ticked.population,
+  );
+  const populationGrowing = canPopulationGrow(ticked.food, production.food, ticked.population);
 
   await db.update(townsTable).set({
-    gold: tickedResources.gold,
-    food: tickedResources.food,
-    wood: tickedResources.wood,
-    stone: tickedResources.stone,
+    gold: ticked.gold,
+    food: ticked.food,
+    wood: ticked.wood,
+    stone: ticked.stone,
+    population: ticked.population,
     defenseRating: staticDefense,
     lastTickAt: new Date(),
   }).where(eq(townsTable.id, townId));
 
-  await checkAchievementsForTown(townId);
+  const awardedAchievements = await checkAchievementsForTown(townId);
 
   return {
-    town: { ...town, ...tickedResources, defenseRating: staticDefense },
+    town: { ...town, ...ticked, defenseRating: staticDefense },
     slots: freshSlots,
     production,
     economyScore,
@@ -147,6 +166,11 @@ async function getTickedTown(townId: number) {
     staticDefense,
     totalDefense,
     onMission,
+    populationCap,
+    morale,
+    foodUpkeepPerHour,
+    populationPerHour,
+    awardedAchievements,
   };
 }
 
@@ -202,9 +226,13 @@ router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
 
   await logConstructionStarted(townId, slotType, 1, durationMs);
 
+  const ticked = await getTickedTown(townId);
+  const awardedAchievements = ticked?.awardedAchievements ?? [];
+
   res.status(201).json({
     ...updated,
     upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null,
+    awardedAchievements,
   });
 });
 
@@ -251,7 +279,13 @@ router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
 
   await logConstructionStarted(townId, slotType, nextLevel, durationMs);
 
-  res.json({ ...updated, upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null });
+  const ticked = await getTickedTown(townId);
+
+  res.json({
+    ...updated,
+    upgradeEndsAt: updated.upgradeEndsAt?.toISOString() ?? null,
+    awardedAchievements: ticked?.awardedAchievements ?? [],
+  });
 });
 
 router.delete("/towns/:townId/slots/:slotType", async (req, res) => {

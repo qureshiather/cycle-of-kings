@@ -7,9 +7,13 @@ export type SlotType =
   | "barracks"
   | "archeryRange"
   | "stables"
+  | "spyGuild"
+  | "shipyard"
   | "market"
   | "tavern"
   | "house"
+  | "museum"
+  | "monument"
   | "wall"
   | "tower";
 
@@ -24,13 +28,6 @@ export type BuildingPrereq = {
 
 /**
  * First-time build requirements. Upgrades only need resources (once built).
- *
- * Progression:
- *   TH 1 — Town Hall (start), Farm, House
- *   TH 2 — Lumber Mill, Quarry, Mine, Wall
- *   TH 3 — Market, Tavern, Barracks (+ Wall)
- *   TH 4 — Archery Range, Stables (+ Barracks)
- *   TH 5 — Watch Tower (+ Wall 2)
  */
 export const BUILD_REQUIREMENTS: Record<SlotType, BuildingPrereq> = {
   townHall: { townHallLevel: 1 },
@@ -45,12 +42,16 @@ export const BUILD_REQUIREMENTS: Record<SlotType, BuildingPrereq> = {
   barracks: { townHallLevel: 3, requires: [{ slot: "wall", minLevel: 1 }] },
   archeryRange: { townHallLevel: 4, requires: [{ slot: "barracks", minLevel: 1 }] },
   stables: { townHallLevel: 4, requires: [{ slot: "barracks", minLevel: 1 }] },
+  spyGuild: { townHallLevel: 4, requires: [{ slot: "market", minLevel: 1 }] },
+  shipyard: { townHallLevel: 4, requires: [{ slot: "lumberMill", minLevel: 1 }] },
+  museum: { townHallLevel: 4, requires: [{ slot: "tavern", minLevel: 1 }] },
+  monument: { townHallLevel: 5, requires: [{ slot: "museum", minLevel: 1 }] },
   tower: { townHallLevel: 5, requires: [{ slot: "wall", minLevel: 2 }] },
 };
 
-export type BuildingCategory = "production" | "army";
+export type BuildingCategory = "production" | "army" | "culture";
 
-export const BUILDING_CATEGORY_ORDER: BuildingCategory[] = ["production", "army"];
+export const BUILDING_CATEGORY_ORDER: BuildingCategory[] = ["production", "army", "culture"];
 
 /** Buildings grouped for the kingdom UI. */
 export const BUILDINGS_BY_CATEGORY: Record<BuildingCategory, SlotType[]> = {
@@ -63,23 +64,25 @@ export const BUILDINGS_BY_CATEGORY: Record<BuildingCategory, SlotType[]> = {
     "mine",
     "wall",
     "market",
-    "tavern",
     "tower",
   ],
-  army: ["barracks", "archeryRange", "stables"],
+  culture: ["tavern", "museum", "monument"],
+  army: ["barracks", "archeryRange", "stables", "spyGuild", "shipyard"],
 };
 
 export const BUILDING_CATEGORY_LABELS: Record<BuildingCategory, string> = {
   production: "Production",
+  culture: "Culture",
   army: "Army",
 };
 
-/** Flat display order (production, then army). */
+/** Flat display order (production, army, culture). */
 export const BUILDING_GRID_ORDER: SlotType[] = BUILDING_CATEGORY_ORDER.flatMap(
   (category) => BUILDINGS_BY_CATEGORY[category],
 );
 
 export const MAX_CONCURRENT_MISSIONS = 3;
+export const MAX_CONCURRENT_SPY_OPS = 2;
 
 export function getTownHallLevel(slots: SlotLike[]): number {
   const hall = slots.find((s) => s.slotType === "townHall");
@@ -94,6 +97,11 @@ export function getMaxActiveMissions(townHallLevel: number): number {
 
 export function getMaxActiveMissionsFromSlots(slots: SlotLike[]): number {
   return getMaxActiveMissions(getTownHallLevel(slots));
+}
+
+export function getMaxActiveSpyOps(spyGuildLevel: number): number {
+  if (spyGuildLevel < 1) return 0;
+  return Math.min(spyGuildLevel, MAX_CONCURRENT_SPY_OPS);
 }
 
 function slotLevel(slots: SlotLike[], slotType: string): number {
@@ -115,9 +123,13 @@ const SLOT_LABELS: Record<SlotType, string> = {
   barracks: "Barracks",
   archeryRange: "Archery Range",
   stables: "Stables",
+  spyGuild: "Spy Guild",
+  shipyard: "Shipyard",
   market: "Market",
   tavern: "Tavern",
   house: "House",
+  museum: "Museum",
+  monument: "Monument",
   wall: "Town Wall",
   tower: "Watch Tower",
 };

@@ -6,8 +6,15 @@ import {
   useGetGameState,
   useGetTown,
   useGetTownArmy,
+  useGetPlayerTrophies,
 } from "@workspace/api-client-react";
+import {
+  BUILDING_SLOT_TYPES,
+  getAchievementProgress,
+  type TownAchievementSnapshot,
+} from "@workspace/achievements";
 import type { SlotType } from "@workspace/building-progression";
+import { useGame } from "@/context/GameContext";
 import IsoBuilding from "@/components/town-vista/IsoBuilding";
 import IsoWallRing, { getWallColors } from "@/components/town-vista/IsoWallRing";
 import TownVistaLandscape from "@/components/town-vista/TownVistaLandscape";
@@ -104,6 +111,10 @@ export default function TownVista({ townId }: { townId: number }) {
   const { data: town } = useGetTown(townId, { query: { enabled: !!townId } as any });
   const { data: army } = useGetTownArmy(townId, { query: { enabled: !!townId } as any });
   const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
+  const { playerId } = useGame();
+  const { data: trophies = [] } = useGetPlayerTrophies(playerId ?? 0, {
+    query: { enabled: !!playerId } as any,
+  });
 
   const screenW = Dimensions.get("window").width;
   const width = screenW - H_PADDING * 2;
@@ -125,14 +136,40 @@ export default function TownVista({ townId }: { townId: number }) {
   const wallLevel = slotMap.get("wall")?.level ?? 0;
   const farmLevel = slotMap.get("farm")?.level ?? 0;
   const economyScore = (town as { economyScore?: number })?.economyScore ?? 0;
-  const housingCapacity = army?.capacity ?? 0;
+  const populationCap = Math.round(town?.populationCap ?? 0);
   const paintOrder = getVistaPaintOrder();
   const builtCount = paintOrder.filter((t) => (slotMap.get(t)?.level ?? 0) > 0).length;
-  const totalPerHour =
-    (town?.goldPerHour ?? 0) +
-    (town?.foodPerHour ?? 0) +
-    (town?.woodPerHour ?? 0) +
-    (town?.stonePerHour ?? 0);
+  const population = Math.round(town?.population ?? 0);
+  const netFoodPerHour = Math.round(
+    (town?.netFoodPerHour ?? (town?.foodPerHour ?? 0) - (town?.foodUpkeepPerHour ?? 0)),
+  );
+  const cycleNumber = gameState?.cycleNumber ?? 1;
+  const unlockedThisCycle = new Set(
+    trophies.filter((t) => t.cycleNumber === cycleNumber).map((t) => t.type),
+  );
+
+  const achievementSnapshot: TownAchievementSnapshot | null = town
+    ? {
+        gold: town.gold,
+        food: town.food,
+        wood: town.wood,
+        stone: town.stone,
+        peacefulMode: false,
+        economyScore: (town as { economyScore?: number }).economyScore ?? 0,
+        armyScore: army?.totalPower ?? 0,
+        population: town.population ?? 0,
+        slots: (slotsRaw as VistaSlot[]).map((s) => ({ slotType: s.slotType, level: s.level })),
+      }
+    : null;
+
+  const progress = achievementSnapshot
+    ? getAchievementProgress(achievementSnapshot, unlockedThisCycle)
+    : [];
+  const masterBuilderPct = progress.find((p) => p.id === "master_builder")?.percent ?? 0;
+  const nearSkyline = paintOrder.some((t) => {
+    const lv = slotMap.get(t)?.level ?? 0;
+    return lv === 9;
+  });
 
   if (slotsLoading && slotsRaw.length === 0) {
     return (
@@ -187,13 +224,35 @@ export default function TownVista({ townId }: { townId: number }) {
             </View>
           )}
 
-          {paintOrder.map((slotType) => {
+          {BUILDING_SLOT_TYPES.map((slotType) => {
+            const pos = VISTA_LAYOUT[slotType as SlotKey];
+            if (!pos) return null;
             const slot = slotMap.get(slotType);
             const level = slot?.level ?? 0;
-            if (level <= 0) return null;
-            const pos = VISTA_LAYOUT[slotType as SlotKey];
+            if (level <= 0) {
+              return (
+                <View
+                  key={`ghost-${slotType}`}
+                  style={{
+                    position: "absolute",
+                    left: width * pos.x - 10,
+                    top: height * pos.y - 6,
+                    width: 20,
+                    height: 12,
+                    borderRadius: 4,
+                    borderWidth: 1,
+                    borderStyle: "dashed",
+                    borderColor: withAlpha(colors.textMuted, 0.5),
+                    opacity: 0.45,
+                    zIndex: Math.round(pos.y * 50),
+                  }}
+                />
+              );
+            }
             const { w, h } = getStructureSize(slotType as SlotType, level);
             const accent = getSlotColor(slotType, colors);
+            const glow =
+              (masterBuilderPct >= 80 && level > 0) || (nearSkyline && level === 9);
             return (
               <View
                 key={slotType}
@@ -205,6 +264,14 @@ export default function TownVista({ townId }: { townId: number }) {
                   zIndex: Math.round(pos.y * 100),
                 }}
               >
+                {glow && (
+                  <View
+                    style={[
+                      styles.achievementGlow,
+                      { backgroundColor: withAlpha(colors.gold, 0.25) },
+                    ]}
+                  />
+                )}
                 <IsoBuilding
                   slotType={slotType as SlotType}
                   level={level}
@@ -242,7 +309,7 @@ export default function TownVista({ townId }: { townId: number }) {
             width={width}
             height={height}
             economyScore={economyScore}
-            housingCapacity={housingCapacity}
+            populationCap={populationCap}
             totalTroops={army?.totalTroops ?? 0}
             builtStructures={builtCount}
             isDark={isDark}
@@ -259,8 +326,8 @@ export default function TownVista({ townId }: { townId: number }) {
             ]}
           >
             <View style={styles.statChip}>
-              <MaterialCommunityIcons name="home-group" size={11} color={colors.textSecondary} />
-              <Text style={[styles.statValue, { color: colors.foreground }]}>{builtCount}</Text>
+              <MaterialCommunityIcons name="account-group" size={11} color={colors.textSecondary} />
+              <Text style={[styles.statValue, { color: colors.foreground }]}>{population}</Text>
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statChip}>
@@ -269,8 +336,20 @@ export default function TownVista({ townId }: { townId: number }) {
             </View>
             <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
             <View style={styles.statChip}>
-              <MaterialCommunityIcons name="chart-timeline-variant" size={11} color={colors.gold} />
-              <Text style={[styles.statValue, { color: colors.gold }]}>+{Math.round(totalPerHour)}/h</Text>
+              <MaterialCommunityIcons
+                name="food-apple"
+                size={11}
+                color={netFoodPerHour >= 0 ? colors.food : colors.destructive}
+              />
+              <Text
+                style={[
+                  styles.statValue,
+                  { color: netFoodPerHour >= 0 ? colors.food : colors.destructive },
+                ]}
+              >
+                {netFoodPerHour >= 0 ? "+" : ""}
+                {netFoodPerHour}/h
+              </Text>
             </View>
           </View>
         </View>
@@ -295,6 +374,14 @@ const styles = StyleSheet.create({
   skyVeil: { position: "absolute", left: 0, top: 0, zIndex: 42 },
   wallLayerFront: { position: "absolute", left: 0, top: 0, zIndex: 195 },
   loading: { alignItems: "center", justifyContent: "center", alignSelf: "center" },
+  achievementGlow: {
+    position: "absolute",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    top: -8,
+    zIndex: -1,
+  },
   statsBar: {
     position: "absolute",
     zIndex: 300,

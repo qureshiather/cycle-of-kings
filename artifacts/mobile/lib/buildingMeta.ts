@@ -15,6 +15,10 @@ export const SLOT_NAMES: Record<string, string> = {
   house: "House",
   wall: "Town Wall",
   tower: "Watch Tower",
+  spyGuild: "Spy Guild",
+  shipyard: "Shipyard",
+  museum: "Museum",
+  monument: "Monument",
 };
 
 export const SLOT_ICONS: Record<string, string> = {
@@ -31,6 +35,10 @@ export const SLOT_ICONS: Record<string, string> = {
   house: "home",
   wall: "wall",
   tower: "chess-rook",
+  spyGuild: "incognito",
+  shipyard: "ferry",
+  museum: "bank",
+  monument: "pillar",
 };
 
 /** Theme-aware building accent color. */
@@ -49,8 +57,12 @@ export const SLOT_BONUS: Record<string, (level: number) => string> = {
   barracks: (l) => `+${l * 5} Infantry`,
   archeryRange: (l) => `+${l * 5} Archers`,
   stables: (l) => `+${l * 3} Cavalry`,
-  house: (l) => `+${l * 10} capacity`,
-  tavern: (l) => `+${Math.round(l * 2.5)} morale`,
+  house: (l) => `+${l * 15} population cap`,
+  tavern: (l) => `+${Math.round(l * 2.5)} morale · +${(l * 0.5).toFixed(1)} pop/h`,
+  museum: (l) => `+${l * 6} morale · +${l} pop/h`,
+  monument: (l) => `Wonder · +${l * 2} pop/h · score`,
+  spyGuild: (l) => `+${l * 3} spies`,
+  shipyard: (l) => `+${l * 2} ships`,
   townHall: (l) => {
     const missions = getMaxActiveMissions(l);
     const missionLabel = missions === 1 ? "1 mission" : `${missions} missions`;
@@ -67,13 +79,17 @@ export const BASE_COSTS: Record<string, { wood: number; stone: number; gold: num
   lumberMill: { wood: 0, stone: 30, gold: 0, food: 0 },
   barracks: { wood: 60, stone: 40, gold: 30, food: 0 },
   archeryRange: { wood: 50, stone: 30, gold: 20, food: 0 },
-  stables: { wood: 70, stone: 20, gold: 40, food: 10 },
+  stables: { wood: 70, stone: 20, gold: 40, food: 0 },
   market: { wood: 40, stone: 0, gold: 20, food: 0 },
   tavern: { wood: 50, stone: 20, gold: 10, food: 0 },
   house: { wood: 30, stone: 20, gold: 0, food: 0 },
-  townHall: { wood: 80, stone: 60, gold: 50, food: 20 },
+  townHall: { wood: 80, stone: 60, gold: 50, food: 0 },
   wall: { wood: 0, stone: 40, gold: 0, food: 0 },
   tower: { wood: 20, stone: 60, gold: 20, food: 0 },
+  spyGuild: { wood: 55, stone: 25, gold: 35, food: 0 },
+  shipyard: { wood: 80, stone: 30, gold: 25, food: 0 },
+  museum: { wood: 60, stone: 50, gold: 40, food: 0 },
+  monument: { wood: 100, stone: 120, gold: 80, food: 0 },
 };
 
 export type ResourceAmounts = { gold: number; food: number; wood: number; stone: number };

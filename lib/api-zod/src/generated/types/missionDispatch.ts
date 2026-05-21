@@ -12,4 +12,5 @@ export interface MissionDispatch {
   archers?: number;
   cavalry?: number;
   mercenaries?: number;
+  ships?: number;
 }

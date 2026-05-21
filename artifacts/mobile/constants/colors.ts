@@ -15,6 +15,10 @@ const slotColorsDark = {
   townHall: "#D4A520",
   wall: "#7A7A72",
   tower: "#6A6A88",
+  spyGuild: "#7A5AAA",
+  shipyard: "#4A7A9A",
+  museum: "#9A8A5A",
+  monument: "#C4A030",
 } as const;
 
 const slotColorsLight = {
@@ -31,6 +35,10 @@ const slotColorsLight = {
   townHall: "#9A7208",
   wall: "#5A5A54",
   tower: "#4A4A62",
+  spyGuild: "#5A4080",
+  shipyard: "#2A5A7A",
+  museum: "#6A5A30",
+  monument: "#8A7010",
 } as const;
 
 const dark = {

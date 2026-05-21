@@ -5,17 +5,16 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
-import type { MissionCardDifficulty } from './missionCardDifficulty';
-import type { MissionCardType } from './missionCardType';
+import type { SpyCardDifficulty } from './spyCardDifficulty';
+import type { SpyCardType } from './spyCardType';
 
-export interface MissionCard {
+export interface SpyCard {
   id: string;
-  type: MissionCardType;
-  difficulty: MissionCardDifficulty;
+  type: SpyCardType;
+  difficulty: SpyCardDifficulty;
   title: string;
   description: string;
-  minTroops: number;
-  minShips: number;
+  minSpies: number;
   baseSuccessRate: number;
   lootGold: number;
   lootFood: number;

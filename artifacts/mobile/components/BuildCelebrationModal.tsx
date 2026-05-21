@@ -4,12 +4,14 @@ import { Modal, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { ACHIEVEMENT_BY_ID } from "@workspace/achievements";
 import { getSlotColor, SLOT_BONUS, SLOT_ICONS, SLOT_NAMES } from "@/lib/buildingMeta";
 
 export type BuildCelebration = {
   slotType: string;
   level: number;
   kind: "built" | "upgrade";
+  awardedAchievements?: string[];
 };
 
 type Props = {
@@ -24,7 +26,7 @@ export default function BuildCelebrationModal({ visible, celebration, onClose }:
 
   if (!celebration) return null;
 
-  const { slotType, level, kind } = celebration;
+  const { slotType, level, kind, awardedAchievements = [] } = celebration;
   const name = SLOT_NAMES[slotType] ?? slotType;
   const color = getSlotColor(slotType, colors);
   const icon = SLOT_ICONS[slotType] ?? "castle";
@@ -65,6 +67,20 @@ export default function BuildCelebrationModal({ visible, celebration, onClose }:
               <Text style={[styles.bonusText, { color }]}>{bonus}</Text>
             </View>
           ) : null}
+
+          {awardedAchievements.length > 0 && (
+            <View style={[styles.bonusBox, { backgroundColor: withAlpha(colors.gold, 0.1), borderColor: withAlpha(colors.gold, 0.35) }]}>
+              <Text style={[styles.bonusLabel, { color: colors.textSecondary }]}>TROPHIES EARNED</Text>
+              {awardedAchievements.map((id) => {
+                const def = ACHIEVEMENT_BY_ID[id as keyof typeof ACHIEVEMENT_BY_ID];
+                return (
+                  <Text key={id} style={[styles.bonusText, { color: colors.gold, marginTop: 4 }]}>
+                    {def?.title ?? id}
+                  </Text>
+                );
+              })}
+            </View>
+          )}
 
           <TouchableOpacity
             style={[styles.doneBtn, { backgroundColor: colors.gold }]}

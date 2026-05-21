@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import KingdomVistaStats from "@/components/KingdomVistaStats";
 import TownVista from "@/components/TownVista";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
@@ -61,6 +62,9 @@ export default function KingdomVistaModal({ visible, townId, onClose }: Props) {
             contentContainerStyle={styles.scroll}
             bounces={false}
           >
+            <View style={styles.statsWrap}>
+              <KingdomVistaStats townId={townId} />
+            </View>
             <TownVista townId={townId} />
             <Text style={[styles.hint, { color: colors.textMuted }]}>
               Map updates as you build, train troops, and grow your economy.
@@ -108,7 +112,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  scroll: { paddingBottom: 16, alignItems: "center" },
+  scroll: { paddingBottom: 16, alignItems: "center", paddingHorizontal: 16 },
+  statsWrap: { width: "100%", maxWidth: 520 },
   hint: {
     fontSize: 10,
     fontFamily: "Inter_400Regular",

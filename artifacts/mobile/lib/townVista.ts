@@ -30,6 +30,10 @@ export const VISTA_LAYOUT: Record<SlotType, { x: number; y: number }> = {
   barracks: { x: 0.42, y: 0.66 },
   archeryRange: { x: 0.55, y: 0.7 },
   stables: { x: 0.68, y: 0.66 },
+  spyGuild: { x: 0.32, y: 0.72 },
+  shipyard: { x: 0.12, y: 0.62 },
+  museum: { x: 0.72, y: 0.42 },
+  monument: { x: 0.5, y: 0.38 },
   tower: { x: 0.88, y: 0.46 },
   wall: { x: 0.5, y: 0.5 },
 };
@@ -45,6 +49,10 @@ export const VISTA_RENDER_ORDER: SlotType[] = [
   "barracks",
   "archeryRange",
   "stables",
+  "spyGuild",
+  "shipyard",
+  "museum",
+  "monument",
   "tower",
   "townHall",
 ];
@@ -63,6 +71,10 @@ export const BUILDING_KIND: Record<SlotType, BuildingKind> = {
   barracks: "military",
   archeryRange: "military",
   stables: "military",
+  spyGuild: "military",
+  shipyard: "military",
+  museum: "civic",
+  monument: "civic",
   wall: "defense",
   tower: "defense",
 };

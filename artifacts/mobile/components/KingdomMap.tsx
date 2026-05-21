@@ -84,6 +84,7 @@ export default function KingdomMap({
   const [selectedSlotType, setSelectedSlotType] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Record<BuildingCategory, boolean>>({
     production: false,
+    culture: false,
     army: false,
   });
   const [celebration, setCelebration] = useState<BuildCelebration | null>(null);
@@ -184,13 +185,18 @@ export default function KingdomMap({
     buildSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           const builtType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
           if (builtType) {
-            setCelebration({ slotType: builtType, level: 1, kind: "built" });
+            setCelebration({
+              slotType: builtType,
+              level: 1,
+              kind: "built",
+              awardedAchievements: data.awardedAchievements ?? [],
+            });
           }
         },
         onError: (e: any) => {
@@ -207,13 +213,18 @@ export default function KingdomMap({
     upgradeSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           const upgradedType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
           if (upgradedType) {
-            setCelebration({ slotType: upgradedType, level: nextLevel, kind: "upgrade" });
+            setCelebration({
+              slotType: upgradedType,
+              level: nextLevel,
+              kind: "upgrade",
+              awardedAchievements: data.awardedAchievements ?? [],
+            });
           }
         },
         onError: (e: any) => {
@@ -307,7 +318,12 @@ export default function KingdomMap({
 
         {BUILDING_CATEGORY_ORDER.map((category) => {
           const isCollapsed = collapsedSections[category];
-          const sectionColor = category === "production" ? colors.food : colors.military;
+          const sectionColor =
+            category === "production"
+              ? colors.food
+              : category === "culture"
+                ? colors.gold
+                : colors.military;
           const categorySlots = BUILDINGS_BY_CATEGORY[category];
           const sectionActionable = categorySlots.filter(
             (slotType) => buildStateByType.get(slotType)?.actionable,
@@ -341,7 +357,13 @@ export default function KingdomMap({
                 color={sectionColor}
               />
               <MaterialCommunityIcons
-                name={category === "production" ? "warehouse" : "sword-cross"}
+                name={
+                  category === "production"
+                    ? "warehouse"
+                    : category === "culture"
+                      ? "bank"
+                      : "sword-cross"
+                }
                 size={16}
                 color={sectionColor}
               />

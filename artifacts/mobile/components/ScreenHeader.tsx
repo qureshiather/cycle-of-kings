@@ -13,7 +13,7 @@ export type ScreenHeaderTown = {
   wood: number;
   stone: number;
   goldPerHour?: number;
-  foodPerHour?: number;
+  foodNetPerHour?: number;
   woodPerHour?: number;
   stonePerHour?: number;
 };
@@ -82,7 +82,7 @@ export default function ScreenHeader({
           wood={town.wood}
           stone={town.stone}
           goldPerHour={town.goldPerHour}
-          foodPerHour={town.foodPerHour}
+          foodNetPerHour={town.foodNetPerHour}
           woodPerHour={town.woodPerHour}
           stonePerHour={town.stonePerHour}
         />

@@ -312,11 +312,13 @@ export default function WorldScreen() {
                   <View style={styles.tradeHeader}>
                     <MaterialCommunityIcons name="storefront-outline" size={16} color={colors.gold} />
                     <Text style={[styles.tradeTitle, { color: colors.foreground }]}>{deal.title}</Text>
-                    {done && (
-                      <View style={[styles.doneBadge, { backgroundColor: colors.textSecondary + "22" }]}>
-                        <Text style={[styles.doneBadgeText, { color: colors.textSecondary }]}>DONE</Text>
-                      </View>
-                    )}
+                    <View style={styles.doneBadgeSlot}>
+                      {done ? (
+                        <View style={[styles.doneBadge, { backgroundColor: colors.textSecondary + "22" }]}>
+                          <Text style={[styles.doneBadgeText, { color: colors.textSecondary }]}>DONE</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
                   <View style={styles.tradeExchange}>
                     <ResourceCostRow
@@ -329,35 +331,57 @@ export default function WorldScreen() {
                       variant="reward"
                     />
                   </View>
-                  {!done && (
+                  <View style={styles.tradeBtnSlot}>
                     <TouchableOpacity
                       style={[
                         styles.tradeBtn,
                         {
-                          backgroundColor: canAfford ? colors.gold + "22" : colors.muted,
-                          borderColor: canAfford ? colors.gold : colors.border,
+                          backgroundColor: done
+                            ? colors.muted
+                            : canAfford
+                              ? colors.gold + "22"
+                              : colors.muted,
+                          borderColor: done ? colors.border : canAfford ? colors.gold : colors.border,
                         },
                       ]}
                       onPress={() => handleTrade(deal.id)}
-                      disabled={!canAfford || executeTrade.isPending}
-                      activeOpacity={0.7}
+                      disabled={done || !canAfford || executeTrade.isPending}
+                      activeOpacity={done ? 1 : 0.7}
                     >
-                      {executeTrade.isPending ? (
+                      {executeTrade.isPending && !done ? (
                         <ActivityIndicator size="small" color={colors.gold} />
                       ) : (
-                        <Text style={[styles.tradeBtnText, { color: canAfford ? colors.gold : colors.textSecondary }]}>
-                          {canAfford
-                            ? "Accept Trade"
-                            : `Need ${formatResourceAmount(Math.ceil(deal.payAmount - townBalance(payRes)))} more ${RESOURCE_META[payRes].label.toLowerCase()}`}
+                        <Text
+                          style={[
+                            styles.tradeBtnText,
+                            {
+                              color: done
+                                ? colors.textSecondary
+                                : canAfford
+                                  ? colors.gold
+                                  : colors.textSecondary,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {done
+                            ? "Trade completed"
+                            : canAfford
+                              ? "Accept Trade"
+                              : `Need ${formatResourceAmount(Math.ceil(deal.payAmount - townBalance(payRes)))} more ${RESOURCE_META[payRes].label.toLowerCase()}`}
                         </Text>
                       )}
                     </TouchableOpacity>
-                  )}
+                  </View>
                 </View>
               );
             })
           )}
-          {tradeError && <Text style={[styles.tradeError, { color: colors.destructive }]}>{tradeError}</Text>}
+          <View style={styles.tradeErrorSlot}>
+            {tradeError ? (
+              <Text style={[styles.tradeError, { color: colors.destructive }]}>{tradeError}</Text>
+            ) : null}
+          </View>
         </ScrollView>
       )}
 
@@ -474,11 +498,14 @@ const styles = StyleSheet.create({
   tradeCard: { padding: 14, borderRadius: 12, borderWidth: 1, gap: 10 },
   tradeHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   tradeTitle: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  doneBadgeSlot: { minWidth: 44, alignItems: "flex-end" },
   doneBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
   doneBadgeText: { fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   tradeExchange: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" },
-  tradeBtn: { borderRadius: 8, borderWidth: 1, paddingVertical: 11, alignItems: "center" },
+  tradeBtnSlot: { minHeight: 44, justifyContent: "center" },
+  tradeBtn: { borderRadius: 8, borderWidth: 1, paddingVertical: 11, alignItems: "center", width: "100%" },
   tradeBtnText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  tradeErrorSlot: { minHeight: 18, justifyContent: "center", marginTop: 4 },
   tradeError: { fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
   raidSheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, borderWidth: 1, gap: 12, paddingBottom: 40 },
   raidSheetTitle: { fontSize: 18, fontFamily: "Inter_700Bold" },
