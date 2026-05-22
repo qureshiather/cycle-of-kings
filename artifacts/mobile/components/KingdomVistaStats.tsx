@@ -5,13 +5,14 @@ import { useGetTown, useGetTownArmy } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 
-function StatRow({
+function StatCard({
   icon,
   iconColor,
   label,
   value,
   sub,
   colors,
+  withAlpha,
 }: {
   icon: string;
   iconColor: string;
@@ -19,19 +20,32 @@ function StatRow({
   value: string;
   sub?: string;
   colors: ReturnType<typeof useColors>;
+  withAlpha: (color: string, alpha: number) => string;
 }) {
   return (
-    <View style={styles.row}>
-      <View style={[styles.iconWrap, { backgroundColor: iconColor + "18" }]}>
-        <MaterialCommunityIcons name={icon as any} size={16} color={iconColor} />
+    <View
+      style={[
+        styles.card,
+        {
+          backgroundColor: withAlpha(colors.surface, 0.95),
+          borderColor: colors.border,
+        },
+      ]}
+    >
+      <View style={[styles.iconWrap, { backgroundColor: withAlpha(iconColor, 0.14) }]}>
+        <MaterialCommunityIcons name={icon as any} size={18} color={iconColor} />
       </View>
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
-        <Text style={[styles.rowValue, { color: colors.foreground }]}>{value}</Text>
-        {sub ? (
-          <Text style={[styles.rowSub, { color: colors.textMuted }]}>{sub}</Text>
-        ) : null}
-      </View>
+      <Text style={[styles.cardLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.cardValue, { color: colors.foreground }]} numberOfLines={1}>
+        {value}
+      </Text>
+      {sub ? (
+        <Text style={[styles.cardSub, { color: colors.textMuted }]} numberOfLines={2}>
+          {sub}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -70,72 +84,69 @@ export default function KingdomVistaStats({ townId }: { townId: number }) {
     popGrowth > 0
       ? `+${popGrowth}/h`
       : pop === 0 && popCap > 0
-        ? "Starting up — refresh after a moment"
+        ? "Starting up"
         : canGrow
-          ? "Paused (check back soon)"
-          : "Starving — need positive net food";
+          ? "Paused"
+          : "Need food";
 
   return (
-    <View
-      style={[
-        styles.panel,
-        {
-          backgroundColor: withAlpha(colors.surface, 0.95),
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      <StatRow
+    <View style={styles.row}>
+      <StatCard
         icon="account-group"
         iconColor={colors.foreground}
         label="Population"
         value={`${pop}${popCap > 0 ? ` / ${popCap}` : ""}`}
         sub={`Growth ${popGrowthLabel}${morale > 0 ? ` · Morale ${morale}` : ""}`}
         colors={colors}
+        withAlpha={withAlpha}
       />
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-      <StatRow
+      <StatCard
         icon="food-apple"
         iconColor={colors.food}
         label="Food"
-        value={`−${foodUpkeep}/h consumed`}
-        sub={`Production +${foodProd}/h · Net ${netFood >= 0 ? "+" : ""}${netFood}/h`}
+        value={`−${foodUpkeep}/h`}
+        sub={`+${foodProd}/h · Net ${netFood >= 0 ? "+" : ""}${netFood}/h`}
         colors={colors}
+        withAlpha={withAlpha}
       />
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-      <StatRow
+      <StatCard
         icon="shield"
         iconColor={colors.defense}
         label="Defense"
-        value={`${totalDef} total`}
-        sub={`Walls & towers ${walls} · Garrison ${garrison}${army?.totalTroops != null ? ` (${army.totalTroops} troops)` : ""}`}
+        value={`${totalDef}`}
+        sub={`Walls ${walls} · Garrison ${garrison}${army?.totalTroops != null ? ` · ${army.totalTroops} troops` : ""}`}
         colors={colors}
+        withAlpha={withAlpha}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loading: { paddingVertical: 16, alignItems: "center" },
-  panel: {
+  loading: { paddingVertical: 16, alignItems: "center", width: "100%" },
+  row: {
+    flexDirection: "row",
+    gap: 8,
     width: "100%",
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    gap: 10,
     marginBottom: 10,
   },
-  row: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 10,
+    gap: 4,
+    alignItems: "flex-start",
+  },
   iconWrap: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  rowText: { flex: 1, gap: 2 },
-  rowLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 },
-  rowValue: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  rowSub: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 15 },
-  divider: { height: 1, width: "100%" },
+  cardLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 },
+  cardValue: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  cardSub: { fontSize: 9, fontFamily: "Inter_400Regular", lineHeight: 12 },
 });

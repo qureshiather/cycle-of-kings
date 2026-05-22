@@ -4,24 +4,20 @@ import { VISTA_HORIZON } from "@/lib/townVista";
 
 export type NormPoint = { x: number; y: number; gate?: boolean; corner?: boolean };
 
-/** Closed loop around the settlement (normalized). North edge sits on land, not sky. */
+/** Wall ring on the settlement plateau — wraps VISTA_LAYOUT cluster. */
 export const WALL_PERIMETER: NormPoint[] = [
-  { x: 0.1, y: 0.46, corner: true },
-  { x: 0.24, y: 0.42 },
-  { x: 0.38, y: 0.4 },
-  { x: 0.5, y: 0.39 },
-  { x: 0.62, y: 0.4 },
-  { x: 0.76, y: 0.42 },
-  { x: 0.9, y: 0.46, corner: true },
-  { x: 0.95, y: 0.52 },
-  { x: 0.92, y: 0.64, corner: true },
-  { x: 0.78, y: 0.74 },
-  { x: 0.62, y: 0.78 },
-  { x: 0.5, y: 0.8, gate: true },
-  { x: 0.38, y: 0.78 },
-  { x: 0.22, y: 0.74 },
-  { x: 0.08, y: 0.64, corner: true },
-  { x: 0.05, y: 0.52 },
+  { x: 0.14, y: 0.58, corner: true },
+  { x: 0.32, y: 0.52 },
+  { x: 0.5, y: 0.5 },
+  { x: 0.68, y: 0.52 },
+  { x: 0.86, y: 0.58, corner: true },
+  { x: 0.9, y: 0.68 },
+  { x: 0.78, y: 0.82 },
+  { x: 0.58, y: 0.86 },
+  { x: 0.5, y: 0.87, gate: true },
+  { x: 0.42, y: 0.86 },
+  { x: 0.22, y: 0.82 },
+  { x: 0.1, y: 0.68, corner: true },
 ];
 
 export type WallTier = 1 | 2 | 3 | 4;
@@ -110,10 +106,47 @@ export function getWallTierStyle(wallLevel: number): WallTierStyle {
   }
 }
 
-export function getActivePerimeter(wallLevel: number): { points: NormPoint[]; gateOpen: boolean } {
+export type ActivePerimeter = {
+  points: NormPoint[];
+  gateOpen: boolean;
+  /** Index in `points` after which the stroke must break (open gateway). */
+  gapAfter: number;
+};
+
+export function getActivePerimeter(wallLevel: number): ActivePerimeter {
   const gateOpen = wallLevel < 7;
-  const points = WALL_PERIMETER.filter((p) => !(p.gate && gateOpen));
-  return { points, gateOpen };
+  const gateIdx = WALL_PERIMETER.findIndex((p) => p.gate);
+  if (!gateOpen || gateIdx < 0) {
+    return { points: [...WALL_PERIMETER], gateOpen: false, gapAfter: -1 };
+  }
+  const points = WALL_PERIMETER.filter((p) => !p.gate);
+  return { points, gateOpen: true, gapAfter: gateIdx - 1 };
+}
+
+/** One or two open polylines; splits at gateway so we never draw across the gate. */
+export function perimeterPolylinePaths(
+  points: NormPoint[],
+  width: number,
+  height: number,
+  gapAfter: number,
+): string[] {
+  const chain = (subset: NormPoint[]) => {
+    if (subset.length < 2) return "";
+    const coords = subset.map((p) => {
+      const s = toScreen(p, width, height);
+      return `${s.x} ${s.y}`;
+    });
+    return `M ${coords.join(" L ")}`;
+  };
+
+  if (gapAfter < 0 || gapAfter >= points.length - 1) {
+    const d = chain(points);
+    return d ? [`${d} Z`] : [];
+  }
+
+  const left = chain(points.slice(0, gapAfter + 1));
+  const right = chain([...points.slice(gapAfter + 1), points[0]]);
+  return [left, right].filter(Boolean);
 }
 
 export function toScreen(p: NormPoint, width: number, height: number) {
@@ -172,6 +205,73 @@ export function perimeterRingPath(
   return `M ${outer.join(" L ")} L ${inner.join(" L ")} Z`;
 }
 
+/** Open path along the outer wall edge (for rim highlight). */
+export function perimeterOuterOpenPath(
+  points: NormPoint[],
+  width: number,
+  height: number,
+): string {
+  if (points.length < 2) return "";
+  const outer = points.map((p) => {
+    const s = toScreen(p, width, height);
+    return `${s.x} ${s.y}`;
+  });
+  return `M ${outer.join(" L ")} Z`;
+}
+
+const WALL_INTERIOR = { x: 0.5, y: 0.55 };
+
+/** Outward normal from perimeter toward exterior (away from town). */
+export function outwardNormal(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  width: number,
+  height: number,
+): { nx: number; ny: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return { nx: 0, ny: -1 };
+  let px = -dy / len;
+  let py = dx / len;
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const interior = { x: width * WALL_INTERIOR.x, y: height * WALL_INTERIOR.y };
+  const towardInX = interior.x - midX;
+  const towardInY = interior.y - midY;
+  if (px * towardInX + py * towardInY > 0) {
+    px = -px;
+    py = -py;
+  }
+  return { nx: px, ny: py };
+}
+
+/** Sample points on the outer perimeter for crenellation ticks. */
+export function sampleOuterPerimeter(
+  points: NormPoint[],
+  width: number,
+  height: number,
+  spacing: number,
+): { x: number; y: number; nx: number; ny: number }[] {
+  const screenPts = points.map((p) => toScreen(p, width, height));
+  const out: { x: number; y: number; nx: number; ny: number }[] = [];
+  for (let i = 0; i < screenPts.length; i++) {
+    const a = screenPts[i];
+    const b = screenPts[(i + 1) % screenPts.length];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) continue;
+    const steps = Math.max(1, Math.floor(len / spacing));
+    const { nx, ny } = outwardNormal(a, b, width, height);
+    for (let j = 0; j < steps; j++) {
+      const t = (j + 0.5) / steps;
+      out.push({ x: a.x + dx * t, y: a.y + dy * t, nx, ny });
+    }
+  }
+  return out;
+}
+
 /** Dense samples along edge including both endpoints (overlapping merlon spacing). */
 export function edgeMerlonPositions(
   a: { x: number; y: number },
@@ -209,7 +309,44 @@ export function extendEdge(
   };
 }
 
-const WALL_INTERIOR = { x: 0.5, y: 0.55 };
+function edgeOffsetDir(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  width: number,
+  height: number,
+): { px: number; py: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return { px: 0, py: 1 };
+  let px = -dy / len;
+  let py = dx / len;
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  const interior = { x: width * WALL_INTERIOR.x, y: height * WALL_INTERIOR.y };
+  const towardInX = interior.x - midX;
+  const towardInY = interior.y - midY;
+  if (px * towardInX + py * towardInY < 0) {
+    px = -px;
+    py = -py;
+  }
+  return { px, py };
+}
+
+/** Outer lip point on a wall edge vertex (exterior face). */
+export function edgeOuterLip(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  at: "a" | "b",
+  thickness: number,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const { px, py } = edgeOffsetDir(a, b, width, height);
+  const lip = thickness * 0.22;
+  const p = at === "a" ? a : b;
+  return { x: p.x - px * lip, y: p.y - py * lip };
+}
 
 /** Filled band along wall edge, offset toward town interior (avoids sky on north side). */
 export function edgeCurtainPath(
@@ -223,17 +360,7 @@ export function edgeCurtainPath(
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy);
   if (len < 1) return "";
-  let px = -dy / len;
-  let py = dx / len;
-  const midX = (a.x + b.x) / 2;
-  const midY = (a.y + b.y) / 2;
-  const interior = { x: width * WALL_INTERIOR.x, y: height * WALL_INTERIOR.y };
-  const towardInX = interior.x - midX;
-  const towardInY = interior.y - midY;
-  if (px * towardInX + py * towardInY < 0) {
-    px = -px;
-    py = -py;
-  }
+  const { px, py } = edgeOffsetDir(a, b, width, height);
   const lip = thickness * 0.22;
   return [
     `M ${a.x - px * lip} ${a.y - py * lip}`,

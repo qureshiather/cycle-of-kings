@@ -1,6 +1,15 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React, { useMemo } from "react";
-import { ActivityIndicator, Dimensions, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
+import React, { useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Dimensions,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import {
   useGetBuildingSlots,
   useGetGameState,
@@ -8,25 +17,29 @@ import {
   useGetTownArmy,
   useGetPlayerTrophies,
 } from "@workspace/api-client-react";
+import { getAchievementProgress, type TownAchievementSnapshot } from "@workspace/achievements";
 import {
-  BUILDING_SLOT_TYPES,
-  getAchievementProgress,
-  type TownAchievementSnapshot,
-} from "@workspace/achievements";
-import type { SlotType } from "@workspace/building-progression";
+  formatRequirementHint,
+  getBuildBlockReason,
+  type SlotType,
+} from "@workspace/building-progression";
 import { useGame } from "@/context/GameContext";
 import IsoBuilding from "@/components/town-vista/IsoBuilding";
 import IsoWallRing, { getWallColors } from "@/components/town-vista/IsoWallRing";
 import TownVistaLandscape from "@/components/town-vista/TownVistaLandscape";
-import TownVistaSkyVeil from "@/components/town-vista/TownVistaSkyVeil";
+import VistaCallout from "@/components/town-vista/VistaCallout";
+import VistaSummaryChips from "@/components/town-vista/VistaSummaryChips";
 import VistaWalkers from "@/components/town-vista/VistaWalkers";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
-import { getSlotColor } from "@/lib/buildingMeta";
+import { slotBuildStates } from "@/lib/buildableSlots";
+import { getSlotColor, SLOT_BONUS, SLOT_ICONS, SLOT_NAMES } from "@/lib/buildingMeta";
+import { normalizeResources } from "@/lib/resourceMeta";
 import {
   getProductionTier,
   getSeasonTheme,
   getStructureSize,
+  getTownTierLabel,
   getTroopDotCount,
   getVistaPaintOrder,
   slotsToMap,
@@ -36,7 +49,7 @@ import {
 import type { Season } from "@/lib/seasonMeta";
 
 const H_PADDING = 16;
-const ASPECT = 0.68;
+const ASPECT = 0.78;
 
 type SlotKey = keyof typeof VISTA_LAYOUT;
 
@@ -101,9 +114,40 @@ function MilitaryCamp({
   );
 }
 
+function ActionablePlotPulse({ color }: { color: string }) {
+  const pulse = useRef(new Animated.Value(0.35)).current;
+
+  React.useEffect(() => {
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.85, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.35, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          borderRadius: 6,
+          borderWidth: 2,
+          borderColor: color,
+          opacity: pulse,
+        },
+      ]}
+    />
+  );
+}
+
 export default function TownVista({ townId }: { townId: number }) {
   const colors = useColors();
   const { withAlpha, isDark } = useTheme();
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const { data: slotsRaw = [], isLoading: slotsLoading } = useGetBuildingSlots(townId, {
     query: { enabled: !!townId, refetchInterval: 30_000 } as any,
@@ -138,7 +182,27 @@ export default function TownVista({ townId }: { townId: number }) {
   const economyScore = (town as { economyScore?: number })?.economyScore ?? 0;
   const populationCap = Math.round(town?.populationCap ?? 0);
   const paintOrder = getVistaPaintOrder();
+  const totalStructureSlots = paintOrder.length;
   const builtCount = paintOrder.filter((t) => (slotMap.get(t)?.level ?? 0) > 0).length;
+  const upgradingCount = paintOrder.filter((t) => slotMap.get(t)?.upgrading).length;
+  const tierLabel = getTownTierLabel(builtCount, economyScore);
+
+  const owned = normalizeResources({
+    gold: town?.gold ?? 0,
+    food: town?.food ?? 0,
+    wood: town?.wood ?? 0,
+    stone: town?.stone ?? 0,
+  });
+  const buildStates = useMemo(
+    () => slotBuildStates(slotsRaw as VistaSlot[], owned),
+    [slotsRaw, owned],
+  );
+  const buildStateByType = useMemo(() => {
+    const map = new Map<string, (typeof buildStates)[number]>();
+    for (const state of buildStates) map.set(state.slotType, state);
+    return map;
+  }, [buildStates]);
+  const actionableCount = buildStates.filter((s) => s.actionable).length;
   const population = Math.round(town?.population ?? 0);
   const netFoodPerHour = Math.round(
     (town?.netFoodPerHour ?? (town?.foodPerHour ?? 0) - (town?.foodUpkeepPerHour ?? 0)),
@@ -179,8 +243,69 @@ export default function TownVista({ townId }: { townId: number }) {
     );
   }
 
+  const selectedCallout = (() => {
+    if (!selectedSlot) return null;
+    const slotType = selectedSlot;
+    const slot = slotMap.get(slotType);
+    const level = slot?.level ?? 0;
+    const name = SLOT_NAMES[slotType] ?? slotType;
+    const icon = SLOT_ICONS[slotType] ?? "help";
+    const accent = getSlotColor(slotType, colors);
+    const buildState = buildStateByType.get(slotType);
+
+    if (level > 0) {
+      const bonus = SLOT_BONUS[slotType]?.(level);
+      return {
+        name,
+        icon,
+        accent,
+        line1: slot?.upgrading ? "Upgrading…" : `Level ${level}`,
+        line2: bonus,
+        status: slot?.upgrading ? ("upgrading" as const) : ("built" as const),
+      };
+    }
+
+    const lockReason = getBuildBlockReason(slotType as SlotType, [...slotMap.values()]);
+    if (buildState?.actionable) {
+      return {
+        name,
+        icon,
+        accent,
+        line1: "Ready to build",
+        line2: "Close map and tap this building on your Kingdom tab",
+        status: "ready" as const,
+      };
+    }
+    if (lockReason) {
+      return {
+        name,
+        icon,
+        accent,
+        line1: "Locked",
+        line2: formatRequirementHint(slotType as SlotType),
+        status: "locked" as const,
+      };
+    }
+    return {
+      name,
+      icon,
+      accent,
+      line1: "Empty plot",
+      line2: buildState?.canAfford ? "Needs resources" : "Unlock prerequisites first",
+      status: "empty" as const,
+    };
+  })();
+
   return (
     <View style={[styles.wrapper, { width }]}>
+      <VistaSummaryChips
+        tierLabel={tierLabel}
+        builtCount={builtCount}
+        totalSlots={totalStructureSlots}
+        actionableCount={actionableCount}
+        upgradingCount={upgradingCount}
+        season={season}
+      />
       <View
         style={[
           styles.frame,
@@ -204,7 +329,7 @@ export default function TownVista({ townId }: { townId: number }) {
             showSun={season !== "winter"}
           />
 
-          <View style={[styles.wallLayerBack, { width, height }]} pointerEvents="none">
+          <View style={[styles.wallLayer, { width, height }]} pointerEvents="none">
             <IsoWallRing
               width={width}
               height={height}
@@ -214,39 +339,61 @@ export default function TownVista({ townId }: { townId: number }) {
             />
           </View>
 
-          <View style={[styles.skyVeil, { width, height }]} pointerEvents="none">
-            <TownVistaSkyVeil width={width} height={height} theme={theme} />
-          </View>
-
           {goldTier > 0 && (slotMap.get("mine")?.level ?? 0) > 0 && (
-            <View style={[styles.spark, { left: width * 0.22, top: height * 0.38 }]}>
+            <View style={[styles.spark, { left: width * 0.28, top: height * 0.52 }]}>
               <MaterialCommunityIcons name="gold" size={10 + goldTier} color={colors.gold} style={{ opacity: 0.5 }} />
             </View>
           )}
 
-          {BUILDING_SLOT_TYPES.map((slotType) => {
+          {paintOrder.map((slotType) => {
             const pos = VISTA_LAYOUT[slotType as SlotKey];
             if (!pos) return null;
             const slot = slotMap.get(slotType);
             const level = slot?.level ?? 0;
+            const buildState = buildStateByType.get(slotType);
+            const isSelected = selectedSlot === slotType;
+
             if (level <= 0) {
+              const actionable = buildState?.actionable ?? false;
+              const ready = buildState?.ready ?? false;
+              const plotW = actionable ? 28 : 22;
+              const plotH = actionable ? 18 : 14;
               return (
-                <View
+                <Pressable
                   key={`ghost-${slotType}`}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSelectedSlot((prev) => (prev === slotType ? null : slotType));
+                  }}
+                  hitSlop={8}
                   style={{
                     position: "absolute",
-                    left: width * pos.x - 10,
-                    top: height * pos.y - 6,
-                    width: 20,
-                    height: 12,
-                    borderRadius: 4,
-                    borderWidth: 1,
+                    left: width * pos.x - plotW / 2,
+                    top: height * pos.y - plotH / 2,
+                    width: plotW,
+                    height: plotH,
+                    borderRadius: 6,
+                    borderWidth: actionable ? 2 : 1,
                     borderStyle: "dashed",
-                    borderColor: withAlpha(colors.textMuted, 0.5),
-                    opacity: 0.45,
-                    zIndex: Math.round(pos.y * 50),
+                    borderColor: actionable
+                      ? colors.gold
+                      : ready
+                        ? withAlpha(colors.gold, 0.45)
+                        : withAlpha(colors.textMuted, 0.5),
+                    backgroundColor: actionable
+                      ? withAlpha(colors.gold, 0.12)
+                      : withAlpha(colors.textMuted, 0.06),
+                    opacity: actionable ? 1 : 0.5,
+                    zIndex: Math.round(pos.y * 50) + (isSelected ? 120 : 0),
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
-                />
+                >
+                  {actionable && <ActionablePlotPulse color={colors.gold} />}
+                  {actionable && (
+                    <MaterialCommunityIcons name="hammer-wrench" size={12} color={colors.gold} />
+                  )}
+                </Pressable>
               );
             }
             const { w, h } = getStructureSize(slotType as SlotType, level);
@@ -254,14 +401,18 @@ export default function TownVista({ townId }: { townId: number }) {
             const glow =
               (masterBuilderPct >= 80 && level > 0) || (nearSkyline && level === 9);
             return (
-              <View
+              <Pressable
                 key={slotType}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedSlot((prev) => (prev === slotType ? null : slotType));
+                }}
                 style={{
                   position: "absolute",
                   left: width * pos.x - w / 2,
                   top: height * pos.y - h + 4,
                   alignItems: "center",
-                  zIndex: Math.round(pos.y * 100),
+                  zIndex: Math.round(pos.y * 100) + (isSelected ? 120 : 0),
                 }}
               >
                 {glow && (
@@ -269,6 +420,14 @@ export default function TownVista({ townId }: { townId: number }) {
                     style={[
                       styles.achievementGlow,
                       { backgroundColor: withAlpha(colors.gold, 0.25) },
+                    ]}
+                  />
+                )}
+                {isSelected && (
+                  <View
+                    style={[
+                      styles.selectionRing,
+                      { borderColor: withAlpha(colors.gold, 0.7) },
                     ]}
                   />
                 )}
@@ -281,29 +440,33 @@ export default function TownVista({ townId }: { townId: number }) {
                   height={h}
                   isDark={isDark}
                 />
-              </View>
+              </Pressable>
             );
           })}
 
+          {selectedCallout && (
+            <View style={[styles.calloutLayer, { top: height * 0.06, left: 10, right: 10 }]}>
+              <VistaCallout
+                name={selectedCallout.name}
+                icon={selectedCallout.icon}
+                accentColor={selectedCallout.accent}
+                line1={selectedCallout.line1}
+                line2={selectedCallout.line2}
+                status={selectedCallout.status}
+                onDismiss={() => setSelectedSlot(null)}
+              />
+            </View>
+          )}
+
           <MilitaryCamp
             left={width * 0.44}
-            top={height * 0.74}
+            top={height * 0.78}
             infantry={army?.infantry ?? 0}
             archers={army?.archers ?? 0}
             cavalry={army?.cavalry ?? 0}
             colors={colors}
             isDark={isDark}
           />
-
-          <View style={[styles.wallLayerFront, { width, height }]} pointerEvents="none">
-            <IsoWallRing
-              width={width}
-              height={height}
-              wallLevel={wallLevel}
-              colors={getWallColors(theme.meadow, isDark)}
-              depth="front"
-            />
-          </View>
 
           <VistaWalkers
             width={width}
@@ -354,6 +517,9 @@ export default function TownVista({ townId }: { townId: number }) {
           </View>
         </View>
       </View>
+      <Text style={[styles.tapHint, { color: colors.textMuted }]}>
+        Tap a building or empty plot to see details
+      </Text>
     </View>
   );
 }
@@ -370,9 +536,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   canvas: { position: "relative", overflow: "hidden" },
-  wallLayerBack: { position: "absolute", left: 0, top: 0, zIndex: 40 },
-  skyVeil: { position: "absolute", left: 0, top: 0, zIndex: 42 },
-  wallLayerFront: { position: "absolute", left: 0, top: 0, zIndex: 195 },
+  wallLayer: { position: "absolute", left: 0, top: 0, zIndex: 50 },
   loading: { alignItems: "center", justifyContent: "center", alignSelf: "center" },
   achievementGlow: {
     position: "absolute",
@@ -381,6 +545,25 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     top: -8,
     zIndex: -1,
+  },
+  selectionRing: {
+    position: "absolute",
+    width: "108%",
+    height: "108%",
+    borderRadius: 12,
+    borderWidth: 2,
+    zIndex: 20,
+  },
+  calloutLayer: {
+    position: "absolute",
+    zIndex: 250,
+    alignItems: "center",
+  },
+  tapHint: {
+    fontSize: 10,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginTop: 4,
   },
   statsBar: {
     position: "absolute",
