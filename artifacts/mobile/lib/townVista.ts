@@ -8,12 +8,12 @@ export const VISTA_HORIZON = 0.28;
 
 /** Normalized bounds of the settlement plateau (buildings + walls). */
 export const PLATEAU = {
-  backY: 0.5,
-  frontY: 0.88,
+  backY: 0.45,
+  frontY: 0.82,
   left: 0.1,
   right: 0.9,
   centerX: 0.5,
-  centerY: 0.66,
+  centerY: 0.61,
 } as const;
 
 /** Sky rectangle. */
@@ -56,23 +56,23 @@ export function getVistaWallClipPath(w: number, h: number): string {
  * y increases toward the viewer; town hall near center, civic north, military south.
  */
 export const VISTA_LAYOUT: Record<SlotType, { x: number; y: number }> = {
-  townHall: { x: 0.5, y: 0.64 },
-  monument: { x: 0.5, y: 0.54 },
-  museum: { x: 0.68, y: 0.56 },
-  mine: { x: 0.28, y: 0.56 },
-  quarry: { x: 0.18, y: 0.62 },
-  tower: { x: 0.82, y: 0.6 },
-  farm: { x: 0.22, y: 0.68 },
-  lumberMill: { x: 0.34, y: 0.72 },
-  market: { x: 0.62, y: 0.64 },
-  tavern: { x: 0.74, y: 0.68 },
-  house: { x: 0.56, y: 0.7 },
-  barracks: { x: 0.42, y: 0.74 },
-  archeryRange: { x: 0.52, y: 0.78 },
-  stables: { x: 0.64, y: 0.76 },
-  spyGuild: { x: 0.36, y: 0.78 },
-  shipyard: { x: 0.16, y: 0.72 },
-  wall: { x: 0.5, y: 0.64 },
+  townHall: { x: 0.5, y: 0.59 },
+  monument: { x: 0.5, y: 0.49 },
+  museum: { x: 0.68, y: 0.51 },
+  mine: { x: 0.28, y: 0.51 },
+  quarry: { x: 0.18, y: 0.57 },
+  tower: { x: 0.82, y: 0.55 },
+  farm: { x: 0.22, y: 0.63 },
+  lumberMill: { x: 0.34, y: 0.67 },
+  market: { x: 0.62, y: 0.59 },
+  tavern: { x: 0.74, y: 0.63 },
+  house: { x: 0.56, y: 0.65 },
+  barracks: { x: 0.42, y: 0.69 },
+  archeryRange: { x: 0.52, y: 0.73 },
+  stables: { x: 0.64, y: 0.71 },
+  spyGuild: { x: 0.36, y: 0.73 },
+  shipyard: { x: 0.16, y: 0.67 },
+  wall: { x: 0.5, y: 0.59 },
 };
 
 export const VISTA_RENDER_ORDER: SlotType[] = [

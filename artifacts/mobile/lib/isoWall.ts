@@ -6,18 +6,18 @@ export type NormPoint = { x: number; y: number; gate?: boolean; corner?: boolean
 
 /** Wall ring on the settlement plateau — wraps VISTA_LAYOUT cluster. */
 export const WALL_PERIMETER: NormPoint[] = [
-  { x: 0.14, y: 0.58, corner: true },
-  { x: 0.32, y: 0.52 },
-  { x: 0.5, y: 0.5 },
-  { x: 0.68, y: 0.52 },
-  { x: 0.86, y: 0.58, corner: true },
-  { x: 0.9, y: 0.68 },
-  { x: 0.78, y: 0.82 },
-  { x: 0.58, y: 0.86 },
-  { x: 0.5, y: 0.87, gate: true },
-  { x: 0.42, y: 0.86 },
-  { x: 0.22, y: 0.82 },
-  { x: 0.1, y: 0.68, corner: true },
+  { x: 0.14, y: 0.53, corner: true },
+  { x: 0.32, y: 0.47 },
+  { x: 0.5, y: 0.45 },
+  { x: 0.68, y: 0.47 },
+  { x: 0.86, y: 0.53, corner: true },
+  { x: 0.9, y: 0.63 },
+  { x: 0.78, y: 0.77 },
+  { x: 0.58, y: 0.81 },
+  { x: 0.5, y: 0.82, gate: true },
+  { x: 0.42, y: 0.81 },
+  { x: 0.22, y: 0.77 },
+  { x: 0.1, y: 0.63, corner: true },
 ];
 
 export type WallTier = 1 | 2 | 3 | 4;

@@ -340,7 +340,7 @@ export default function TownVista({ townId }: { townId: number }) {
           </View>
 
           {goldTier > 0 && (slotMap.get("mine")?.level ?? 0) > 0 && (
-            <View style={[styles.spark, { left: width * 0.28, top: height * 0.52 }]}>
+            <View style={[styles.spark, { left: width * 0.28, top: height * 0.47 }]}>
               <MaterialCommunityIcons name="gold" size={10 + goldTier} color={colors.gold} style={{ opacity: 0.5 }} />
             </View>
           )}
@@ -460,7 +460,7 @@ export default function TownVista({ townId }: { townId: number }) {
 
           <MilitaryCamp
             left={width * 0.44}
-            top={height * 0.78}
+            top={height * 0.73}
             infantry={army?.infantry ?? 0}
             archers={army?.archers ?? 0}
             cavalry={army?.cavalry ?? 0}

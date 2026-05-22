@@ -102,10 +102,10 @@ export default function KingdomVistaStats({ townId }: { townId: number }) {
       />
       <StatCard
         icon="food-apple"
-        iconColor={colors.food}
+        iconColor={netFood >= 0 ? colors.food : colors.destructive}
         label="Food"
-        value={`−${foodUpkeep}/h`}
-        sub={`+${foodProd}/h · Net ${netFood >= 0 ? "+" : ""}${netFood}/h`}
+        value={`${netFood >= 0 ? "+" : ""}${netFood}/h`}
+        sub={`+${foodProd}/h prod · −${foodUpkeep}/h upkeep`}
         colors={colors}
         withAlpha={withAlpha}
       />

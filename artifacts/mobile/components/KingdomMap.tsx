@@ -44,7 +44,6 @@ import {
   type ResourceAmounts,
 } from "@/lib/buildingMeta";
 import ResourceCostRow from "@/components/ResourceCostRow";
-import BuildCelebrationModal, { type BuildCelebration } from "@/components/BuildCelebrationModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { slotBuildStates } from "@/lib/buildableSlots";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
@@ -103,7 +102,6 @@ export default function KingdomMap({
     culture: false,
     army: false,
   });
-  const [celebration, setCelebration] = useState<BuildCelebration | null>(null);
   const prevActionableRef = useRef(0);
 
   const toggleSection = (category: BuildingCategory) => {
@@ -187,19 +185,10 @@ export default function KingdomMap({
     buildSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: (data) => {
+        onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          const builtType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
-          if (builtType) {
-            setCelebration({
-              slotType: builtType,
-              level: 1,
-              kind: "built",
-              awardedAchievements: data.awardedAchievements ?? [],
-            });
-          }
         },
         onError: (e: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -211,23 +200,13 @@ export default function KingdomMap({
 
   const handleUpgrade = () => {
     if (!selectedSlotType) return;
-    const nextLevel = (selectedSlot?.level ?? 0) + 1;
     upgradeSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: (data) => {
+        onSuccess: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          const upgradedType = selectedSlotType;
           setSelectedSlotType(null);
           invalidate();
-          if (upgradedType) {
-            setCelebration({
-              slotType: upgradedType,
-              level: nextLevel,
-              kind: "upgrade",
-              awardedAchievements: data.awardedAchievements ?? [],
-            });
-          }
         },
         onError: (e: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -557,11 +536,6 @@ export default function KingdomMap({
         </ModalOverlay>
       </Modal>
 
-      <BuildCelebrationModal
-        visible={!!celebration}
-        celebration={celebration}
-        onClose={() => setCelebration(null)}
-      />
     </>
   );
 }

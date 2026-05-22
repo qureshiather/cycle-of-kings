@@ -35,6 +35,18 @@ export function formatResourceAmount(n: number): string {
   return String(whole);
 }
 
+/** Signed hourly rate (e.g. net food); negatives are not clamped to zero. */
+export function formatResourceRate(n: number): string {
+  if (n === 0) return "0";
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${sign}${(abs / 1_000).toFixed(1)}k`;
+  const rounded = Math.round(abs * 10) / 10;
+  if (Math.abs(rounded - Math.round(rounded)) < 0.05) return `${sign}${Math.round(rounded)}`;
+  return `${sign}${rounded.toFixed(1)}`;
+}
+
 export function getNonZeroCosts(cost: ResourceAmounts): { key: ResourceKey; amount: number }[] {
   return RESOURCE_ORDER.filter((key) => cost[key] > 0).map((key) => ({ key, amount: cost[key] }));
 }

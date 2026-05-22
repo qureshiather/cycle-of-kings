@@ -65,7 +65,7 @@ export default function TownVistaLandscape({
           <Ellipse
             key={`f-${i}`}
             cx={w * (0.2 + i * 0.05)}
-            cy={h * (0.7 + i * 0.02)}
+            cy={h * (0.65 + i * 0.02)}
             rx={w * 0.035}
             ry={h * 0.02}
             fill={theme.tree}
@@ -74,10 +74,10 @@ export default function TownVistaLandscape({
         ))}
 
       {[
-        { x: 0.06, y: 0.62, s: 0.85 },
-        { x: 0.94, y: 0.6, s: 0.9 },
-        { x: 0.08, y: 0.8, s: 0.8 },
-        { x: 0.92, y: 0.78, s: 0.85 },
+        { x: 0.06, y: 0.57, s: 0.85 },
+        { x: 0.94, y: 0.55, s: 0.9 },
+        { x: 0.08, y: 0.75, s: 0.8 },
+        { x: 0.92, y: 0.73, s: 0.85 },
       ].map((t, i) => (
         <G key={`tree-${i}`} transform={`translate(${w * t.x}, ${h * t.y}) scale(${t.s})`}>
           <Ellipse cx={0} cy={10} rx={10} ry={3} fill="#000" opacity={0.08} />

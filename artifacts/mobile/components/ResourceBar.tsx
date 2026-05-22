@@ -3,7 +3,7 @@ import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
-import { formatResourceAmount } from "@/lib/resourceMeta";
+import { formatResourceAmount, formatResourceRate } from "@/lib/resourceMeta";
 
 interface ResourceBarProps {
   gold: number;
@@ -69,7 +69,7 @@ function ResourceCell({ icon, label, value, color, perHour, signedPerHour, showD
       >
         {signedPerHour
           ? perHour != null && perHour !== 0
-            ? `${perHour > 0 ? "+" : ""}${formatResourceAmount(perHour)}/h`
+            ? `${perHour > 0 ? "+" : ""}${formatResourceRate(perHour)}/h`
             : perHour === 0
               ? "0/h"
               : "—"
