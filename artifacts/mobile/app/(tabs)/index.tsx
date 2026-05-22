@@ -1,5 +1,7 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTown,
@@ -8,15 +10,17 @@ import {
   getGetBuildingSlotsQueryKey,
 } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
+import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
-import KingdomQuickPanel from "@/components/KingdomQuickPanel";
 import KingdomVistaModal from "@/components/KingdomVistaModal";
 import KingdomMap from "@/components/KingdomMap";
 import ScreenHeader from "@/components/ScreenHeader";
+import SeasonHeaderPill from "@/components/SeasonHeaderPill";
 import SeasonCalendarModal from "@/components/SeasonCalendarModal";
 
 export default function KingdomScreen() {
   const colors = useColors();
+  const { withAlpha } = useTheme();
   const { townId, playerName } = useGame();
   const qc = useQueryClient();
 
@@ -42,6 +46,32 @@ export default function KingdomScreen() {
       <ScreenHeader
         icon="castle"
         title={playerName ? `${playerName}'s Town` : "Your Town"}
+        trailing={
+          <View style={styles.headerActions}>
+            {townId ? (
+              <Pressable
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setVistaModalOpen(true);
+                }}
+                style={({ pressed }) => [
+                  styles.headerIconBtn,
+                  {
+                    backgroundColor: withAlpha(colors.gold, pressed ? 0.18 : 0.1),
+                    borderColor: withAlpha(colors.gold, 0.3),
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="View kingdom map"
+              >
+                <MaterialCommunityIcons name="map-outline" size={16} color={colors.gold} />
+              </Pressable>
+            ) : null}
+            {gameState ? (
+              <SeasonHeaderPill gameState={gameState} onPress={openSeasonCalendar} />
+            ) : null}
+          </View>
+        }
         town={
           townId && town
             ? {
@@ -86,14 +116,6 @@ export default function KingdomScreen() {
         )}
       </ScreenHeader>
 
-      {gameState && townId && (
-        <KingdomQuickPanel
-          gameState={gameState}
-          onSeasonPress={openSeasonCalendar}
-          onOpenVista={() => setVistaModalOpen(true)}
-        />
-      )}
-
       {townId && (
         <KingdomMap townId={townId} refreshing={townLoading} onRefresh={handleRefresh} />
       )}
@@ -119,6 +141,15 @@ export default function KingdomScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 0 },
+  headerIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   scoreBar: {
     flexDirection: "row",
     alignItems: "center",

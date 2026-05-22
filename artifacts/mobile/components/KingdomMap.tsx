@@ -46,7 +46,6 @@ import {
 import ResourceCostRow from "@/components/ResourceCostRow";
 import BuildCelebrationModal, { type BuildCelebration } from "@/components/BuildCelebrationModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
-import TabBadge from "@/components/TabBadge";
 import { slotBuildStates } from "@/lib/buildableSlots";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
@@ -58,6 +57,23 @@ type SlotData = {
   upgrading: boolean;
   upgradeEndsAt?: string | null;
 };
+
+function useTimeRemaining(active: boolean, endsAt?: string | null): number {
+  const [msLeft, setMsLeft] = useState(0);
+
+  useEffect(() => {
+    if (!active || !endsAt) {
+      setMsLeft(0);
+      return;
+    }
+    const tick = () => setMsLeft(Math.max(0, new Date(endsAt).getTime() - Date.now()));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [active, endsAt]);
+
+  return msLeft;
+}
 
 export default function KingdomMap({
   townId,
@@ -114,20 +130,7 @@ export default function KingdomMap({
   const selectedSlot = selectedSlotType ? slotMap.get(selectedSlotType) : null;
   const isEmpty = (selectedSlot?.level ?? 0) === 0;
   const isUpgrading = selectedSlot?.upgrading ?? false;
-  const [sheetTimeLeft, setSheetTimeLeft] = useState(0);
-
-  useEffect(() => {
-    const endsAt = selectedSlot?.upgradeEndsAt;
-    if (!isUpgrading || !endsAt) {
-      setSheetTimeLeft(0);
-      return;
-    }
-    const tick = () =>
-      setSheetTimeLeft(Math.max(0, new Date(endsAt).getTime() - Date.now()));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [isUpgrading, selectedSlot?.upgradeEndsAt]);
+  const sheetTimeLeft = useTimeRemaining(isUpgrading, selectedSlot?.upgradeEndsAt);
   const isMaxLevel = (selectedSlot?.level ?? 0) >= 10;
   const isTownHall = selectedSlotType === "townHall";
 
@@ -148,7 +151,6 @@ export default function KingdomMap({
     () => buildStates.filter((s) => s.actionable).length,
     [buildStates],
   );
-  const firstActionable = buildStates.find((s) => s.actionable)?.slotType ?? null;
 
   useEffect(() => {
     if (actionableCount > 0 && prevActionableRef.current === 0) {
@@ -281,41 +283,6 @@ export default function KingdomMap({
           ) : undefined
         }
       >
-        {actionableCount > 0 && (
-          <Pressable
-            onPress={() => {
-              if (!firstActionable) return;
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setSelectedSlotType(firstActionable);
-            }}
-            style={({ pressed }) => [
-              styles.buildBanner,
-              {
-                backgroundColor: withAlpha(colors.gold, pressed ? 0.2 : 0.14),
-                borderColor: withAlpha(colors.gold, 0.55),
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={`${actionableCount} buildings ready to construct`}
-          >
-            <View style={[styles.buildBannerIcon, { backgroundColor: withAlpha(colors.gold, 0.25) }]}>
-              <MaterialCommunityIcons name="hammer-wrench" size={22} color={colors.gold} />
-            </View>
-            <View style={styles.buildBannerText}>
-              <Text style={[styles.buildBannerTitle, { color: colors.foreground }]}>
-                {actionableCount === 1
-                  ? "A building is ready to raise"
-                  : `${actionableCount} buildings ready to raise`}
-              </Text>
-              <Text style={[styles.buildBannerSub, { color: colors.gold }]}>
-                Tap to start construction
-              </Text>
-            </View>
-            <TabBadge count={actionableCount} inline variant="gold" />
-            <MaterialCommunityIcons name="chevron-right" size={22} color={colors.gold} />
-          </Pressable>
-        )}
-
         {BUILDING_CATEGORY_ORDER.map((category) => {
           const isCollapsed = collapsedSections[category];
           const sectionColor =
@@ -325,9 +292,6 @@ export default function KingdomMap({
                 ? colors.gold
                 : colors.military;
           const categorySlots = BUILDINGS_BY_CATEGORY[category];
-          const sectionActionable = categorySlots.filter(
-            (slotType) => buildStateByType.get(slotType)?.actionable,
-          ).length;
           const sortedSlots = [...categorySlots].sort((a, b) => {
             const rank = (slotType: string) => {
               const state = buildStateByType.get(slotType);
@@ -370,9 +334,6 @@ export default function KingdomMap({
               <Text style={[styles.sectionTitle, { color: sectionColor, flex: 1 }]}>
                 {BUILDING_CATEGORY_LABELS[category]}
               </Text>
-              {sectionActionable > 0 && (
-                <TabBadge count={sectionActionable} inline variant="gold" />
-              )}
               {isCollapsed && (
                 <Text style={[styles.sectionSummary, { color: colors.textSecondary }]}>
                   {builtInSection}/{categorySlots.length} built
@@ -410,6 +371,7 @@ export default function KingdomMap({
                     ready={ready}
                     locked={locked}
                     upgrading={slot.upgrading}
+                    upgradeEndsAt={slot.upgradeEndsAt}
                     lockReason={lockReason}
                     canAffordBuild={canAffordBuild}
                     highlight={highlight}
@@ -553,7 +515,11 @@ export default function KingdomMap({
 
                       {!isEmpty && !isMaxLevel && (
                         <ActionButton
-                          label={isUpgrading ? "Building…" : `Build to level ${nextLevel}`}
+                          label={
+                            isUpgrading
+                              ? `Building · ${formatTimeRemaining(sheetTimeLeft)}`
+                              : `Build to level ${nextLevel}`
+                          }
                           cost={isUpgrading ? null : getBuildingCost(selectedSlotType, nextLevel)}
                           owned={owned}
                           icon="hammer-wrench"
@@ -609,6 +575,7 @@ function BuildingCard({
   ready,
   locked,
   upgrading,
+  upgradeEndsAt,
   lockReason,
   canAffordBuild,
   highlight,
@@ -623,6 +590,7 @@ function BuildingCard({
   ready: boolean;
   locked: boolean;
   upgrading: boolean;
+  upgradeEndsAt?: string | null;
   lockReason: string | null;
   canAffordBuild: boolean;
   highlight?: boolean;
@@ -631,6 +599,7 @@ function BuildingCard({
 }) {
   const { withAlpha } = useTheme();
   const pulse = useRef(new Animated.Value(1)).current;
+  const timeLeft = useTimeRemaining(upgrading, upgradeEndsAt);
 
   useEffect(() => {
     if (!highlight) {
@@ -659,13 +628,15 @@ function BuildingCard({
 
   const displayLevel = upgrading ? Math.max(1, level - 1) : level;
 
-  const statusLabel = built || upgrading
-    ? `Lv ${displayLevel}`
-    : ready
-      ? canAffordBuild
-        ? "BUILD"
-        : "READY"
-      : "LOCKED";
+  const statusLabel = upgrading
+    ? formatTimeRemaining(timeLeft)
+    : built
+      ? `Lv ${displayLevel}`
+      : ready
+        ? canAffordBuild
+          ? "BUILD"
+          : "READY"
+        : "LOCKED";
 
   return (
     <TouchableOpacity
@@ -719,9 +690,11 @@ function BuildingCard({
         <Text style={[styles.cardName, { color: colors.foreground }]} numberOfLines={1}>
           {name}
         </Text>
-        {built ? (
+        {built || upgrading ? (
           <Text style={[styles.cardMeta, { color: upgrading ? colors.warning : color }]}>
-            {upgrading ? "Building" : `Level ${level}`}
+            {upgrading
+              ? `Building · ${formatTimeRemaining(timeLeft)}`
+              : `Level ${level}`}
           </Text>
         ) : (
           <Text
@@ -825,25 +798,6 @@ function ActionButton({
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
   scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 4, gap: 12 },
-  buildBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 2,
-    marginBottom: 4,
-  },
-  buildBannerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  buildBannerText: { flex: 1, gap: 2 },
-  buildBannerTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
-  buildBannerSub: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
   section: { gap: 8, marginBottom: 16 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
