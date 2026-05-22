@@ -117,7 +117,14 @@ export function getCurrentWeatherEvent(): { event: string | null; active: boolea
   return { event: null, active: false };
 }
 
-export interface SlotLike { slotType: string; level: number; }
+export interface SlotLike { slotType: string; level: number; upgrading?: boolean; }
+
+/** Level that counts for gameplay (no troops/ships while a build or upgrade is in progress). */
+export function effectiveSlotLevel(slot: SlotLike | undefined): number {
+  if (!slot || slot.level <= 0) return 0;
+  if (slot.upgrading) return Math.max(0, slot.level - 1);
+  return slot.level;
+}
 
 export function calculateProduction(slots: SlotLike[], season: Season): { gold: number; food: number; wood: number; stone: number } {
   const mods = getSeasonModifiers(season);
@@ -165,9 +172,9 @@ export function calculateArmyComposition(slots: SlotLike[]): ArmyComposition {
   const archeryRange = slots.find(s => s.slotType === "archeryRange");
   const stables      = slots.find(s => s.slotType === "stables");
 
-  const bLevel = barracks?.level ?? 0;
-  const aLevel = archeryRange?.level ?? 0;
-  const sLevel = stables?.level ?? 0;
+  const bLevel = effectiveSlotLevel(barracks);
+  const aLevel = effectiveSlotLevel(archeryRange);
+  const sLevel = effectiveSlotLevel(stables);
 
   const infantry = bLevel * 5;
   const archers  = aLevel * 5;
@@ -193,7 +200,7 @@ export function calculateArmyCapacity(slots: SlotLike[]): number {
 }
 
 function slotLvl(slots: SlotLike[], slotType: string): number {
-  return slots.find((s) => s.slotType === slotType)?.level ?? 0;
+  return effectiveSlotLevel(slots.find((s) => s.slotType === slotType));
 }
 
 export function calculatePopulationCap(slots: SlotLike[]): number {

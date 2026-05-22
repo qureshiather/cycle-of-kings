@@ -17,7 +17,12 @@ export type SlotType =
   | "wall"
   | "tower";
 
-export type SlotLike = { slotType: string; level: number };
+export type SlotLike = { slotType: string; level: number; upgrading?: boolean };
+
+/** Built and construction finished — troops/ships/spies only count when operational. */
+export function isSlotOperational(slot: SlotLike | undefined): boolean {
+  return (slot?.level ?? 0) >= 1 && !slot?.upgrading;
+}
 
 export type BuildingPrereq = {
   /** Minimum Town Hall level to build this for the first time. */

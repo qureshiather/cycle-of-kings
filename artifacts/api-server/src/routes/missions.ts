@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { missionsTable, armyTable, townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
+import { getMaxActiveMissionsFromSlots, isSlotOperational } from "@workspace/building-progression";
 import {
   generateMissionCards,
   generateEnemyForce,
@@ -10,6 +10,7 @@ import {
   rollMissionLoot,
   calculateArmyComposition,
   calculateShipCount,
+  effectiveSlotLevel,
 } from "../lib/gameEngine.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown } from "./slots.js";
@@ -110,7 +111,8 @@ router.get("/missions", async (req, res) => {
   await initSlotsForTown(townId);
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const composition = calculateArmyComposition(slots);
-  const shipyardLevel = slots.find((s) => s.slotType === "shipyard")?.level ?? 0;
+  const shipyardSlot = slots.find((s) => s.slotType === "shipyard");
+  const shipyardLevel = effectiveSlotLevel(shipyardSlot);
   const totalShips = calculateShipCount(slots);
   const seed = getCurrentMissionSeed();
 
@@ -269,9 +271,11 @@ router.post("/towns/:townId/missions", async (req, res) => {
         : `At mission limit (${maxActive}). Upgrade Town Hall for more slots.`,
     });
   }
+  const barracksSlot = slots.find((s) => s.slotType === "barracks");
+  const shipyardSlot = slots.find((s) => s.slotType === "shipyard");
   const composition = calculateArmyComposition(slots);
   const seed = getCurrentMissionSeed();
-  const shipyardLevel = slots.find((s) => s.slotType === "shipyard")?.level ?? 0;
+  const shipyardLevel = effectiveSlotLevel(shipyardSlot);
   const totalShips = calculateShipCount(slots);
   const cards = generateMissionCards(
     seed,
@@ -282,6 +286,13 @@ router.post("/towns/:townId/missions", async (req, res) => {
   );
   const card = cards.find(c => c.id === missionCardId);
   if (!card) return void res.status(400).json({ error: "Invalid mission card" });
+  if (card.type === "naval") {
+    if (!isSlotOperational(shipyardSlot)) {
+      return void res.status(400).json({ error: "Finish building your Shipyard before naval missions." });
+    }
+  } else if (!isSlotOperational(barracksSlot)) {
+    return void res.status(400).json({ error: "Finish building your Barracks before land missions." });
+  }
 
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
   const onMission = armyRows[0] ?? {

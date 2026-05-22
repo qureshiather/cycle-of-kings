@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMaxActiveMissionsFromSlots } from "@workspace/building-progression";
+import { getMaxActiveMissionsFromSlots, isSlotOperational } from "@workspace/building-progression";
 import {
   useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy, useGetTown,
   useGetBuildingSlots,
@@ -174,8 +174,12 @@ export default function MissionsScreen() {
   const dispatchSpy = useDispatchSpyOperation();
 
   const maxActiveMissions = getMaxActiveMissionsFromSlots(slots);
-  const spyGuildLevel = slots.find((s: { slotType: string }) => s.slotType === "spyGuild")?.level ?? 0;
-  const shipyardLevel = slots.find((s: { slotType: string }) => s.slotType === "shipyard")?.level ?? 0;
+  const barracksSlot = slots.find((s: { slotType: string }) => s.slotType === "barracks");
+  const spyGuildSlot = slots.find((s: { slotType: string }) => s.slotType === "spyGuild");
+  const shipyardSlot = slots.find((s: { slotType: string }) => s.slotType === "shipyard");
+  const barracksReady = isSlotOperational(barracksSlot);
+  const spyGuildLevel = spyGuildSlot?.level ?? 0;
+  const shipyardReady = isSlotOperational(shipyardSlot);
   const maxSpyOps = Math.min(spyGuildLevel, 2);
 
   const [activeTab, setActiveTab] = useState<MissionTab>("land");
@@ -558,27 +562,38 @@ export default function MissionsScreen() {
 
         {activeTab === "land" && (
           <>
-            {atMissionLimit && (
-              <Text style={[styles.limitHint, { color: colors.textSecondary }]}>
-                Mission slots full — check Active or upgrade Town Hall.
-              </Text>
-            )}
-            {renderCardList(
-              landCards,
-              "sword",
-              "No land missions",
-              "This rotation has no explore, patrol, or raid cards. The board refreshes every 30 minutes.",
+            {!barracksReady ? (
+              <EmptyTabPanel
+                icon="shield-sword"
+                title="No barracks"
+                body="Build and finish your Barracks in the Kingdom (Army section, Town Hall 3 + Town Wall) to unlock land missions."
+                colors={colors}
+              />
+            ) : (
+              <>
+                {atMissionLimit && (
+                  <Text style={[styles.limitHint, { color: colors.textSecondary }]}>
+                    Mission slots full — check Active or upgrade Town Hall.
+                  </Text>
+                )}
+                {renderCardList(
+                  landCards,
+                  "sword",
+                  "No land missions",
+                  "This rotation has no explore, patrol, or raid cards. The board refreshes every 30 minutes.",
+                )}
+              </>
             )}
           </>
         )}
 
         {activeTab === "naval" && (
           <>
-            {shipyardLevel < 1 ? (
+            {!shipyardReady ? (
               <EmptyTabPanel
                 icon="ferry"
                 title="No shipyard"
-                body="Build a Shipyard in your Kingdom (Army section, Town Hall 4) to unlock naval missions."
+                body="Build and finish your Shipyard in the Kingdom (Army section, Town Hall 4) to unlock naval missions."
                 colors={colors}
               />
             ) : (
@@ -706,7 +721,7 @@ export default function MissionsScreen() {
                     </View>
                   )}
 
-                  {!isNaval && (
+                  {!isNaval && barracksReady && (
                     <View style={[styles.mercRow, { borderColor: colors.gold + "44", backgroundColor: colors.gold + "0d" }]}>
                       <View style={styles.mercLeft}>
                         <MaterialCommunityIcons name="account-multiple-plus" size={16} color={colors.gold} />
