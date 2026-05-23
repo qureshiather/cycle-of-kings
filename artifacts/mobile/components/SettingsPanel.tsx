@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetTown,
@@ -19,6 +19,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
+import { areNotificationsEnabled, setNotificationsEnabled, cancelAllForTown } from "@/lib/notifications";
 
 export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   const colors = useColors();
@@ -33,6 +34,11 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
   const resetTown = useResetTown();
   const { data: slots = [] } = useGetBuildingSlots(townId ?? 0, { query: { enabled: !!townId } as any });
   const [guideOpen, setGuideOpen] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(true);
+
+  useEffect(() => {
+    void areNotificationsEnabled().then(setNotifEnabled);
+  }, []);
 
   const isPeaceful = myTown?.peacefulMode ?? false;
   const peacefulLocked = (myTown as any)?.peacefulOptedInCycle != null;
@@ -85,6 +91,7 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
               {
                 onSuccess: () => {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  void cancelAllForTown(id);
                   qc.invalidateQueries({ queryKey: getGetTownQueryKey(id) });
                   qc.invalidateQueries({ queryKey: getGetBuildingSlotsQueryKey(id) });
                   qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(id) });
@@ -160,6 +167,31 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
         onClose={() => setGuideOpen(false)}
         slots={slotsForGuide}
       />
+
+      <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.settingsHeader}>
+          <MaterialCommunityIcons name="bell-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Reminders</Text>
+        </View>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={styles.notifRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.resetLabel, { color: colors.foreground }]}>Local notifications</Text>
+            <Text style={[styles.linkDesc, { color: colors.textSecondary }]}>
+              Upgrades, missions, raids, and training
+            </Text>
+          </View>
+          <Switch
+            value={notifEnabled}
+            onValueChange={(v) => {
+              setNotifEnabled(v);
+              void setNotificationsEnabled(v);
+            }}
+            trackColor={{ false: colors.border, true: colors.gold + "88" }}
+            thumbColor={notifEnabled ? colors.gold : colors.textMuted}
+          />
+        </View>
+      </View>
 
       <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <View style={styles.settingsHeader}>
@@ -282,6 +314,7 @@ const styles = StyleSheet.create({
   settingsHeader: { flexDirection: "row", alignItems: "center", gap: 8, padding: 14 },
   settingsTitle: { fontSize: 14, fontFamily: "Inter_700Bold" },
   divider: { height: 1 },
+  notifRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14 },
   schemeRow: { flexDirection: "row", gap: 8, padding: 14 },
   schemeBtn: { flex: 1, alignItems: "center", paddingVertical: 12, borderRadius: 10, borderWidth: 1, gap: 6 },
   schemeBtnText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },

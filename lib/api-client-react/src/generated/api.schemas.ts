@@ -57,6 +57,8 @@ export interface Town {
   foodUpkeepPerHour: number;
   morale: number;
   lastTickAt: string;
+  /** True when this response follows a per-cycle kingdom wipe */
+  cycleReset: boolean;
 }
 
 export interface PeacefulModeInput {
@@ -108,13 +110,47 @@ export interface BuildingSlot {
   awardedAchievements?: string[];
 }
 
+export type RecruitArmyInputUnit = typeof RecruitArmyInputUnit[keyof typeof RecruitArmyInputUnit];
+
+
+export const RecruitArmyInputUnit = {
+  infantry: 'infantry',
+  archers: 'archers',
+  cavalry: 'cavalry',
+} as const;
+
+export interface RecruitArmyInput {
+  unit: RecruitArmyInputUnit;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  count: number;
+}
+
+export type ArmyTrainingUnit = typeof ArmyTrainingUnit[keyof typeof ArmyTrainingUnit] | null;
+
+
+export const ArmyTrainingUnit = {
+  infantry: 'infantry',
+  archers: 'archers',
+  cavalry: 'cavalry',
+} as const;
+
 export interface Army {
   townId: number;
+  /** Recruited infantry count */
   infantry: number;
   archers: number;
   cavalry: number;
+  capInfantry: number;
+  capArchers: number;
+  capCavalry: number;
   ships: number;
-  spies?: number;
+  spies: number;
+  trainingUnit?: ArmyTrainingUnit;
+  trainingCount?: number;
+  trainingEndsAt?: string | null;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;
@@ -376,6 +412,10 @@ export interface Raid {
   attackerCavalry: number;
   attackerCatapults: number;
   defenderStrength: number;
+  /** Attacker attack power at battle resolution (null while marching) */
+  attackPower?: number | null;
+  defenderRewardGold: number;
+  defenderRewardFood: number;
   lootGold: number;
   lootFood: number;
   lootWood: number;
@@ -432,6 +472,16 @@ export type RaidActivityMetadataLoot = {
   stone?: number;
 };
 
+/**
+ * Bounty granted when the defender repels the raid
+ */
+export type RaidActivityMetadataDefenderReward = {
+  gold?: number;
+  food?: number;
+  wood?: number;
+  stone?: number;
+};
+
 export interface RaidActivityMetadata {
   raidTitle: string;
   role: RaidActivityMetadataRole;
@@ -442,6 +492,8 @@ export interface RaidActivityMetadata {
   attackPower: number;
   loot?: RaidActivityMetadataLoot;
   casualties?: number;
+  /** Bounty granted when the defender repels the raid */
+  defenderReward?: RaidActivityMetadataDefenderReward;
 }
 
 export interface Activity {
@@ -476,6 +528,29 @@ export interface ResetResult {
   stone: number;
 }
 
+export interface ResourceModifiers {
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
+}
+
+export interface RealmEvent {
+  id: string;
+  title: string;
+  flavor: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface ScheduledRealmEvent {
+  id: string;
+  title: string;
+  flavor: string;
+  startsAt: string;
+  endsAt: string;
+}
+
 export type GameStateSeason = typeof GameStateSeason[keyof typeof GameStateSeason];
 
 
@@ -486,13 +561,6 @@ export const GameStateSeason = {
   winter: 'winter',
 } as const;
 
-export type GameStateSeasonModifiers = {
-  gold?: number;
-  food?: number;
-  wood?: number;
-  stone?: number;
-};
-
 export interface GameState {
   cycleNumber: number;
   season: GameStateSeason;
@@ -500,10 +568,12 @@ export interface GameState {
   cycleStartedAt: string;
   nextWipeAt: string;
   currentHour: number;
-  /** @nullable */
-  weatherEvent: string | null;
-  weatherActive: boolean;
-  seasonModifiers?: GameStateSeasonModifiers;
+  realmEvent: RealmEvent | null;
+  realmEventActive: boolean;
+  realmEventModifiers: ResourceModifiers;
+  upcomingRealmEvent?: ScheduledRealmEvent | null;
+  cycleEventSchedule: ScheduledRealmEvent[];
+  seasonModifiers?: ResourceModifiers;
 }
 
 export type GetMissionsParams = {

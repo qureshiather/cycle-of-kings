@@ -1,25 +1,42 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  townsTable, buildingSlotsTable, playersTable, armyTable, missionsTable,
-  spyOperationsTable, activitiesTable,
+  townsTable, buildingSlotsTable, playersTable,
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import {
   getCurrentSeasonInfo, calculateProduction, calculateEconomyScore,
-  calculateArmyComposition, calculateStaticDefense, calculateTotalDefense,
+  calculateStaticDefense, calculateTotalDefense,
   applyFullTick, calculatePopulationCap, calculatePopulationGrowthPerHour,
   calculateFoodUpkeepPerHour, calculateMorale, canPopulationGrow,
 } from "../lib/gameEngine.js";
+import { getRealmEventModifiers } from "../lib/realmEvents.js";
+import { performKingdomReset } from "../lib/kingdomReset.js";
+import { recruitedFromRow, loadArmyContext } from "../lib/armyService.js";
+import { calculateArmyComposition } from "../lib/gameEngine.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import { initSlotsForTown, logConstructionComplete } from "./slots.js";
 
 const router = Router();
 
-async function getAndTickTown(townId: number) {
+async function getAndTickTown(townId: number): Promise<{ data: Record<string, unknown>; cycleReset: boolean } | null> {
   const rows = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!rows.length) return null;
-  const town = rows[0];
+  let town = rows[0];
+  let cycleReset = false;
+
+  const { cycleNumber } = getCurrentSeasonInfo();
+
+  if (town.lastPlayedCycleNumber == null) {
+    await db.update(townsTable).set({ lastPlayedCycleNumber: cycleNumber }).where(eq(townsTable.id, townId));
+    town = { ...town, lastPlayedCycleNumber: cycleNumber };
+  } else if (cycleNumber > town.lastPlayedCycleNumber) {
+    await performKingdomReset(townId, "cycle");
+    cycleReset = true;
+    const refreshed = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
+    if (!refreshed.length) return null;
+    town = refreshed[0];
+  }
 
   await initSlotsForTown(townId);
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
@@ -33,20 +50,25 @@ async function getAndTickTown(townId: number) {
   }
 
   const freshSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
-  const onMission = armyRows[0] ?? {
-    onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0,
-    onMissionSpies: 0, onMissionShips: 0,
+  const { army } = await loadArmyContext(townId);
+  const recruited = recruitedFromRow(army);
+  const onMission = {
+    onMissionInfantry: army.onMissionInfantry,
+    onMissionArchers: army.onMissionArchers,
+    onMissionCavalry: army.onMissionCavalry,
+    onMissionSpies: army.onMissionSpies,
+    onMissionShips: army.onMissionShips,
   };
 
   const { season } = getCurrentSeasonInfo();
-  const production = calculateProduction(freshSlots, season);
+  const realmMods = getRealmEventModifiers();
+  const production = calculateProduction(freshSlots, season, realmMods);
   const ticked = applyFullTick(town, freshSlots, production);
   const economyScore = calculateEconomyScore(freshSlots);
-  const comp = calculateArmyComposition(freshSlots);
+  const comp = calculateArmyComposition(freshSlots, recruited);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
-  const totalDefense = calculateTotalDefense(freshSlots, onMission);
+  const totalDefense = calculateTotalDefense(freshSlots, recruited, onMission);
   const populationCap = calculatePopulationCap(freshSlots);
   const morale = calculateMorale(freshSlots);
   const foodUpkeepPerHour = calculateFoodUpkeepPerHour(ticked.population);
@@ -70,19 +92,22 @@ async function getAndTickTown(townId: number) {
   await checkAchievementsForTown(townId);
 
   return {
-    ...town,
-    ...ticked,
-    defenseRating: staticDefense,
-    production,
-    economyScore,
-    armyScore,
-    staticDefense,
-    totalDefense,
-    populationCap,
-    morale,
-    foodUpkeepPerHour,
-    populationPerHour,
-    populationGrowing,
+    cycleReset,
+    data: {
+      ...town,
+      ...ticked,
+      defenseRating: staticDefense,
+      production,
+      economyScore,
+      armyScore,
+      staticDefense,
+      totalDefense,
+      populationCap,
+      morale,
+      foodUpkeepPerHour,
+      populationPerHour,
+      populationGrowing,
+    },
   };
 }
 
@@ -111,10 +136,13 @@ router.get("/towns", async (_req, res) => {
 
 router.get("/towns/:townId", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
-  const data = await getAndTickTown(townId);
-  if (!data) return void res.status(404).json({ error: "Not found" });
-  const { production, ...town } = data;
-  const netFoodPerHour = production.food - town.foodUpkeepPerHour;
+  const result = await getAndTickTown(townId);
+  if (!result) return void res.status(404).json({ error: "Not found" });
+  const { data, cycleReset } = result;
+  const { production, ...town } = data as typeof data & {
+    production: { gold: number; food: number; wood: number; stone: number };
+  };
+  const netFoodPerHour = production.food - (town.foodUpkeepPerHour as number);
   res.json({
     ...town,
     goldPerHour: production.gold,
@@ -129,6 +157,7 @@ router.get("/towns/:townId", async (req, res) => {
     morale: town.morale ?? 0,
     populationGrowing: town.populationGrowing ?? false,
     lastTickAt: town.lastTickAt instanceof Date ? town.lastTickAt.toISOString() : town.lastTickAt,
+    cycleReset,
   });
 });
 
@@ -189,41 +218,10 @@ router.post("/towns/:townId/reset", async (req, res) => {
   const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!town) return void res.status(404).json({ error: "Town not found" });
 
-  await db.update(buildingSlotsTable)
-    .set({ level: 0, upgrading: false, upgradeEndsAt: null })
-    .where(eq(buildingSlotsTable.townId, townId));
-
-  await db.delete(armyTable).where(eq(armyTable.townId, townId));
-  await db.insert(armyTable).values({ townId });
-
-  await db.delete(missionsTable).where(eq(missionsTable.townId, townId));
-  await db.delete(spyOperationsTable).where(eq(spyOperationsTable.townId, townId));
-
-  await initSlotsForTown(townId);
-  const halls = await db.select().from(buildingSlotsTable)
-    .where(and(eq(buildingSlotsTable.townId, townId), eq(buildingSlotsTable.slotType, "townHall")));
-  const hall = halls[0];
-  if (hall) {
-    await db.update(buildingSlotsTable).set({ level: 1 }).where(eq(buildingSlotsTable.id, hall.id));
-  }
-
-  await db.update(townsTable).set({
-    gold: 200, food: 200, wood: 150, stone: 100,
-    population: 10,
-    defenseRating: 10,
-    lastTickAt: new Date(),
-  }).where(eq(townsTable.id, townId));
-
-  await db.insert(activitiesTable).values({
-    townId,
-    type: "kingdom_reset",
-    title: "Kingdom Reset",
-    body: "All buildings demolished. Your kingdom starts fresh.",
-    icon: "restore",
-    iconColor: "#cc4040",
-  });
+  await performKingdomReset(townId, "manual");
 
   res.json({ success: true, gold: 200, food: 200, wood: 150, stone: 100 });
 });
 
+export { getAndTickTown };
 export default router;

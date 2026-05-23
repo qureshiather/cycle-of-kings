@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
-import { getMaxActiveMissionsFromSlots, isSlotOperational } from "@workspace/building-progression";
+import { getMaxActiveMissionsFromSlots, getSlotRecord, isSlotOperational } from "@workspace/building-progression";
 import {
   useGetMissions, useGetTownMissions, useDispatchMission, useGetTownArmy, useGetTown,
   useGetBuildingSlots,
@@ -15,6 +15,7 @@ import ModalOverlay from "@/components/ui/ModalOverlay";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
+import { scheduleMissionReturn } from "@/lib/notifications";
 import ScreenHeader from "@/components/ScreenHeader";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import type { ResourceAmounts } from "@/lib/buildingMeta";
@@ -174,10 +175,9 @@ export default function MissionsScreen() {
   const dispatchSpy = useDispatchSpyOperation();
 
   const maxActiveMissions = getMaxActiveMissionsFromSlots(slots);
-  const barracksSlot = slots.find((s: { slotType: string }) => s.slotType === "barracks");
-  const spyGuildSlot = slots.find((s: { slotType: string }) => s.slotType === "spyGuild");
-  const shipyardSlot = slots.find((s: { slotType: string }) => s.slotType === "shipyard");
-  const barracksReady = isSlotOperational(barracksSlot);
+  const barracksSlot = getSlotRecord(slots, "barracks");
+  const spyGuildSlot = getSlotRecord(slots, "spyGuild");
+  const shipyardSlot = getSlotRecord(slots, "shipyard");
   const spyGuildLevel = spyGuildSlot?.level ?? 0;
   const shipyardReady = isSlotOperational(shipyardSlot);
   const maxSpyOps = Math.min(spyGuildLevel, 2);
@@ -202,6 +202,9 @@ export default function MissionsScreen() {
     () => (missionCards ?? []).filter((c) => c.type === "naval") as MissionCard[],
     [missionCards],
   );
+
+  const barracksReady =
+    isSlotOperational(barracksSlot) || (army?.capInfantry ?? 0) > 0 || landCards.length > 0;
 
   const availableInfantry = army?.availableInfantry ?? 0;
   const availableArchers = army?.availableArchers ?? 0;
@@ -259,8 +262,11 @@ export default function MissionsScreen() {
     dispatchMission.mutate(
       { townId, data: { missionCardId: selected.id, infantry, archers, cavalry, mercenaries, ships } },
       {
-        onSuccess: () => {
+        onSuccess: (mission) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (mission?.returnsAt && mission.id) {
+            void scheduleMissionReturn(mission.id, mission.missionTitle ?? selected?.title ?? "Mission", mission.returnsAt);
+          }
           setSelected(null);
           setActiveTab("active");
           qc.invalidateQueries({ queryKey: getGetTownMissionsQueryKey(townId) });
@@ -566,7 +572,11 @@ export default function MissionsScreen() {
               <EmptyTabPanel
                 icon="shield-sword"
                 title="No barracks"
-                body="Build and finish your Barracks in the Kingdom (Army section, Town Hall 3 + Town Wall) to unlock land missions."
+                body={
+                  barracksSlot && (barracksSlot.level ?? 0) >= 1 && barracksSlot.upgrading
+                    ? "Your Barracks is still under construction. Wait for the upgrade to finish, then land missions will appear."
+                    : "Build and finish your Barracks in the Kingdom (Town Hall 3 + Town Wall) to unlock land missions."
+                }
                 colors={colors}
               />
             ) : (

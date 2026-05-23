@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
 import { ColorSchemeProvider } from "@/context/ColorSchemeContext";
 import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
+import { requestPermissionIfNeeded } from "@/lib/notifications";
 
 const apiUrl = resolveApiBaseUrl();
 if (apiUrl) {
@@ -52,6 +53,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    void requestPermissionIfNeeded();
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 

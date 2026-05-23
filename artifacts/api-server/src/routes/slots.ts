@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { townsTable, buildingSlotsTable, activitiesTable, armyTable } from "@workspace/db";
+import { townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { getBuildBlockReason } from "@workspace/building-progression";
+import { getBuildBlockReason, getMaxConcurrentUpgrades, getTownHallLevel } from "@workspace/building-progression";
+import { getRealmEventModifiers } from "../lib/realmEvents.js";
+import { loadArmyContext, recruitedFromRow } from "../lib/armyService.js";
 import { SLOT_TYPES } from "@workspace/db";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
 import {
@@ -16,8 +18,13 @@ import {
 
 const router = Router();
 
-function initialSlotLevel(slotType: string): number {
-  return slotType === "townHall" ? 1 : 0;
+async function assertConstructionQueue(townId: number, allSlots: { upgrading: boolean; slotType: string; level: number }[]) {
+  const upgradingCount = allSlots.filter((s) => s.upgrading).length;
+  const thLevel = getTownHallLevel(allSlots);
+  const max = getMaxConcurrentUpgrades(thLevel);
+  if (upgradingCount >= max) {
+    throw new Error(`CONSTRUCTION_QUEUE_FULL:${upgradingCount}/${max}`);
+  }
 }
 
 const SLOT_NAMES: Record<string, string> = {
@@ -67,40 +74,7 @@ async function logConstructionComplete(
   });
 }
 
-/** Keep highest level per slotType; remove legacy duplicate rows. */
-async function dedupeSlotsForTown(townId: number): Promise<void> {
-  const existing = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  const bestByType = new Map<string, (typeof existing)[number]>();
-  for (const slot of existing) {
-    const prev = bestByType.get(slot.slotType);
-    if (!prev || slot.level > prev.level || (slot.level === prev.level && slot.id > prev.id)) {
-      bestByType.set(slot.slotType, slot);
-    }
-  }
-  const keepIds = new Set([...bestByType.values()].map((s) => s.id));
-  const dupes = existing.filter((s) => !keepIds.has(s.id));
-  if (dupes.length > 0) {
-    for (const slot of dupes) {
-      await db.delete(buildingSlotsTable).where(eq(buildingSlotsTable.id, slot.id));
-    }
-  }
-}
-
-async function initSlotsForTown(townId: number): Promise<void> {
-  await dedupeSlotsForTown(townId);
-  const existing = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  const existingTypes = new Set(existing.map((s) => s.slotType));
-  const missing = SLOT_TYPES.filter((t) => !existingTypes.has(t));
-  if (missing.length > 0) {
-    await db.insert(buildingSlotsTable).values(
-      missing.map((slotType) => ({
-        townId,
-        slotType,
-        level: initialSlotLevel(slotType),
-      })),
-    );
-  }
-}
+import { initSlotsForTown } from "../lib/slotsInit.js";
 
 async function getTickedTown(townId: number) {
   const rows = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
@@ -119,20 +93,25 @@ async function getTickedTown(townId: number) {
 
   const freshSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const { season } = getCurrentSeasonInfo();
-  const production = calculateProduction(freshSlots, season);
+  const realmMods = getRealmEventModifiers();
+  const production = calculateProduction(freshSlots, season, realmMods);
   const ticked = applyFullTick(town, freshSlots, production);
 
-  const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
-  const onMission = armyRows[0] ?? {
-    onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0,
-    onMissionSpies: 0, onMissionShips: 0,
+  const { army } = await loadArmyContext(townId);
+  const recruited = recruitedFromRow(army);
+  const onMission = {
+    onMissionInfantry: army.onMissionInfantry,
+    onMissionArchers: army.onMissionArchers,
+    onMissionCavalry: army.onMissionCavalry,
+    onMissionSpies: army.onMissionSpies,
+    onMissionShips: army.onMissionShips,
   };
 
   const economyScore = calculateEconomyScore(freshSlots);
-  const comp = calculateArmyComposition(freshSlots);
+  const comp = calculateArmyComposition(freshSlots, recruited);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
-  const totalDefense = calculateTotalDefense(freshSlots, onMission);
+  const totalDefense = calculateTotalDefense(freshSlots, recruited, onMission);
   const populationCap = calculatePopulationCap(freshSlots);
   const morale = calculateMorale(freshSlots);
   const foodUpkeepPerHour = calculateFoodUpkeepPerHour(ticked.population);
@@ -174,11 +153,28 @@ async function getTickedTown(townId: number) {
   };
 }
 
+function bestSlotPerType(slots: { id: number; slotType: string; level: number; upgrading: boolean; upgradeEndsAt: Date | null; townId: number }[]) {
+  const best = new Map<string, (typeof slots)[number]>();
+  for (const slot of slots) {
+    const prev = best.get(slot.slotType);
+    if (
+      !prev
+      || slot.level > prev.level
+      || (slot.level === prev.level && prev.upgrading && !slot.upgrading)
+      || (slot.level === prev.level && slot.upgrading === prev.upgrading && slot.id > prev.id)
+    ) {
+      best.set(slot.slotType, slot);
+    }
+  }
+  return [...best.values()];
+}
+
 router.get("/towns/:townId/slots", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
-  await initSlotsForTown(townId);
+  await initSlotsForTown(townId); // includes completeDueUpgrades
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  res.json(slots.map(s => ({ ...s, upgradeEndsAt: s.upgradeEndsAt?.toISOString() ?? null })));
+  const deduped = bestSlotPerType(slots);
+  res.json(deduped.map(s => ({ ...s, upgradeEndsAt: s.upgradeEndsAt?.toISOString() ?? null })));
 });
 
 router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
@@ -209,6 +205,16 @@ router.post("/towns/:townId/slots/:slotType/build", async (req, res) => {
   const cost = calculateBuildingCost(slotType, 1);
   if (town.gold < cost.gold || town.food < cost.food || town.wood < cost.wood || town.stone < cost.stone) {
     return void res.status(400).json({ error: "Insufficient resources", cost });
+  }
+
+  try {
+    await assertConstructionQueue(townId, allSlots);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.startsWith("CONSTRUCTION_QUEUE_FULL:")) {
+      return void res.status(400).json({ error: `Construction queue full (${msg.split(":")[1]})` });
+    }
+    throw e;
   }
 
   await db.update(townsTable).set({
@@ -264,6 +270,17 @@ router.post("/towns/:townId/slots/:slotType/upgrade", async (req, res) => {
     .select()
     .from(buildingSlotsTable)
     .where(eq(buildingSlotsTable.townId, townId));
+
+  try {
+    await assertConstructionQueue(townId, allSlots);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.startsWith("CONSTRUCTION_QUEUE_FULL:")) {
+      return void res.status(400).json({ error: `Construction queue full (${msg.split(":")[1]})` });
+    }
+    throw e;
+  }
+
   const durationMs = getUpgradeDurationMs(slotType, slot.level, allSlots);
   const upgradeEndsAt = new Date(Date.now() + durationMs);
 

@@ -6,9 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GameStateSeasonModifiers = {
-  gold?: number;
-  food?: number;
-  wood?: number;
-  stone?: number;
-};
+export interface ScheduledRealmEvent {
+  id: string;
+  title: string;
+  flavor: string;
+  startsAt: string;
+  endsAt: string;
+}

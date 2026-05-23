@@ -28,17 +28,17 @@ export const PRODUCTION_RATES: Record<string, { food: number; gold: number; wood
   mine:         { food: 0,  gold: 3, wood: 0, stone: 0 },
   quarry:       { food: 0,  gold: 0, wood: 0, stone: 4 },
   lumberMill:   { food: 0,  gold: 0, wood: 8, stone: 0 },
-  market:       { food: 0,  gold: 2, wood: 0, stone: 0 },
+  market:       { food: 1,  gold: 2, wood: 0, stone: 0 },
   barracks:     { food: 0,  gold: 0, wood: 0, stone: 0 },
   archeryRange: { food: 0,  gold: 0, wood: 0, stone: 0 },
   stables:      { food: 0,  gold: 0, wood: 0, stone: 0 },
-  tavern:       { food: 0,  gold: 0, wood: 0, stone: 0 },
+  tavern:       { food: 2,  gold: 0, wood: 0, stone: 0 },
   house:        { food: 0,  gold: 0, wood: 0, stone: 0 },
   townHall:     { food: 0,  gold: 3, wood: 0, stone: 0 },
   wall:         { food: 0,  gold: 0, wood: 0, stone: 0 },
   tower:        { food: 0,  gold: 0, wood: 0, stone: 0 },
   spyGuild:     { food: 0,  gold: 0, wood: 0, stone: 0 },
-  shipyard:     { food: 0,  gold: 0, wood: 0, stone: 0 },
+  shipyard:     { food: 2,  gold: 0, wood: 0, stone: 0 },
   museum:       { food: 0,  gold: 0, wood: 0, stone: 0 },
   monument:     { food: 0,  gold: 0, wood: 0, stone: 0 },
 };
@@ -106,16 +106,21 @@ function seededRandom(seed: number): () => number {
   };
 }
 
-export function getCurrentWeatherEvent(): { event: string | null; active: boolean } {
-  const now = new Date();
-  const seed = now.getUTCFullYear() * 10000 + now.getUTCMonth() * 100 + now.getUTCDate() + now.getUTCHours();
-  const rng = seededRandom(seed);
-  if (rng() < 0.15) {
-    const events = ["Drought", "Storm", "Blight", "Dense Fog", "Harsh Winds"];
-    return { event: events[Math.floor(rng() * events.length)], active: true };
-  }
-  return { event: null, active: false };
-}
+export type RecruitedTroops = { infantry: number; archers: number; cavalry: number };
+export type UnitType = keyof RecruitedTroops;
+
+export const RECRUIT_COST_PER_TROOP: Record<UnitType, { gold: number; food: number }> = {
+  infantry: { gold: 3, food: 2 },
+  archers: { gold: 4, food: 2 },
+  cavalry: { gold: 6, food: 3 },
+};
+
+/** Milliseconds to train one troop. */
+export const RECRUIT_MS_PER_TROOP: Record<UnitType, number> = {
+  infantry: (8 * 60 * 1000) / 5,
+  archers: (10 * 60 * 1000) / 5,
+  cavalry: (12 * 60 * 1000) / 5,
+};
 
 export interface SlotLike { slotType: string; level: number; upgrading?: boolean; }
 
@@ -126,8 +131,18 @@ export function effectiveSlotLevel(slot: SlotLike | undefined): number {
   return slot.level;
 }
 
-export function calculateProduction(slots: SlotLike[], season: Season): { gold: number; food: number; wood: number; stone: number } {
-  const mods = getSeasonModifiers(season);
+export function calculateProduction(
+  slots: SlotLike[],
+  season: Season,
+  realmMods: { gold: number; food: number; wood: number; stone: number } = { gold: 1, food: 1, wood: 1, stone: 1 },
+): { gold: number; food: number; wood: number; stone: number } {
+  const seasonMods = getSeasonModifiers(season);
+  const mods = {
+    gold: seasonMods.gold * realmMods.gold,
+    food: seasonMods.food * realmMods.food,
+    wood: seasonMods.wood * realmMods.wood,
+    stone: seasonMods.stone * realmMods.stone,
+  };
   let gold = BASE_PRODUCTION.gold * mods.gold;
   let food = BASE_PRODUCTION.food * mods.food;
   let wood = BASE_PRODUCTION.wood * mods.wood;
@@ -167,18 +182,21 @@ export interface ArmyComposition {
   totalPower: number;
 }
 
-export function calculateArmyComposition(slots: SlotLike[]): ArmyComposition {
-  const barracks     = slots.find(s => s.slotType === "barracks");
-  const archeryRange = slots.find(s => s.slotType === "archeryRange");
-  const stables      = slots.find(s => s.slotType === "stables");
+export function getUnitCaps(slots: SlotLike[]): RecruitedTroops {
+  const bLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "barracks"));
+  const aLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "archeryRange"));
+  const sLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "stables"));
+  return { infantry: bLevel * 5, archers: aLevel * 5, cavalry: sLevel * 3 };
+}
 
-  const bLevel = effectiveSlotLevel(barracks);
-  const aLevel = effectiveSlotLevel(archeryRange);
-  const sLevel = effectiveSlotLevel(stables);
+export function calculateArmyComposition(slots: SlotLike[], recruited: RecruitedTroops): ArmyComposition {
+  const bLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "barracks"));
+  const aLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "archeryRange"));
+  const sLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "stables"));
 
-  const infantry = bLevel * 5;
-  const archers  = aLevel * 5;
-  const cavalry  = sLevel * 3;
+  const infantry = Math.max(0, recruited.infantry);
+  const archers = Math.max(0, recruited.archers);
+  const cavalry = Math.max(0, recruited.cavalry);
 
   const infantryAttackMult = 1 + Math.max(0, bLevel - 1) * 0.15;
   const archerAttackMult   = 1 + Math.max(0, aLevel - 1) * 0.15;
@@ -192,6 +210,32 @@ export function calculateArmyComposition(slots: SlotLike[]): ArmyComposition {
   );
 
   return { infantry, archers, cavalry, infantryAttackMult, archerAttackMult, cavalryAttackMult, totalTroops, totalPower };
+}
+
+export function applyCasualties(
+  recruited: RecruitedTroops,
+  deployed: RecruitedTroops,
+  totalCasualties: number,
+): RecruitedTroops {
+  const totalDeployed = deployed.infantry + deployed.archers + deployed.cavalry;
+  if (totalCasualties <= 0 || totalDeployed <= 0) return recruited;
+
+  let remaining = totalCasualties;
+  const infShare = deployed.infantry / totalDeployed;
+  const archShare = deployed.archers / totalDeployed;
+  const cavShare = deployed.cavalry / totalDeployed;
+
+  const infLoss = Math.min(recruited.infantry, Math.floor(totalCasualties * infShare));
+  remaining -= infLoss;
+  const archLoss = Math.min(recruited.archers, Math.floor(totalCasualties * archShare));
+  remaining -= archLoss;
+  const cavLoss = Math.min(recruited.cavalry, Math.max(0, remaining));
+
+  return {
+    infantry: Math.max(0, recruited.infantry - infLoss),
+    archers: Math.max(0, recruited.archers - archLoss),
+    cavalry: Math.max(0, recruited.cavalry - cavLoss),
+  };
 }
 
 export function calculateArmyCapacity(slots: SlotLike[]): number {
@@ -264,9 +308,10 @@ export function calculateStaticDefense(slots: SlotLike[]): number {
 
 export function calculateTotalDefense(
   slots: SlotLike[],
+  recruited: RecruitedTroops,
   onMission: { onMissionInfantry: number; onMissionArchers: number; onMissionCavalry: number },
 ): number {
-  const comp   = calculateArmyComposition(slots);
+  const comp   = calculateArmyComposition(slots, recruited);
   const static_ = calculateStaticDefense(slots);
 
   const availInfantry = Math.max(0, comp.infantry - onMission.onMissionInfantry);
@@ -329,10 +374,29 @@ export const RAID_MARCH_DURATION_MS = 2 * 60 * 60 * 1000;
 
 export interface CombatForces { infantry: number; archers: number; cavalry: number; }
 
-export function simulateCombat(attacker: CombatForces, defenderStrength: number): { victory: boolean; casualties: number; attackPower: number } {
+/** Raid attack power (infantry/archer synergy + cavalry bonus). */
+export function calculateRaidAttackPower(attacker: CombatForces): number {
   let attackPower = attacker.infantry * 10 + attacker.archers * 15 + attacker.cavalry * 12;
   if (attacker.infantry > 0 && attacker.archers > 0) attackPower += attacker.archers * 3;
   if (attacker.cavalry > 0) attackPower *= 1.1;
+  return attackPower;
+}
+
+/** Gold/food paid to defender when a raid is repelled (scales with attacker strength). */
+export function calculateDefenderBounty(attackPower: number): { gold: number; food: number } {
+  return {
+    gold: Math.floor(attackPower * 2),
+    food: Math.floor(attackPower * 0.8),
+  };
+}
+
+export function estimateRaidWinChance(attackPower: number, defenderStrength: number): number {
+  const total = attackPower + defenderStrength;
+  return total > 0 ? attackPower / total : 0;
+}
+
+export function simulateCombat(attacker: CombatForces, defenderStrength: number): { victory: boolean; casualties: number; attackPower: number } {
+  const attackPower = calculateRaidAttackPower(attacker);
   const totalPower = attackPower + defenderStrength;
   const winChance = totalPower > 0 ? attackPower / totalPower : 0;
   const victory = Math.random() < winChance;
@@ -625,7 +689,7 @@ export function generateTradeDeals(hourSeed: number, townId: number): TradeDealD
   const rng = seededRandom(hourSeed * 997 + townId);
   const dealCount = 4;
 
-  return Array.from({ length: dealCount }, (_, i) => {
+  const deals = Array.from({ length: dealCount }, (_, i) => {
     let payResource = TRADE_RESOURCES[Math.floor(rng() * TRADE_RESOURCES.length)];
     let receiveResource = TRADE_RESOURCES[Math.floor(rng() * TRADE_RESOURCES.length)];
     while (receiveResource === payResource) {
@@ -647,6 +711,19 @@ export function generateTradeDeals(hourSeed: number, townId: number): TradeDealD
       receiveAmount,
     };
   });
+
+  if (!deals.some((d) => d.receiveResource === "food")) {
+    const slot = deals[0];
+    const payResource: ResourceType = slot.payResource === "food" ? "gold" : slot.payResource;
+    deals[0] = {
+      ...slot,
+      title: "Grain Merchant",
+      payResource,
+      receiveResource: "food",
+    };
+  }
+
+  return deals;
 }
 
 export function generateMissionCards(

@@ -100,7 +100,8 @@ export const GetTownResponse = zod.object({
   "populationPerHour": zod.number(),
   "foodUpkeepPerHour": zod.number(),
   "morale": zod.number(),
-  "lastTickAt": zod.string()
+  "lastTickAt": zod.string(),
+  "cycleReset": zod.boolean().describe('True when this response follows a per-cycle kingdom wipe')
 })
 
 
@@ -179,11 +180,65 @@ export const GetTownArmyParams = zod.object({
 
 export const GetTownArmyResponse = zod.object({
   "townId": zod.number(),
-  "infantry": zod.number(),
+  "infantry": zod.number().describe('Recruited infantry count'),
   "archers": zod.number(),
   "cavalry": zod.number(),
+  "capInfantry": zod.number(),
+  "capArchers": zod.number(),
+  "capCavalry": zod.number(),
   "ships": zod.number(),
-  "spies": zod.number().optional(),
+  "spies": zod.number(),
+  "trainingUnit": zod.union([zod.literal('infantry'),zod.literal('archers'),zod.literal('cavalry'),zod.literal(null)]).nullish(),
+  "trainingCount": zod.number().optional(),
+  "trainingEndsAt": zod.string().nullish(),
+  "onMissionInfantry": zod.number(),
+  "onMissionArchers": zod.number(),
+  "onMissionCavalry": zod.number(),
+  "onMissionSpies": zod.number(),
+  "onMissionShips": zod.number(),
+  "availableInfantry": zod.number(),
+  "availableArchers": zod.number(),
+  "availableCavalry": zod.number(),
+  "availableSpies": zod.number(),
+  "availableShips": zod.number(),
+  "infantryAttackMult": zod.number().optional(),
+  "archerAttackMult": zod.number().optional(),
+  "cavalryAttackMult": zod.number().optional(),
+  "totalTroops": zod.number(),
+  "totalPower": zod.number(),
+  "capacity": zod.number()
+})
+
+
+/**
+ * @summary Start recruiting troops (fills toward building caps)
+ */
+export const RecruitArmyParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const recruitArmyBodyCountMax = 5;
+
+
+
+export const RecruitArmyBody = zod.object({
+  "unit": zod.enum(['infantry', 'archers', 'cavalry']),
+  "count": zod.number().min(1).max(recruitArmyBodyCountMax)
+})
+
+export const RecruitArmyResponse = zod.object({
+  "townId": zod.number(),
+  "infantry": zod.number().describe('Recruited infantry count'),
+  "archers": zod.number(),
+  "cavalry": zod.number(),
+  "capInfantry": zod.number(),
+  "capArchers": zod.number(),
+  "capCavalry": zod.number(),
+  "ships": zod.number(),
+  "spies": zod.number(),
+  "trainingUnit": zod.union([zod.literal('infantry'),zod.literal('archers'),zod.literal('cavalry'),zod.literal(null)]).nullish(),
+  "trainingCount": zod.number().optional(),
+  "trainingEndsAt": zod.string().nullish(),
   "onMissionInfantry": zod.number(),
   "onMissionArchers": zod.number(),
   "onMissionCavalry": zod.number(),
@@ -496,7 +551,13 @@ export const GetActivitiesResponseItem = zod.object({
   "wood": zod.number().optional(),
   "stone": zod.number().optional()
 }).optional(),
-  "casualties": zod.number().optional()
+  "casualties": zod.number().optional(),
+  "defenderReward": zod.object({
+  "gold": zod.number().optional(),
+  "food": zod.number().optional(),
+  "wood": zod.number().optional(),
+  "stone": zod.number().optional()
+}).optional().describe('Bounty granted when the defender repels the raid')
 }),zod.null()]).optional(),
   "createdAt": zod.string()
 })
@@ -524,6 +585,9 @@ export const GetTownRaidsResponseItem = zod.object({
   "attackerCavalry": zod.number(),
   "attackerCatapults": zod.number(),
   "defenderStrength": zod.number(),
+  "attackPower": zod.number().nullish().describe('Attacker attack power at battle resolution (null while marching)'),
+  "defenderRewardGold": zod.number(),
+  "defenderRewardFood": zod.number(),
   "lootGold": zod.number(),
   "lootFood": zod.number(),
   "lootWood": zod.number(),
@@ -589,13 +653,39 @@ export const GetGameStateResponse = zod.object({
   "cycleStartedAt": zod.string(),
   "nextWipeAt": zod.string(),
   "currentHour": zod.number(),
-  "weatherEvent": zod.string().nullable(),
-  "weatherActive": zod.boolean(),
+  "realmEvent": zod.union([zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "flavor": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string()
+}),zod.null()]),
+  "realmEventActive": zod.boolean(),
+  "realmEventModifiers": zod.object({
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
+}),
+  "upcomingRealmEvent": zod.union([zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "flavor": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string()
+}),zod.null()]).optional(),
+  "cycleEventSchedule": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "flavor": zod.string(),
+  "startsAt": zod.string(),
+  "endsAt": zod.string()
+})),
   "seasonModifiers": zod.object({
-  "gold": zod.number().optional(),
-  "food": zod.number().optional(),
-  "wood": zod.number().optional(),
-  "stone": zod.number().optional()
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
 }).optional()
 })
 

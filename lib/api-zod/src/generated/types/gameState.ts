@@ -6,7 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { GameStateSeason } from './gameStateSeason';
-import type { GameStateSeasonModifiers } from './gameStateSeasonModifiers';
+import type { RealmEvent } from './realmEvent';
+import type { ResourceModifiers } from './resourceModifiers';
+import type { ScheduledRealmEvent } from './scheduledRealmEvent';
 
 export interface GameState {
   cycleNumber: number;
@@ -15,8 +17,10 @@ export interface GameState {
   cycleStartedAt: string;
   nextWipeAt: string;
   currentHour: number;
-  /** @nullable */
-  weatherEvent: string | null;
-  weatherActive: boolean;
-  seasonModifiers?: GameStateSeasonModifiers;
+  realmEvent: RealmEvent | null;
+  realmEventActive: boolean;
+  realmEventModifiers: ResourceModifiers;
+  upcomingRealmEvent?: ScheduledRealmEvent | null;
+  cycleEventSchedule: ScheduledRealmEvent[];
+  seasonModifiers?: ResourceModifiers;
 }

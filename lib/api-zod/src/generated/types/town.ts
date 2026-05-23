@@ -31,4 +31,6 @@ export interface Town {
   foodUpkeepPerHour: number;
   morale: number;
   lastTickAt: string;
+  /** True when this response follows a per-cycle kingdom wipe */
+  cycleReset: boolean;
 }

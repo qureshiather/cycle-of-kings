@@ -33,7 +33,7 @@ Designed for players who want missions, building, trade — not PvP.
 See [core-loop-and-resources.md](./core-loop-and-resources.md):
 
 - **1 week** = 1 season (spring/summer/autumn/winter production modifiers).
-- **4 weeks** = 1 cycle → wipe boundary timestamp exposed to clients.
+- **4 weeks** = 1 cycle → **kingdom wipe** at cycle boundary (buildings, troops, resources reset; peaceful mode and trophies preserved).
 
 Trophies/achievements are tracked **per cycle** (historical cycles remain visible).
 

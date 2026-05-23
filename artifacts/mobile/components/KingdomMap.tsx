@@ -5,6 +5,8 @@ import {
   BUILDINGS_BY_CATEGORY,
   formatRequirementHint,
   getBuildBlockReason,
+  getMaxConcurrentUpgrades,
+  getTownHallLevel,
   type BuildingCategory,
   type SlotType,
 } from "@workspace/building-progression";
@@ -49,6 +51,8 @@ import { slotBuildStates } from "@/lib/buildableSlots";
 import { canAffordCost, normalizeResources } from "@/lib/resourceMeta";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { scheduleUpgradeEnd } from "@/lib/notifications";
+import { SLOT_NAMES as NOTIF_SLOT_NAMES } from "@/lib/buildingMeta";
 
 type SlotData = {
   slotType: string;
@@ -174,19 +178,33 @@ export default function KingdomMap({
     selectedSlotType && isEmpty
       ? getBuildBlockReason(selectedSlotType, slotsForRules)
       : null;
+  const thLevel = getTownHallLevel(slotsForRules);
+  const maxConcurrent = getMaxConcurrentUpgrades(thLevel);
+  const upgradingCount = slotsForRules.filter((s) => s.upgrading).length;
+  const queueFull = upgradingCount >= maxConcurrent;
+
   const canBuild =
     selectedSlotType &&
     isEmpty &&
     !buildBlocked &&
-    canAfford(selectedSlotType, 1);
+    canAfford(selectedSlotType, 1) &&
+    !queueFull;
 
   const handleBuild = () => {
     if (!selectedSlotType) return;
     buildSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (data?.upgradeEndsAt && selectedSlotType) {
+            void scheduleUpgradeEnd(
+              townId,
+              selectedSlotType,
+              NOTIF_SLOT_NAMES[selectedSlotType] ?? selectedSlotType,
+              data.upgradeEndsAt,
+            );
+          }
           setSelectedSlotType(null);
           invalidate();
         },
@@ -203,8 +221,16 @@ export default function KingdomMap({
     upgradeSlot.mutate(
       { townId, slotType: selectedSlotType as any },
       {
-        onSuccess: () => {
+        onSuccess: (data: any) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (data?.upgradeEndsAt && selectedSlotType) {
+            void scheduleUpgradeEnd(
+              townId,
+              selectedSlotType,
+              NOTIF_SLOT_NAMES[selectedSlotType] ?? selectedSlotType,
+              data.upgradeEndsAt,
+            );
+          }
           setSelectedSlotType(null);
           invalidate();
         },
@@ -215,6 +241,14 @@ export default function KingdomMap({
       },
     );
   };
+
+  const canUpgrade =
+    selectedSlotType &&
+    !isEmpty &&
+    !isMaxLevel &&
+    !isUpgrading &&
+    canAfford(selectedSlotType, (selectedSlot?.level ?? 0) + 1) &&
+    !queueFull;
 
   const handleDemolish = () => {
     if (!selectedSlotType || isTownHall) return;
@@ -486,7 +520,10 @@ export default function KingdomMap({
                           icon="hammer-wrench"
                           color={color}
                           disabled={!canBuild || buildSlot.isPending}
-                          blockedReason={buildBlocked}
+                          blockedReason={
+                            buildBlocked ??
+                            (queueFull ? `Construction queue full (${upgradingCount}/${maxConcurrent})` : null)
+                          }
                           onPress={handleBuild}
                           loading={buildSlot.isPending}
                         />
@@ -503,10 +540,11 @@ export default function KingdomMap({
                           owned={owned}
                           icon="hammer-wrench"
                           color={color}
-                          disabled={
-                            upgradeSlot.isPending ||
-                            isUpgrading ||
-                            !canAfford(selectedSlotType, nextLevel)
+                          disabled={!canUpgrade || upgradeSlot.isPending}
+                          blockedReason={
+                            queueFull && !isUpgrading
+                              ? `Construction queue full (${upgradingCount}/${maxConcurrent})`
+                              : undefined
                           }
                           onPress={handleUpgrade}
                           loading={upgradeSlot.isPending}

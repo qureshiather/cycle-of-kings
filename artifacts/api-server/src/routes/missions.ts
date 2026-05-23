@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { missionsTable, armyTable, townsTable, buildingSlotsTable, activitiesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { getMaxActiveMissionsFromSlots, isSlotOperational } from "@workspace/building-progression";
+import { getMaxActiveMissionsFromSlots, getSlotRecord, isSlotOperational } from "@workspace/building-progression";
 import {
   generateMissionCards,
   generateEnemyForce,
@@ -11,9 +11,11 @@ import {
   calculateArmyComposition,
   calculateShipCount,
   effectiveSlotLevel,
+  applyCasualties,
 } from "../lib/gameEngine.js";
+import { loadArmyContext, recruitedFromRow } from "../lib/armyService.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
-import { initSlotsForTown } from "./slots.js";
+import { initSlotsForTown } from "../lib/slotsInit.js";
 
 const MERCENARY_GOLD_COST = 10;
 
@@ -109,9 +111,10 @@ router.get("/missions", async (req, res) => {
   if (!townId) return void res.status(400).json({ error: "townId required" });
 
   await initSlotsForTown(townId);
-  const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
-  const composition = calculateArmyComposition(slots);
-  const shipyardSlot = slots.find((s) => s.slotType === "shipyard");
+  const { slots, army } = await loadArmyContext(townId);
+  const recruited = recruitedFromRow(army);
+  const composition = calculateArmyComposition(slots, recruited);
+  const shipyardSlot = getSlotRecord(slots, "shipyard");
   const shipyardLevel = effectiveSlotLevel(shipyardSlot);
   const totalShips = calculateShipCount(slots);
   const seed = getCurrentMissionSeed();
@@ -172,7 +175,17 @@ async function resolvePendingMissions(townId: number) {
       const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
       if (armyRows.length) {
         const army = armyRows[0];
+        const recruitedNow = recruitedFromRow(army);
+        const deployed = {
+          infantry: m.infantry,
+          archers: m.archers,
+          cavalry: m.cavalry,
+        };
+        const afterCasualties = applyCasualties(recruitedNow, deployed, casualties);
         await db.update(armyTable).set({
+          infantry: afterCasualties.infantry,
+          archers: afterCasualties.archers,
+          cavalry: afterCasualties.cavalry,
           onMissionInfantry: Math.max(0, army.onMissionInfantry - m.infantry),
           onMissionArchers:  Math.max(0, army.onMissionArchers  - m.archers),
           onMissionCavalry:  Math.max(0, army.onMissionCavalry  - m.cavalry),
@@ -262,7 +275,8 @@ router.post("/towns/:townId/missions", async (req, res) => {
 
   const activeCount = await db.select().from(missionsTable)
     .where(and(eq(missionsTable.townId, townId), eq(missionsTable.status, "active")));
-  const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const { slots, army: armyCtx } = await loadArmyContext(townId);
+  const recruited = recruitedFromRow(armyCtx);
   const maxActive = getMaxActiveMissionsFromSlots(slots);
   if (activeCount.length >= maxActive) {
     return void res.status(400).json({
@@ -271,9 +285,9 @@ router.post("/towns/:townId/missions", async (req, res) => {
         : `At mission limit (${maxActive}). Upgrade Town Hall for more slots.`,
     });
   }
-  const barracksSlot = slots.find((s) => s.slotType === "barracks");
-  const shipyardSlot = slots.find((s) => s.slotType === "shipyard");
-  const composition = calculateArmyComposition(slots);
+  const barracksSlot = getSlotRecord(slots, "barracks");
+  const shipyardSlot = getSlotRecord(slots, "shipyard");
+  const composition = calculateArmyComposition(slots, recruited);
   const seed = getCurrentMissionSeed();
   const shipyardLevel = effectiveSlotLevel(shipyardSlot);
   const totalShips = calculateShipCount(slots);

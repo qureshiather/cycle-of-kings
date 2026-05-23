@@ -18,8 +18,12 @@ All values reflect current server rules (`gameEngine.ts`, `building-progression`
 | Mission loot roll | **35%–165%** of card base |
 | Mercenary cost | **10 gold** each |
 | Raid loot | **30%** defender resources |
+| Defense bounty (repelled) | **2× attack power** gold, **0.8× attack power** food |
 | Max concurrent missions | **min(TH level, 3)** |
 | Max concurrent spy ops | **min(Spy Guild level, 2)** |
+| Concurrent builds/upgrades | **1** (TH1–2), **2** (TH3–4), **3** (TH5+) |
+| Realm events per week | **3** (18–36h each) |
+| Recruit cost per troop | Inf **3G+2F**, Arch **4G+2F**, Cav **6G+3F** |
 
 ## Season modifiers
 
@@ -35,10 +39,12 @@ All values reflect current server rules (`gameEngine.ts`, `building-progression`
 | Building | Food | Gold | Wood | Stone |
 |----------|------|------|------|-------|
 | Farm | 5 | — | — | — |
+| Market | 1 | 2 | — | — |
+| Tavern | 2 | — | — | — |
+| Shipyard | 2 | — | — | — |
 | Mine | — | 3 | — | — |
 | Quarry | — | — | — | 4 |
 | Lumber Mill | — | — | 8 | — |
-| Market | — | 2 | — | — |
 | Town Hall | — | 3 | — | — |
 
 Town Hall also grants **+3 gold/h per TH level** (bonus stack).

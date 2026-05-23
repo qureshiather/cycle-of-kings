@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -17,6 +18,8 @@ import KingdomMap from "@/components/KingdomMap";
 import ScreenHeader from "@/components/ScreenHeader";
 import SeasonHeaderPill from "@/components/SeasonHeaderPill";
 import SeasonCalendarModal from "@/components/SeasonCalendarModal";
+import CycleResetModal from "@/components/CycleResetModal";
+import { cancelAllForTown } from "@/lib/notifications";
 
 export default function KingdomScreen() {
   const colors = useColors();
@@ -31,6 +34,21 @@ export default function KingdomScreen() {
   const { data: gameState } = useGetGameState({ query: { staleTime: 300_000 } as any });
   const [seasonModalOpen, setSeasonModalOpen] = useState(false);
   const [vistaModalOpen, setVistaModalOpen] = useState(false);
+  const [cycleResetOpen, setCycleResetOpen] = useState(false);
+
+  useEffect(() => {
+    if (!town?.cycleReset || !townId || !gameState?.cycleNumber) return;
+    const key = `cycle_reset_ack_${townId}_${gameState.cycleNumber}`;
+    void (async () => {
+      const ack = await AsyncStorage.getItem(key);
+      if (ack) return;
+      await cancelAllForTown(townId);
+      setCycleResetOpen(true);
+      await AsyncStorage.setItem(key, "1");
+      qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+      qc.invalidateQueries({ queryKey: getGetBuildingSlotsQueryKey(townId) });
+    })();
+  }, [town?.cycleReset, townId, gameState?.cycleNumber, qc]);
 
   const openSeasonCalendar = () => setSeasonModalOpen(true);
 
@@ -135,6 +153,12 @@ export default function KingdomScreen() {
           onClose={() => setSeasonModalOpen(false)}
         />
       )}
+
+      <CycleResetModal
+        visible={cycleResetOpen}
+        cycleNumber={gameState?.cycleNumber}
+        onDismiss={() => setCycleResetOpen(false)}
+      />
     </View>
   );
 }

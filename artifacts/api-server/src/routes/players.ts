@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { playersTable, townsTable, armyTable, trophiesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { initSlotsForTown } from "./slots.js";
+import { getCurrentSeasonInfo } from "../lib/gameEngine.js";
 
 const router = Router();
 
@@ -24,11 +25,13 @@ router.post("/players", async (req, res) => {
     return void res.status(409).json({ error: "Name already taken. Choose a different ruler name." });
   }
 
+  const { cycleNumber } = getCurrentSeasonInfo();
   const [player] = await db.insert(playersTable).values({ deviceId, name: trimmedName }).returning();
   const [town] = await db.insert(townsTable).values({
     playerId: player.id,
     name: `${trimmedName}'s Kingdom`,
     gold: 200, food: 200, wood: 150, stone: 100,
+    lastPlayedCycleNumber: cycleNumber,
   }).returning();
 
   await db.insert(armyTable).values({ townId: town.id });

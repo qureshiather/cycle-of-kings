@@ -27,7 +27,13 @@ router.get("/leaderboard", async (_req, res) => {
   const entries = competitiveTowns.map(town => {
     const slots = slotsByTown.get(town.id) ?? [];
     const economyScore = calculateEconomyScore(slots);
-    const composition = calculateArmyComposition(slots);
+    const army = armyByTown.get(town.id);
+    const recruited = {
+      infantry: army?.infantry ?? 0,
+      archers: army?.archers ?? 0,
+      cavalry: army?.cavalry ?? 0,
+    };
+    const composition = calculateArmyComposition(slots, recruited);
     const armyScore = composition.totalPower;
     const score = economyScore + armyScore;
 

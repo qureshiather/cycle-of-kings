@@ -17,11 +17,22 @@ export type SlotType =
   | "wall"
   | "tower";
 
-export type SlotLike = { slotType: string; level: number; upgrading?: boolean };
+export type SlotLike = {
+  slotType: string;
+  level: number;
+  upgrading?: boolean;
+  upgradeEndsAt?: string | Date | null;
+};
 
 /** Built and construction finished — troops/ships/spies only count when operational. */
 export function isSlotOperational(slot: SlotLike | undefined): boolean {
-  return (slot?.level ?? 0) >= 1 && !slot?.upgrading;
+  if ((slot?.level ?? 0) < 1) return false;
+  if (!slot?.upgrading) return true;
+  if (slot.upgradeEndsAt != null) {
+    const end = slot.upgradeEndsAt instanceof Date ? slot.upgradeEndsAt : new Date(slot.upgradeEndsAt);
+    if (!Number.isNaN(end.getTime()) && end <= new Date()) return true;
+  }
+  return false;
 }
 
 export type BuildingPrereq = {
@@ -89,9 +100,27 @@ export const BUILDING_GRID_ORDER: SlotType[] = BUILDING_CATEGORY_ORDER.flatMap(
 export const MAX_CONCURRENT_MISSIONS = 3;
 export const MAX_CONCURRENT_SPY_OPS = 2;
 
+/** Active build/upgrade slots allowed by Town Hall level. */
+export function getMaxConcurrentUpgrades(townHallLevel: number): number {
+  if (townHallLevel <= 2) return 1;
+  if (townHallLevel <= 4) return 2;
+  return 3;
+}
+
+/** Best row for a slot type (highest level). Handles legacy duplicate DB rows. */
+export function getSlotRecord(slots: SlotLike[], slotType: string): SlotLike | undefined {
+  let best: SlotLike | undefined;
+  for (const s of slots) {
+    if (s.slotType !== slotType) continue;
+    const lv = Number(s.level) || 0;
+    const bestLv = Number(best?.level) || 0;
+    if (!best || lv > bestLv || (lv === bestLv && best.upgrading && !s.upgrading)) best = s;
+  }
+  return best;
+}
+
 export function getTownHallLevel(slots: SlotLike[]): number {
-  const hall = slots.find((s) => s.slotType === "townHall");
-  return hall?.level ?? 0;
+  return slotLevel(slots, "townHall");
 }
 
 /** Active mission slots from Town Hall level (0 if no hall; capped at 3 at TH3+). */

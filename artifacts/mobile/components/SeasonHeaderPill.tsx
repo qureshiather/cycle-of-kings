@@ -18,6 +18,7 @@ export default function SeasonHeaderPill({ gameState, onPress }: Props) {
   const meta = SEASON_META[season];
   const seasonColor = colors[season] as string;
   const { dayOfSeason } = getSeasonProgress(gameState.cycleStartedAt, season);
+  const realmActive = gameState.realmEventActive && gameState.realmEvent;
 
   return (
     <Pressable
@@ -37,6 +38,14 @@ export default function SeasonHeaderPill({ gameState, onPress }: Props) {
       <Text style={[styles.pillSeason, { color: seasonColor }]}>{meta.label}</Text>
       <View style={[styles.pillDot, { backgroundColor: withAlpha(seasonColor, 0.45) }]} />
       <Text style={[styles.pillDay, { color: colors.textSecondary }]}>Day {dayOfSeason}</Text>
+      {realmActive ? (
+        <>
+          <View style={[styles.pillDot, { backgroundColor: withAlpha(colors.raid, 0.45) }]} />
+          <Text style={[styles.pillDay, { color: colors.raid }]} numberOfLines={1}>
+            {gameState.realmEvent!.title}
+          </Text>
+        </>
+      ) : null}
     </Pressable>
   );
 }

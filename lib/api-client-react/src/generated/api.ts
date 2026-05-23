@@ -36,6 +36,7 @@ import type {
   PlayerInput,
   Raid,
   RaidOrder,
+  RecruitArmyInput,
   ResetResult,
   SpyCard,
   SpyDispatch,
@@ -809,6 +810,78 @@ export function useGetTownArmy<TData = Awaited<ReturnType<typeof getTownArmy>>, 
 
 
 
+
+export const getRecruitArmyUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/army/recruit`
+}
+
+/**
+ * @summary Start recruiting troops (fills toward building caps)
+ */
+export const recruitArmy = async (townId: number,
+    recruitArmyInput: RecruitArmyInput, options?: RequestInit): Promise<Army> => {
+
+  return customFetch<Army>(getRecruitArmyUrl(townId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      recruitArmyInput,)
+  }
+);}
+
+
+
+
+export const getRecruitArmyMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recruitArmy>>, TError,{townId: number;data: BodyType<RecruitArmyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recruitArmy>>, TError,{townId: number;data: BodyType<RecruitArmyInput>}, TContext> => {
+
+const mutationKey = ['recruitArmy'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recruitArmy>>, {townId: number;data: BodyType<RecruitArmyInput>}> = (props) => {
+          const {townId,data} = props ?? {};
+
+          return  recruitArmy(townId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecruitArmyMutationResult = NonNullable<Awaited<ReturnType<typeof recruitArmy>>>
+    export type RecruitArmyMutationBody = BodyType<RecruitArmyInput>
+    export type RecruitArmyMutationError = ErrorType<void>
+
+    /**
+ * @summary Start recruiting troops (fills toward building caps)
+ */
+export const useRecruitArmy = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recruitArmy>>, TError,{townId: number;data: BodyType<RecruitArmyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recruitArmy>>,
+        TError,
+        {townId: number;data: BodyType<RecruitArmyInput>},
+        TContext
+      > => {
+      return useMutation(getRecruitArmyMutationOptions(options));
+    }
 
 export const getSetPeacefulModeUrl = (townId: number,) => {
 

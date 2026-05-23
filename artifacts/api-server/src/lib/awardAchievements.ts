@@ -7,6 +7,7 @@ import {
 import { db } from "@workspace/db";
 import {
   activitiesTable,
+  armyTable,
   buildingSlotsTable,
   playersTable,
   trophiesTable,
@@ -115,6 +116,13 @@ export async function checkAchievementsForTown(
     .from(buildingSlotsTable)
     .where(eq(buildingSlotsTable.townId, townId));
 
+  const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, townId)).limit(1);
+  const recruited = {
+    infantry: armyRows[0]?.infantry ?? 0,
+    archers: armyRows[0]?.archers ?? 0,
+    cavalry: armyRows[0]?.cavalry ?? 0,
+  };
+
   const snapshot: TownAchievementSnapshot = {
     gold: town.gold,
     food: town.food,
@@ -122,7 +130,7 @@ export async function checkAchievementsForTown(
     stone: town.stone,
     peacefulMode: town.peacefulMode,
     economyScore: calculateEconomyScore(slots),
-    armyScore: calculateArmyComposition(slots).totalPower,
+    armyScore: calculateArmyComposition(slots, recruited).totalPower,
     population: town.population,
     slots,
   };

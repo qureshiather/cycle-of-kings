@@ -53,16 +53,16 @@ export const SLOT_BONUS: Record<string, (level: number) => string> = {
   mine: (l) => `+${l * 3} gold/h`,
   quarry: (l) => `+${l * 4} stone/h`,
   lumberMill: (l) => `+${l * 8} wood/h`,
-  market: (l) => `+${l * 2} gold/h`,
+  market: (l) => `+${l * 2} gold/h · +${l} food/h`,
   barracks: (l) => `+${l * 5} Infantry`,
   archeryRange: (l) => `+${l * 5} Archers`,
   stables: (l) => `+${l * 3} Cavalry`,
   house: (l) => `+${l * 15} population cap`,
-  tavern: (l) => `+${Math.round(l * 2.5)} morale · +${(l * 0.5).toFixed(1)} pop/h`,
+  tavern: (l) => `+${l * 2} food/h · +${Math.round(l * 2.5)} morale · +${(l * 0.5).toFixed(1)} pop/h`,
   museum: (l) => `+${l * 6} morale · +${l} pop/h`,
   monument: (l) => `Wonder · +${l * 2} pop/h · score`,
   spyGuild: (l) => `+${l * 3} spies`,
-  shipyard: (l) => `+${l * 2} ships`,
+  shipyard: (l) => `+${l * 2} ships · +${l * 2} food/h`,
   townHall: (l) => {
     const missions = getMaxActiveMissions(l);
     const missionLabel = missions === 1 ? "1 mission" : `${missions} missions`;

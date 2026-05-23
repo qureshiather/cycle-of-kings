@@ -18,7 +18,7 @@ There is no separate “offline calculator” on the client; the server state is
 | Resource | Main sources | Main sinks |
 |----------|--------------|------------|
 | **Gold** | Mine, Market, Town Hall, missions, spies, raids, trade (receive) | Builds/upgrades, mercenaries, trade (pay) |
-| **Food** | Farm, base production, missions, spies | **Population upkeep** (ongoing), builds (none currently) |
+| **Food** | Farm, Market, Tavern, Shipyard, base production, missions, spies, trade, raid defense bounties | **Population upkeep** (ongoing), **army recruiting**, builds (none currently) |
 | **Wood** | Lumber Mill, base, missions, naval loot | Builds/upgrades |
 | **Stone** | Quarry, base, missions | Builds/upgrades |
 
@@ -33,13 +33,16 @@ There is no separate “offline calculator” on the client; the server state is
 | Building | Per level |
 |----------|-----------|
 | Farm | +5 food/h |
+| Market | +1 food/h (imports) · +2 gold/h |
+| Tavern | +2 food/h (feast surplus) |
+| Shipyard | +2 food/h (fishing) |
 | Mine | +3 gold/h |
 | Quarry | +4 stone/h |
 | Lumber Mill | +8 wood/h |
 | Market | +2 gold/h |
 | Town Hall | +3 gold/h (plus separate TH bonus — see [buildings.md](./buildings.md)) |
 
-Military and culture buildings do not add hourly production (they affect troops, population, morale, missions, etc.).
+Most military buildings do not add hourly production (they affect troops, missions, etc.). **Tavern** and **Shipyard** also provide food (feast surplus and fishing).
 
 **Season multipliers** apply to the whole production stack (base + buildings + TH gold bonus):
 
@@ -60,9 +63,11 @@ Military and culture buildings do not add hourly production (they affect troops,
 
 Positive net food does not guarantee growth forever (stockpile can still hit zero between ticks), but it means farms outpace mouths on average.
 
-## Random world events
+## Realm events (cycle calendar)
 
-Roughly **15%** chance per hour of a cosmetic/event label (Drought, Storm, etc.). These are atmospheric seeds today — confirm in code if they later affect production.
+**~3 events per week** (~12 per 28-day cycle), each lasting **18–36 hours**. Timing is deterministic per cycle (same for all players). Between events, only **season** modifiers apply.
+
+Events can be weather, omens, visitors, or calamities — each applies production multipliers (gold/food/wood/stone). See [balance-reference.md](./balance-reference.md) for the catalog.
 
 ## Kingdom scores (header)
 

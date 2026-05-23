@@ -25,12 +25,14 @@ function ForceCard({
   label,
   detail,
   power,
+  powerLabel,
   side,
   won,
 }: {
   label: string;
   detail: string;
   power: number;
+  powerLabel: "attack" | "defense";
   side: "player" | "opponent";
   won: boolean;
 }) {
@@ -62,7 +64,9 @@ function ForceCard({
         )}
       </View>
       <Text style={[styles.forceTroops, { color: colors.foreground }]}>{detail}</Text>
-      <Text style={[styles.forceTotal, { color: accent }]}>{power} power</Text>
+      <Text style={[styles.forceTotal, { color: accent }]}>
+        {power} {powerLabel}
+      </Text>
     </View>
   );
 }
@@ -97,6 +101,16 @@ export default function RaidActivitySummaryModal({ visible, metadata, onClose }:
   const opponentDetail = isAttacker
     ? formatDefenseLine(metadata.defenderStrength)
     : formatTroopLine(metadata.attackerTroops);
+
+  const playerPowerLabel = isAttacker ? "attack" : "defense";
+  const opponentPowerLabel = isAttacker ? "defense" : "attack";
+
+  const defenderRewardTotal =
+    (metadata.defenderReward?.gold ?? 0) +
+    (metadata.defenderReward?.food ?? 0) +
+    (metadata.defenderReward?.wood ?? 0) +
+    (metadata.defenderReward?.stone ?? 0);
+  const showDefenderReward = !isAttacker && won && defenderRewardTotal > 0;
 
   const lootTotal =
     (metadata.loot?.gold ?? 0) +
@@ -142,7 +156,7 @@ export default function RaidActivitySummaryModal({ visible, metadata, onClose }:
             <Text style={[styles.tallySide, { color: colors.destructive }]}>{theirs}</Text>
           </View>
           <Text style={[styles.tallyHint, { color: colors.textSecondary }]}>
-            {isAttacker ? "Raiders vs kingdom defense" : "Your defense vs attacking host"}
+            {Math.round(metadata.attackPower)} attack vs {Math.round(metadata.defenderStrength)} defense
           </Text>
 
           <View style={styles.forceRow}>
@@ -150,6 +164,7 @@ export default function RaidActivitySummaryModal({ visible, metadata, onClose }:
               label={flavor.playerLabel}
               detail={playerDetail}
               power={yours}
+              powerLabel={playerPowerLabel}
               side="player"
               won={won}
             />
@@ -157,6 +172,7 @@ export default function RaidActivitySummaryModal({ visible, metadata, onClose }:
               label={flavor.opponentLabel}
               detail={opponentDetail}
               power={theirs}
+              powerLabel={opponentPowerLabel}
               side="opponent"
               won={won}
             />
@@ -166,6 +182,32 @@ export default function RaidActivitySummaryModal({ visible, metadata, onClose }:
             <MaterialCommunityIcons name="feather" size={14} color={colors.textSecondary} />
             <Text style={[styles.scoutNote, { color: colors.textSecondary }]}>{flavor.scoutNote}</Text>
           </View>
+
+          {showDefenderReward && metadata.defenderReward && (
+            <View
+              style={[
+                styles.spoilsBox,
+                {
+                  backgroundColor: withAlpha(colors.success, 0.12),
+                  borderColor: withAlpha(colors.success, 0.4),
+                },
+              ]}
+            >
+              <View style={styles.spoilsHeader}>
+                <MaterialCommunityIcons name="shield-check" size={18} color={colors.success} />
+                <Text style={[styles.spoilsTitle, { color: colors.success }]}>Defense bounty</Text>
+              </View>
+              <ResourceCostRow
+                cost={{
+                  gold: metadata.defenderReward.gold ?? 0,
+                  food: metadata.defenderReward.food ?? 0,
+                  wood: metadata.defenderReward.wood ?? 0,
+                  stone: metadata.defenderReward.stone ?? 0,
+                }}
+                variant="reward"
+              />
+            </View>
+          )}
 
           {showLoot && metadata.loot && (
             <View

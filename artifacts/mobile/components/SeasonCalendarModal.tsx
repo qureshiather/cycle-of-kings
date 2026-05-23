@@ -202,6 +202,55 @@ export default function SeasonCalendarModal({
                 </Text>
               </View>
 
+              {gameState.realmEventActive && gameState.realmEvent ? (
+                <View style={[styles.currentCard, { backgroundColor: withAlpha(colors.raid, 0.08), borderColor: withAlpha(colors.raid, 0.35) }]}>
+                  <Text style={[styles.sectionLabel, { color: colors.raid }]}>REALM EVENT</Text>
+                  <Text style={[styles.currentTitle, { color: colors.foreground }]}>{gameState.realmEvent.title}</Text>
+                  <Text style={[styles.currentMeta, { color: colors.textSecondary }]}>{gameState.realmEvent.flavor}</Text>
+                  <Text style={[styles.currentMeta, { color: colors.textMuted }]}>
+                    Ends {formatSeasonDate(new Date(gameState.realmEvent.endsAt).getTime())}
+                  </Text>
+                </View>
+              ) : gameState.upcomingRealmEvent ? (
+                <View style={[styles.currentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
+                  <Text style={[styles.currentTitle, { color: colors.foreground }]}>
+                    {gameState.upcomingRealmEvent.title}
+                  </Text>
+                  <Text style={[styles.currentMeta, { color: colors.textSecondary }]}>
+                    Starts {formatSeasonDate(new Date(gameState.upcomingRealmEvent.startsAt).getTime())}
+                  </Text>
+                </View>
+              ) : null}
+
+              {(gameState.cycleEventSchedule?.length ?? 0) > 0 && (
+                <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
+                    EVENTS THIS CYCLE
+                  </Text>
+                  {gameState.cycleEventSchedule.slice(0, 8).map((ev) => {
+                    const start = new Date(ev.startsAt).getTime();
+                    const end = new Date(ev.endsAt).getTime();
+                    const now = Date.now();
+                    const live = now >= start && now < end;
+                    return (
+                      <View
+                        key={`${ev.id}-${ev.startsAt}`}
+                        style={[styles.eventRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                      >
+                        <Text style={[styles.eventTitle, { color: live ? colors.gold : colors.foreground }]}>
+                          {ev.title}
+                          {live ? " · Active" : ""}
+                        </Text>
+                        <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                          {formatSeasonDate(start)} – {formatSeasonDate(end)}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </>
+              )}
+
               <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
                 CYCLE TIMELINE
               </Text>
@@ -304,7 +353,7 @@ export default function SeasonCalendarModal({
                   Cycle started {formatSeasonDate(cycleStart)}
                 </Text>
                 <Text style={[styles.cycleFooterText, { color: colors.gold }]}>
-                  Reset {formatSeasonDate(cycleEnd)}
+                  Kingdom wipe {formatSeasonDate(cycleEnd)}
                 </Text>
               </View>
             </ScrollView>
@@ -341,6 +390,9 @@ const styles = StyleSheet.create({
   currentCard: { padding: 12, borderRadius: 12, borderWidth: 1, gap: 8 },
   currentTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
   currentMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  eventRow: { padding: 10, borderRadius: 8, borderWidth: 1, gap: 4 },
+  eventTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  eventMeta: { fontSize: 10, fontFamily: "Inter_400Regular" },
   progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   cycleTrack: { height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 10 },

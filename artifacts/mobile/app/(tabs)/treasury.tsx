@@ -48,6 +48,7 @@ const TYPE_GROUPS: Record<string, string> = {
   mission_dispatched: "muted",
   building_placed: "muted",
   kingdom_reset: "danger",
+  cycle_reset: "danger",
   achievement_unlocked: "success",
 };
 

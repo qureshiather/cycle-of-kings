@@ -5,14 +5,22 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
+import type { ArmyTrainingUnit } from './armyTrainingUnit';
 
 export interface Army {
   townId: number;
+  /** Recruited infantry count */
   infantry: number;
   archers: number;
   cavalry: number;
+  capInfantry: number;
+  capArchers: number;
+  capCavalry: number;
   ships: number;
-  spies?: number;
+  spies: number;
+  trainingUnit?: ArmyTrainingUnit;
+  trainingCount?: number;
+  trainingEndsAt?: string | null;
   onMissionInfantry: number;
   onMissionArchers: number;
   onMissionCavalry: number;

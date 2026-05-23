@@ -18,6 +18,7 @@ export type RaidActivityMetadata = {
   defenderStrength: number;
   attackPower: number;
   loot?: ResourceAmounts;
+  defenderReward?: ResourceAmounts;
   casualties?: number;
 };
 
@@ -58,7 +59,10 @@ export function buildRaidSummaryFromRecord(raid: Raid, viewerTownId: number): Ra
       total: raid.attackerInfantry + raid.attackerArchers + raid.attackerCavalry,
     },
     defenderStrength: raid.defenderStrength,
-    attackPower: estimateAttackPower(raid.attackerInfantry, raid.attackerArchers, raid.attackerCavalry),
+    attackPower:
+      raid.attackPower != null
+        ? Math.round(raid.attackPower)
+        : estimateAttackPower(raid.attackerInfantry, raid.attackerArchers, raid.attackerCavalry),
     casualties: raid.attackerCasualties,
     loot: hasLoot
       ? {
@@ -68,11 +72,20 @@ export function buildRaidSummaryFromRecord(raid: Raid, viewerTownId: number): Ra
           stone: raid.lootStone ?? 0,
         }
       : undefined,
+    defenderReward:
+      (raid.defenderRewardGold ?? 0) + (raid.defenderRewardFood ?? 0) > 0
+        ? {
+            gold: raid.defenderRewardGold ?? 0,
+            food: raid.defenderRewardFood ?? 0,
+            wood: 0,
+            stone: 0,
+          }
+        : undefined,
   };
 }
 
-/** Mirrors api-server attack power rules for legacy raid rows without stored attackPower. */
-function estimateAttackPower(infantry: number, archers: number, cavalry: number): number {
+/** Mirrors api-server `calculateRaidAttackPower` for previews and legacy rows. */
+export function estimateAttackPower(infantry: number, archers: number, cavalry: number): number {
   let attackPower = infantry * 10 + archers * 15 + cavalry * 12;
   if (infantry > 0 && archers > 0) attackPower += archers * 3;
   if (cavalry > 0) attackPower *= 1.1;
@@ -83,12 +96,21 @@ export function formatDefenseLine(strength: number): string {
   return `Walls + garrison · ${Math.round(strength)} defense`;
 }
 
+export function formatAttackLine(strength: number): string {
+  return `Raid host · ${Math.round(strength)} attack`;
+}
+
+export function estimateRaidWinChance(attackPower: number, defenderStrength: number): number {
+  const total = attackPower + defenderStrength;
+  return total > 0 ? attackPower / total : 0;
+}
+
 export function playerRaidPower(meta: RaidActivityMetadata): number {
-  return meta.role === "attacker" ? meta.attackerTroops.total : Math.round(meta.defenderStrength);
+  return meta.role === "attacker" ? Math.round(meta.attackPower) : Math.round(meta.defenderStrength);
 }
 
 export function opponentRaidPower(meta: RaidActivityMetadata): number {
-  return meta.role === "attacker" ? Math.round(meta.defenderStrength) : meta.attackerTroops.total;
+  return meta.role === "attacker" ? Math.round(meta.defenderStrength) : Math.round(meta.attackPower);
 }
 
 export { formatTroopLine };

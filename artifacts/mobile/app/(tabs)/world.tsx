@@ -19,10 +19,16 @@ import {
 } from "@workspace/api-client-react";
 import RaidActivitySummaryModal from "@/components/RaidActivitySummaryModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
-import { buildRaidSummaryFromRecord, type RaidActivityMetadata } from "@/lib/raidMeta";
+import {
+  buildRaidSummaryFromRecord,
+  estimateAttackPower,
+  estimateRaidWinChance,
+  type RaidActivityMetadata,
+} from "@/lib/raidMeta";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
+import { scheduleRaidBattle } from "@/lib/notifications";
 import ScreenHeader from "@/components/ScreenHeader";
 import ResourceCostRow from "@/components/ResourceCostRow";
 import {
@@ -84,6 +90,13 @@ export default function WorldScreen() {
 
   const isPeaceful = myTown?.peacefulMode ?? false;
 
+  const raidTarget = selectedTarget
+    ? (towns ?? []).find((t: { id: number }) => t.id === selectedTarget.id)
+    : null;
+  const projectedAttack = estimateAttackPower(infantry, archers, cavalry);
+  const projectedDefense = raidTarget?.totalDefense ?? 0;
+  const projectedWinChance = estimateRaidWinChance(projectedAttack, projectedDefense);
+
   const availableInfantry = army?.availableInfantry ?? 0;
   const availableArchers = army?.availableArchers ?? 0;
   const availableCavalry = army?.availableCavalry ?? 0;
@@ -94,8 +107,11 @@ export default function WorldScreen() {
     launchRaid.mutate(
       { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry, catapults: 0 } },
       {
-        onSuccess: () => {
+        onSuccess: (raid) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (raid?.id && raid?.arrivesAt) {
+            void scheduleRaidBattle(raid.id, selectedTarget?.name ?? "enemy kingdom", raid.arrivesAt);
+          }
           setSelectedTarget(null);
           setInfantry(0);
           setArchers(0);
@@ -281,10 +297,21 @@ export default function WorldScreen() {
                   {marching && raid.arrivesAt && (
                     <Text style={[styles.raidLoot, { color: colors.gold }]}>{marchTimeLeft(raid.arrivesAt)}</Text>
                   )}
+                  {marching && (
+                    <Text style={[styles.raidCombat, { color: colors.textSecondary }]}>
+                      {estimateAttackPower(raid.attackerInfantry, raid.attackerArchers, raid.attackerCavalry)} attack vs{" "}
+                      {Math.round(raid.defenderStrength)} defense
+                    </Text>
+                  )}
                   {!marching && victory && isAttacker && (
                     <Text style={[styles.raidLoot, { color: colors.gold }]}>
                       Looted: {Math.round(raid.lootGold)}g {Math.round(raid.lootFood)}f {Math.round(raid.lootWood)}w{" "}
                       {Math.round(raid.lootStone)}s
+                    </Text>
+                  )}
+                  {!marching && !isAttacker && raid.result === "defeat" && (raid.defenderRewardGold ?? 0) + (raid.defenderRewardFood ?? 0) > 0 && (
+                    <Text style={[styles.raidLoot, { color: colors.success }]}>
+                      Bounty: {Math.round(raid.defenderRewardGold)}g {Math.round(raid.defenderRewardFood)}f
                     </Text>
                   )}
                   {!marching && raid.attackerCasualties > 0 && isAttacker && (
@@ -455,6 +482,27 @@ export default function WorldScreen() {
                 Troops march for 2 hours before battle. Deployed troops can't defend. Victory grants 30% of their resources.
               </Text>
 
+              <View style={[styles.combatPreview, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.combatPreviewRow}>
+                  <View style={styles.combatPreviewCol}>
+                    <Text style={[styles.combatPreviewLabel, { color: colors.textSecondary }]}>Your attack</Text>
+                    <Text style={[styles.combatPreviewValue, { color: colors.gold }]}>{projectedAttack}</Text>
+                  </View>
+                  <Text style={[styles.combatPreviewVs, { color: colors.textSecondary }]}>vs</Text>
+                  <View style={styles.combatPreviewCol}>
+                    <Text style={[styles.combatPreviewLabel, { color: colors.textSecondary }]}>Their defense</Text>
+                    <Text style={[styles.combatPreviewValue, { color: colors.destructive }]}>
+                      {Math.round(projectedDefense)}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={[styles.combatPreviewHint, { color: colors.textSecondary }]}>
+                  {infantry + archers + cavalry === 0
+                    ? "Send troops to estimate battle odds."
+                    : `~${Math.round(projectedWinChance * 100)}% win chance (attack ÷ attack + defense)`}
+                </Text>
+              </View>
+
               {(
                 [
                   { key: "infantry", label: "Infantry", available: availableInfantry, val: infantry, set: setInfantry },
@@ -544,6 +592,14 @@ const styles = StyleSheet.create({
   raidTitle: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold" },
   raidResult: { fontSize: 11, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
   raidLoot: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  raidCombat: { fontSize: 11, fontFamily: "Inter_500Medium" },
+  combatPreview: { padding: 12, borderRadius: 10, borderWidth: 1, gap: 8 },
+  combatPreviewRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 },
+  combatPreviewCol: { alignItems: "center", gap: 2, minWidth: 88 },
+  combatPreviewLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.4 },
+  combatPreviewValue: { fontSize: 22, fontFamily: "Inter_700Bold" },
+  combatPreviewVs: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  combatPreviewHint: { fontSize: 11, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 16 },
   raidCas: { fontSize: 11, fontFamily: "Inter_400Regular" },
   raidDate: { fontSize: 10, fontFamily: "Inter_400Regular" },
   raidTapHint: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },

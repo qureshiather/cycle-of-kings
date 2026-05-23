@@ -237,6 +237,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/Army"
 
+  /towns/{townId}/army/recruit:
+    post:
+      operationId: recruitArmy
+      tags: [army]
+      summary: Start recruiting troops (fills toward building caps)
+      parameters:
+        - name: townId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecruitArmyInput"
+      responses:
+        "200":
+          description: Training started or completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Army"
+        "400":
+          description: Invalid request, queue busy, at cap, or insufficient resources
+
   /towns/{townId}/peaceful:
     patch:
       operationId: setPeacefulMode
@@ -595,7 +621,7 @@ components:
 
     Town:
       type: object
-      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, economyScore, armyScore, staticDefense, totalDefense, peacefulMode, population, populationCap, populationPerHour, foodUpkeepPerHour, morale, lastTickAt]
+      required: [id, playerId, name, gold, food, wood, stone, goldPerHour, foodPerHour, woodPerHour, stonePerHour, economyScore, armyScore, staticDefense, totalDefense, peacefulMode, population, populationCap, populationPerHour, foodUpkeepPerHour, morale, lastTickAt, cycleReset]
       properties:
         id: { type: integer }
         playerId: { type: integer }
@@ -621,6 +647,7 @@ components:
         foodUpkeepPerHour: { type: number }
         morale: { type: number }
         lastTickAt: { type: string }
+        cycleReset: { type: boolean, description: True when this response follows a per-cycle kingdom wipe }
 
     PeacefulModeInput:
       type: object
@@ -663,16 +690,34 @@ components:
           type: array
           items: { type: string }
 
+    RecruitArmyInput:
+      type: object
+      required: [unit, count]
+      properties:
+        unit:
+          type: string
+          enum: [infantry, archers, cavalry]
+        count:
+          type: integer
+          minimum: 1
+          maximum: 5
+
     Army:
       type: object
-      required: [townId, infantry, archers, cavalry, ships, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionSpies, onMissionShips, availableInfantry, availableArchers, availableCavalry, availableSpies, availableShips, totalTroops, totalPower, capacity]
+      required: [townId, infantry, archers, cavalry, capInfantry, capArchers, capCavalry, ships, spies, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionSpies, onMissionShips, availableInfantry, availableArchers, availableCavalry, availableSpies, availableShips, totalTroops, totalPower, capacity]
       properties:
         townId: { type: integer }
-        infantry: { type: integer }
+        infantry: { type: integer, description: Recruited infantry count }
         archers: { type: integer }
         cavalry: { type: integer }
+        capInfantry: { type: integer }
+        capArchers: { type: integer }
+        capCavalry: { type: integer }
         ships: { type: integer }
         spies: { type: integer }
+        trainingUnit: { type: string, nullable: true, enum: [infantry, archers, cavalry, null] }
+        trainingCount: { type: integer }
+        trainingEndsAt: { type: string, nullable: true }
         onMissionInfantry: { type: integer }
         onMissionArchers: { type: integer }
         onMissionCavalry: { type: integer }
@@ -865,7 +910,7 @@ components:
 
     Raid:
       type: object
-      required: [id, attackerTownId, attackerTownName, defenderTownId, defenderTownName, status, attackerInfantry, attackerArchers, attackerCavalry, attackerCatapults, defenderStrength, lootGold, lootFood, lootWood, lootStone, attackerCasualties, createdAt, arrivesAt]
+      required: [id, attackerTownId, attackerTownName, defenderTownId, defenderTownName, status, attackerInfantry, attackerArchers, attackerCavalry, attackerCatapults, defenderStrength, defenderRewardGold, defenderRewardFood, lootGold, lootFood, lootWood, lootStone, attackerCasualties, createdAt, arrivesAt]
       properties:
         id: { type: integer }
         attackerTownId: { type: integer }
@@ -885,6 +930,12 @@ components:
         attackerCavalry: { type: integer }
         attackerCatapults: { type: integer }
         defenderStrength: { type: number }
+        attackPower:
+          type: number
+          nullable: true
+          description: Attacker attack power at battle resolution (null while marching)
+        defenderRewardGold: { type: number }
+        defenderRewardFood: { type: number }
         lootGold: { type: number }
         lootFood: { type: number }
         lootWood: { type: number }
@@ -954,6 +1005,14 @@ components:
             wood: { type: number }
             stone: { type: number }
         casualties: { type: integer }
+        defenderReward:
+          type: object
+          description: Bounty granted when the defender repels the raid
+          properties:
+            gold: { type: number }
+            food: { type: number }
+            wood: { type: number }
+            stone: { type: number }
 
     Activity:
       type: object
@@ -997,9 +1056,38 @@ components:
         wood: { type: number }
         stone: { type: number }
 
+    ResourceModifiers:
+      type: object
+      required: [gold, food, wood, stone]
+      properties:
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
+
+    RealmEvent:
+      type: object
+      required: [id, title, flavor, startsAt, endsAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        flavor: { type: string }
+        startsAt: { type: string }
+        endsAt: { type: string }
+
+    ScheduledRealmEvent:
+      type: object
+      required: [id, title, flavor, startsAt, endsAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        flavor: { type: string }
+        startsAt: { type: string }
+        endsAt: { type: string }
+
     GameState:
       type: object
-      required: [cycleNumber, season, seasonName, cycleStartedAt, nextWipeAt, currentHour, weatherEvent, weatherActive]
+      required: [cycleNumber, season, seasonName, cycleStartedAt, nextWipeAt, currentHour, realmEvent, realmEventActive, realmEventModifiers, cycleEventSchedule]
       properties:
         cycleNumber: { type: integer }
         season:
@@ -1009,12 +1097,20 @@ components:
         cycleStartedAt: { type: string }
         nextWipeAt: { type: string }
         currentHour: { type: integer }
-        weatherEvent: { type: ["string", "null"] }
-        weatherActive: { type: boolean }
+        realmEvent:
+          oneOf:
+            - $ref: "#/components/schemas/RealmEvent"
+            - type: "null"
+        realmEventActive: { type: boolean }
+        realmEventModifiers:
+          $ref: "#/components/schemas/ResourceModifiers"
+        upcomingRealmEvent:
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledRealmEvent"
+            - type: "null"
+        cycleEventSchedule:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduledRealmEvent"
         seasonModifiers:
-          type: object
-          properties:
-            gold: { type: number }
-            food: { type: number }
-            wood: { type: number }
-            stone: { type: number }
+          $ref: "#/components/schemas/ResourceModifiers"

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MissionTroopSide } from './missionTroopSide';
+import type { RaidActivityMetadataDefenderReward } from './raidActivityMetadataDefenderReward';
 import type { RaidActivityMetadataLoot } from './raidActivityMetadataLoot';
 import type { RaidActivityMetadataRole } from './raidActivityMetadataRole';
 
@@ -19,4 +20,6 @@ export interface RaidActivityMetadata {
   attackPower: number;
   loot?: RaidActivityMetadataLoot;
   casualties?: number;
+  /** Bounty granted when the defender repels the raid */
+  defenderReward?: RaidActivityMetadataDefenderReward;
 }

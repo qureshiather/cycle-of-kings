@@ -1,8 +1,12 @@
 # Army, defense, and raids
 
-## Troops are not “trained”
+## Recruit-to-fill army
 
-Infantry, archers, and cavalry **exist automatically** from building levels. There is no recruit queue and **no housing cap on troop count** (House affects **population cap**, not army size).
+**Barracks / Archery / Stables** set **troop caps** (5/5/3 per building level). You **recruit** with gold and food into those caps; one training queue at a time.
+
+Recruit costs per troop: Infantry **3G + 2F**, Archers **4G + 2F**, Cavalry **6G + 3F**. Plan food income from farms plus Market/Tavern/Shipyard production, World **Trade** (hourly board includes a grain deal), and mission or raid loot — see [core-loop-and-resources.md](./core-loop-and-resources.md).
+
+**Casualties** on missions and raids **reduce recruited counts** until you recruit again. Ships and spies still come from Shipyard / Spy Guild levels.
 
 | Unit | From | Per level |
 |------|------|-----------|
@@ -69,6 +73,17 @@ Raids compare attacker sent troops vs defender **totalDefense** (not static alon
 ### Loot on victory
 
 Attacker steals **30%** of defender’s current **gold, food, wood, stone** (each resource separately). Defender loses that amount; attacker gains it.
+
+### Defense bounty (repelled raid)
+
+When the attacker **loses**, the defender receives a bounty based on the attacker’s **attack power** at resolution:
+
+| Resource | Formula |
+|----------|---------|
+| Gold | `floor(attackPower × 2)` |
+| Food | `floor(attackPower × 0.8)` |
+
+Paid immediately to the defender’s town when the raid resolves.
 
 ## Mercenaries (missions only)
 

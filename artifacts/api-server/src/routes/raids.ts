@@ -7,10 +7,13 @@ import {
   simulateCombat,
   calculateArmyComposition,
   calculateTotalDefense,
+  calculateRaidAttackPower,
+  calculateDefenderBounty,
+  applyCasualties,
   RAID_MARCH_DURATION_MS,
 } from "../lib/gameEngine.js";
+import { loadArmyContext, recruitedFromRow } from "../lib/armyService.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
-import { initSlotsForTown } from "./slots.js";
 
 const router = Router();
 
@@ -28,6 +31,7 @@ function buildRaidActivityMetadata(opts: {
   attackPower: number;
   casualties: number;
   loot?: { gold: number; food: number; wood: number; stone: number };
+  defenderReward?: { gold: number; food: number; wood: number; stone: number };
 }) {
   return opts;
 }
@@ -68,6 +72,18 @@ async function resolveRaid(raid: Raid) {
   if (!defTown) return;
 
   let lootGold = 0, lootFood = 0, lootWood = 0, lootStone = 0;
+  let defenderRewardGold = 0, defenderRewardFood = 0;
+  if (!victory) {
+    const bounty = calculateDefenderBounty(attackPower);
+    defenderRewardGold = bounty.gold;
+    defenderRewardFood = bounty.food;
+    await db.update(townsTable)
+      .set({
+        gold: defTown.gold + defenderRewardGold,
+        food: defTown.food + defenderRewardFood,
+      })
+      .where(eq(townsTable.id, raid.defenderTownId));
+  }
   if (victory) {
     lootGold = defTown.gold * 0.3;
     lootFood = defTown.food * 0.3;
@@ -89,6 +105,9 @@ async function resolveRaid(raid: Raid) {
   await db.update(raidsTable).set({
     status: "resolved",
     result: victory ? "victory" : "defeat",
+    attackPower,
+    defenderRewardGold,
+    defenderRewardFood,
     lootGold,
     lootFood,
     lootWood,
@@ -99,7 +118,13 @@ async function resolveRaid(raid: Raid) {
   const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, raid.attackerTownId)).limit(1);
   if (armyRows.length) {
     const army = armyRows[0];
+    const recruitedNow = recruitedFromRow(army);
+    const deployed = { infantry, archers, cavalry };
+    const afterCasualties = applyCasualties(recruitedNow, deployed, casualties);
     await db.update(armyTable).set({
+      infantry: afterCasualties.infantry,
+      archers: afterCasualties.archers,
+      cavalry: afterCasualties.cavalry,
       onMissionInfantry: Math.max(0, army.onMissionInfantry - infantry),
       onMissionArchers: Math.max(0, army.onMissionArchers - archers),
       onMissionCavalry: Math.max(0, army.onMissionCavalry - cavalry),
@@ -111,6 +136,9 @@ async function resolveRaid(raid: Raid) {
   const attackerName = attackerTown?.name ?? "An enemy";
   const loot = victory
     ? { gold: lootGold, food: lootFood, wood: lootWood, stone: lootStone }
+    : undefined;
+  const defenderReward = !victory
+    ? { gold: defenderRewardGold, food: defenderRewardFood, wood: 0, stone: 0 }
     : undefined;
 
   const outgoingMeta = buildRaidActivityMetadata({
@@ -134,6 +162,7 @@ async function resolveRaid(raid: Raid) {
     attackPower,
     casualties,
     loot,
+    defenderReward,
   });
 
   if (victory) {
@@ -158,7 +187,7 @@ async function resolveRaid(raid: Raid) {
     title: victory ? "Your Kingdom Was Raided!" : "Raid Repelled!",
     body: victory
       ? `${attackerName} raided your kingdom and took ${fmtLoot(lootGold, lootFood, lootWood, lootStone)}.`
-      : `${attackerName} attacked your kingdom but your defenses held!`,
+      : `${attackerName} attacked your kingdom but your defenses held! Bounty: ${fmtLoot(defenderRewardGold, defenderRewardFood, 0, 0)}.`,
     icon: victory ? "shield-alert" : "shield-check",
     iconColor: victory ? "#cc4040" : "#3d7a35",
     metadata: JSON.stringify(incomingMeta),
@@ -212,11 +241,10 @@ router.post("/raids", async (req, res) => {
   const [defTownCheck] = await db.select({ peacefulMode: townsTable.peacefulMode }).from(townsTable).where(eq(townsTable.id, defenderTownId)).limit(1);
   if (defTownCheck?.peacefulMode) return void res.status(403).json({ error: "That kingdom has Peaceful Mode enabled and cannot be raided." });
 
-  await initSlotsForTown(attackerTownId);
-  const attSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, attackerTownId));
-  const attComposition = calculateArmyComposition(attSlots);
-  const armyRows = await db.select().from(armyTable).where(eq(armyTable.townId, attackerTownId)).limit(1);
-  const onMission = armyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
+  const { slots: attSlots, army: attArmy } = await loadArmyContext(attackerTownId);
+  const attRecruited = recruitedFromRow(attArmy);
+  const attComposition = calculateArmyComposition(attSlots, attRecruited);
+  const onMission = attArmy;
 
   const availInfantry = Math.max(0, attComposition.infantry - onMission.onMissionInfantry);
   const availArchers  = Math.max(0, attComposition.archers  - onMission.onMissionArchers);
@@ -232,29 +260,24 @@ router.post("/raids", async (req, res) => {
   const [defTown] = await db.select().from(townsTable).where(eq(townsTable.id, defenderTownId)).limit(1);
   if (!defTown) return void res.status(400).json({ error: "Defender not found" });
 
-  await initSlotsForTown(defenderTownId);
-  const defSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, defenderTownId));
-  const defArmyRows = await db.select().from(armyTable).where(eq(armyTable.townId, defenderTownId)).limit(1);
-  const defOnMission = defArmyRows[0] ?? { onMissionInfantry: 0, onMissionArchers: 0, onMissionCavalry: 0 };
+  const { slots: defSlots, army: defArmy } = await loadArmyContext(defenderTownId);
+  const defRecruited = recruitedFromRow(defArmy);
+  const defOnMission = {
+    onMissionInfantry: defArmy.onMissionInfantry,
+    onMissionArchers: defArmy.onMissionArchers,
+    onMissionCavalry: defArmy.onMissionCavalry,
+  };
 
-  const defenderStrength = calculateTotalDefense(defSlots, defOnMission);
+  const defenderStrength = calculateTotalDefense(defSlots, defRecruited, defOnMission);
+  const projectedAttackPower = calculateRaidAttackPower({ infantry, archers, cavalry });
   const arrivesAt = new Date(Date.now() + RAID_MARCH_DURATION_MS);
 
-  if (armyRows.length) {
-    await db.update(armyTable).set({
-      onMissionInfantry: onMission.onMissionInfantry + infantry,
-      onMissionArchers: onMission.onMissionArchers + archers,
-      onMissionCavalry: onMission.onMissionCavalry + cavalry,
-      updatedAt: new Date(),
-    }).where(eq(armyTable.townId, attackerTownId));
-  } else {
-    await db.insert(armyTable).values({
-      townId: attackerTownId,
-      onMissionInfantry: infantry,
-      onMissionArchers: archers,
-      onMissionCavalry: cavalry,
-    });
-  }
+  await db.update(armyTable).set({
+    onMissionInfantry: onMission.onMissionInfantry + infantry,
+    onMissionArchers: onMission.onMissionArchers + archers,
+    onMissionCavalry: onMission.onMissionCavalry + cavalry,
+    updatedAt: new Date(),
+  }).where(eq(armyTable.townId, attackerTownId));
 
   const [raid] = await db.insert(raidsTable).values({
     attackerTownId,
@@ -285,6 +308,8 @@ router.post("/raids", async (req, res) => {
       [attackerTownId, attackerTown?.name ?? "Unknown"],
       [defenderTownId, defTown.name],
     ])),
+    projectedAttackPower,
+    projectedDefenderStrength: defenderStrength,
   });
 });
 

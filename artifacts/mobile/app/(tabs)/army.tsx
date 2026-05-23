@@ -1,12 +1,37 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import React from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useGetTownArmy, getGetTownArmyQueryKey } from "@workspace/api-client-react";
+import * as Haptics from "expo-haptics";
+import React, { useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetTownArmy,
+  useRecruitArmy,
+  useGetTown,
+  getGetTownArmyQueryKey,
+  getGetTownQueryKey,
+} from "@workspace/api-client-react";
 import type { ColorPalette } from "@/constants/colors";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
+import { formatTimeRemaining } from "@/lib/buildingMeta";
+import { scheduleTrainingComplete } from "@/lib/notifications";
+
+const RECRUIT_COST = {
+  infantry: { gold: 3, food: 2 },
+  archers: { gold: 4, food: 2 },
+  cavalry: { gold: 6, food: 3 },
+} as const;
 
 const unitMeta = (palette: ColorPalette) => ({
   infantry: {
@@ -15,9 +40,7 @@ const unitMeta = (palette: ColorPalette) => ({
     label: "Infantry",
     building: "Barracks",
     buildingIcon: "shield-sword",
-    desc: "Heavy frontline soldiers. Shield archers, boosting their attack by 20%.",
     attackPower: 10,
-    defense: 15,
     perLevel: 5,
   },
   archers: {
@@ -26,9 +49,7 @@ const unitMeta = (palette: ColorPalette) => ({
     label: "Archers",
     building: "Archery Range",
     buildingIcon: "bow-arrow",
-    desc: "Ranged damage dealers. +20% power when shielded by infantry.",
     attackPower: 15,
-    defense: 5,
     perLevel: 5,
   },
   cavalry: {
@@ -37,26 +58,39 @@ const unitMeta = (palette: ColorPalette) => ({
     label: "Cavalry",
     building: "Stables",
     buildingIcon: "horse",
-    desc: "Fast mounted strikers. +10% attack initiative bonus.",
     attackPower: 12,
-    defense: 8,
     perLevel: 3,
   },
 });
 
 type UnitType = keyof ReturnType<typeof unitMeta>;
 
-function UnitRow({ type, total, onMission, attackMult }: {
+function UnitRow({
+  type,
+  recruited,
+  cap,
+  onMission,
+  attackMult,
+  onRecruit,
+  recruiting,
+  canRecruit,
+}: {
   type: UnitType;
-  total: number;
+  recruited: number;
+  cap: number;
   onMission: number;
   attackMult: number;
+  onRecruit: (count: number) => void;
+  recruiting: boolean;
+  canRecruit: boolean;
 }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const meta = unitMeta(colors)[type];
-  const available = Math.max(0, total - onMission);
+  const available = Math.max(0, recruited - onMission);
   const effectiveAttack = Math.round(meta.attackPower * attackMult * 10) / 10;
+  const cost = RECRUIT_COST[type];
+  const atCap = recruited >= cap;
 
   return (
     <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -66,40 +100,51 @@ function UnitRow({ type, total, onMission, attackMult }: {
       <View style={styles.unitBody}>
         <View style={styles.unitHeader}>
           <Text style={[styles.unitName, { color: colors.foreground }]}>{meta.label}</Text>
-          <View style={[styles.unitSource, { backgroundColor: colors.surfaceElevated }]}>
-            <MaterialCommunityIcons name={meta.buildingIcon as any} size={10} color={colors.textSecondary} />
-            <Text style={[styles.unitSourceText, { color: colors.textSecondary }]}>
-              {meta.building} · +{meta.perLevel}/level
-            </Text>
-          </View>
-        </View>
-        <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>{meta.desc}</Text>
-        <View style={styles.unitStats}>
-          <Text style={[styles.stat, { color: colors.foreground }]}>
-            ATK <Text style={{ color: attackMult > 1 ? colors.success : colors.foreground }}>{effectiveAttack}</Text>
+          <Text style={[styles.capText, { color: colors.textSecondary }]}>
+            {recruited}/{cap} · {meta.building}
           </Text>
-          <Text style={[styles.stat, { color: colors.foreground }]}>DEF {meta.defense}</Text>
-          {attackMult > 1 && (
-            <Text style={[styles.statBonus, { color: colors.success }]}>
-              +{Math.round((attackMult - 1) * 100)}% upgrades
-            </Text>
+        </View>
+        <View style={styles.unitStats}>
+          <Text style={[styles.stat, { color: colors.foreground }]}>ATK {effectiveAttack}</Text>
+          <Text style={[styles.stat, { color: colors.gold }]}>Ready {available}</Text>
+          {onMission > 0 && (
+            <Text style={[styles.stat, { color: colors.raid }]}>Out {onMission}</Text>
           )}
         </View>
-      </View>
-      <View style={styles.unitCounts}>
-        <Text style={[styles.unitTotal, { color: colors.foreground }]}>{total}</Text>
-        <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>TOTAL</Text>
-        {onMission > 0 && (
-          <>
-            <Text style={[styles.unitOnMission, { color: colors.raid }]}>{onMission}</Text>
-            <Text style={[styles.unitLabel, { color: colors.raid }]}>OUT</Text>
-          </>
-        )}
-        {available !== total && (
-          <>
-            <Text style={[styles.unitAvailable, { color: colors.gold }]}>{available}</Text>
-            <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>READY</Text>
-          </>
+        {!atCap && cap > 0 && (
+          <View style={styles.recruitRow}>
+            <Pressable
+              style={[
+                styles.recruitBtn,
+                {
+                  borderColor: withAlpha(meta.color, 0.4),
+                  backgroundColor: withAlpha(meta.color, 0.08),
+                  opacity: canRecruit && !recruiting ? 1 : 0.45,
+                },
+              ]}
+              disabled={!canRecruit || recruiting}
+              onPress={() => onRecruit(1)}
+            >
+              <Text style={[styles.recruitBtnText, { color: meta.color }]}>+1</Text>
+              <Text style={[styles.recruitCost, { color: colors.textMuted }]}>
+                {cost.gold}G {cost.food}F
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.recruitBtn,
+                {
+                  borderColor: withAlpha(meta.color, 0.4),
+                  backgroundColor: withAlpha(meta.color, 0.08),
+                  opacity: canRecruit && !recruiting ? 1 : 0.45,
+                },
+              ]}
+              disabled={!canRecruit || recruiting}
+              onPress={() => onRecruit(5)}
+            >
+              <Text style={[styles.recruitBtnText, { color: meta.color }]}>+5</Text>
+            </Pressable>
+          </View>
         )}
       </View>
     </View>
@@ -110,11 +155,54 @@ export default function ArmyScreen() {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const { townId } = useGame();
-  const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
+  const qc = useQueryClient();
+  const { data: army, isLoading, refetch } = useGetTownArmy(townId ?? 0, {
+    query: { enabled: !!townId, refetchInterval: 15_000 } as any,
+  });
+  const { data: town } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
+  const recruitArmy = useRecruitArmy();
+
+  const trainingMs = army?.trainingEndsAt
+    ? Math.max(0, new Date(army.trainingEndsAt).getTime() - Date.now())
+    : 0;
+  const isTraining = trainingMs > 0;
 
   const totalTroops = army?.totalTroops ?? 0;
-  const totalOnMission = (army?.onMissionInfantry ?? 0) + (army?.onMissionArchers ?? 0) + (army?.onMissionCavalry ?? 0);
+  const totalOnMission =
+    (army?.onMissionInfantry ?? 0) + (army?.onMissionArchers ?? 0) + (army?.onMissionCavalry ?? 0);
   const totalPower = army?.totalPower ?? 0;
+
+  const handleRecruit = (unit: UnitType, count: number) => {
+    if (!townId) return;
+    recruitArmy.mutate(
+      { townId, data: { unit, count } },
+      {
+        onSuccess: (data) => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          if (data.trainingEndsAt && data.trainingUnit) {
+            const label = unitMeta(colors)[data.trainingUnit as UnitType]?.label ?? "Troops";
+            void scheduleTrainingComplete(townId, label, data.trainingEndsAt);
+          }
+          qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
+          qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
+        },
+        onError: (e: any) => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          Alert.alert("Recruitment failed", e?.data?.error ?? e?.message ?? "Could not recruit");
+        },
+      },
+    );
+  };
+
+  const canAffordRecruit = (unit: UnitType, count: number) => {
+    const c = RECRUIT_COST[unit];
+    return (
+      (town?.gold ?? 0) >= c.gold * count &&
+      (town?.food ?? 0) >= c.food * count
+    );
+  };
+
+  const trainingBusy = isTraining || recruitArmy.isPending;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -136,8 +224,10 @@ export default function ArmyScreen() {
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>ON MISSION</Text>
-              <Text style={[styles.summaryValue, { color: totalOnMission > 0 ? colors.raid : colors.textSecondary }]}>{totalOnMission}</Text>
+              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>OUT</Text>
+              <Text style={[styles.summaryValue, { color: totalOnMission > 0 ? colors.raid : colors.textSecondary }]}>
+                {totalOnMission}
+              </Text>
             </View>
             <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
             <View style={styles.summaryItem}>
@@ -146,99 +236,69 @@ export default function ArmyScreen() {
             </View>
           </View>
 
+          {isTraining && (
+            <View style={[styles.trainingBanner, { backgroundColor: withAlpha(colors.gold, 0.1), borderColor: withAlpha(colors.gold, 0.35) }]}>
+              <MaterialCommunityIcons name="account-clock" size={18} color={colors.gold} />
+              <Text style={[styles.trainingText, { color: colors.foreground }]}>
+                Training {army?.trainingCount ?? 0}{" "}
+                {army?.trainingUnit ?? "troops"} — {formatTimeRemaining(trainingMs)}
+              </Text>
+            </View>
+          )}
+
           <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated + "aa", borderColor: colors.border }]}>
             <MaterialCommunityIcons name="information-outline" size={14} color={colors.gold} />
             <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              Units are generated automatically by military buildings. Upgrade buildings to make your troops stronger.
+              Military buildings set your troop caps. Recruit with gold and food to fill them — losses on missions and raids
+              must be replaced. Food comes from farms, market imports, tavern kitchens, shipyard fishing, World trade, and
+              mission spoils.
             </Text>
           </View>
 
-          {(army?.ships ?? 0) > 0 && (
-            <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.unitIcon, { backgroundColor: withAlpha(colors.slots.shipyard, 0.12) }]}>
-                <MaterialCommunityIcons name="ferry" size={28} color={colors.slots.shipyard} />
-              </View>
-              <View style={styles.unitBody}>
-                <Text style={[styles.unitName, { color: colors.foreground }]}>Fleet</Text>
-                <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>
-                  Naval missions only. Built from Shipyard (+2 ships per level).
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>RECRUIT</Text>
+
+          {(["infantry", "archers", "cavalry"] as UnitType[]).map((type) => {
+            const capKey = `cap${type.charAt(0).toUpperCase() + type.slice(1)}` as "capInfantry" | "capArchers" | "capCavalry";
+            const cap = (army as any)?.[capKey] ?? 0;
+            if (cap === 0) return null;
+            const onMissionKey =
+              type === "infantry"
+                ? "onMissionInfantry"
+                : type === "archers"
+                  ? "onMissionArchers"
+                  : "onMissionCavalry";
+            const multKey =
+              type === "infantry"
+                ? "infantryAttackMult"
+                : type === "archers"
+                  ? "archerAttackMult"
+                  : "cavalryAttackMult";
+            return (
+              <UnitRow
+                key={type}
+                type={type}
+                recruited={(army as any)?.[type] ?? 0}
+                cap={cap}
+                onMission={(army as any)?.[onMissionKey] ?? 0}
+                attackMult={(army as any)?.[multKey] ?? 1}
+                onRecruit={(n) => handleRecruit(type, n)}
+                recruiting={trainingBusy}
+                canRecruit={!trainingBusy && canAffordRecruit(type, 1)}
+              />
+            );
+          })}
+
+          {(army?.capInfantry ?? 0) === 0 &&
+            (army?.capArchers ?? 0) === 0 &&
+            (army?.capCavalry ?? 0) === 0 && (
+              <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <MaterialCommunityIcons name="castle" size={36} color={colors.textSecondary} />
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No barracks yet</Text>
+                <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
+                  Build Barracks, Archery Range, or Stables in your Kingdom to unlock recruitment.
                 </Text>
               </View>
-              <View style={styles.unitCounts}>
-                <Text style={[styles.unitTotal, { color: colors.foreground }]}>{army?.ships ?? 0}</Text>
-                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>TOTAL</Text>
-                {(army?.onMissionShips ?? 0) > 0 && (
-                  <Text style={[styles.unitOnMission, { color: colors.raid }]}>{army?.onMissionShips}</Text>
-                )}
-                <Text style={[styles.unitAvailable, { color: colors.gold }]}>{army?.availableShips ?? 0}</Text>
-                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>READY</Text>
-              </View>
-            </View>
-          )}
-
-          {(army?.spies ?? 0) > 0 && (
-            <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.unitIcon, { backgroundColor: withAlpha(colors.slots.spyGuild, 0.12) }]}>
-                <MaterialCommunityIcons name="incognito" size={28} color={colors.slots.spyGuild} />
-              </View>
-              <View style={styles.unitBody}>
-                <Text style={[styles.unitName, { color: colors.foreground }]}>Spies</Text>
-                <Text style={[styles.unitDesc, { color: colors.textSecondary }]}>
-                  Espionage on the Missions tab. Spy Guild (+3 per level).
-                </Text>
-              </View>
-              <View style={styles.unitCounts}>
-                <Text style={[styles.unitTotal, { color: colors.foreground }]}>{army?.spies ?? 0}</Text>
-                <Text style={[styles.unitAvailable, { color: colors.gold }]}>{army?.availableSpies ?? 0}</Text>
-                <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>READY</Text>
-              </View>
-            </View>
-          )}
-
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>YOUR FORCES</Text>
-
-          {totalTroops === 0 && (army?.ships ?? 0) === 0 && (army?.spies ?? 0) === 0 ? (
-            <View style={[styles.emptyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <MaterialCommunityIcons name="castle" size={36} color={colors.textSecondary} />
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No troops yet</Text>
-              <Text style={[styles.emptyDesc, { color: colors.textSecondary }]}>
-                Build a Barracks, Archery Range, or Stables in your Kingdom to raise an army.
-              </Text>
-            </View>
-          ) : (
-            (["infantry", "archers", "cavalry"] as UnitType[]).map(type => {
-              const total = (army as any)?.[type] ?? 0;
-              if (total === 0) return null;
-              return (
-                <UnitRow
-                  key={type}
-                  type={type}
-                  total={total}
-                  onMission={(army as any)?.[`onMission${type.charAt(0).toUpperCase() + type.slice(1)}`] ?? 0}
-                  attackMult={(army as any)?.[`${type === "infantry" ? "infantry" : type === "archers" ? "archer" : "cavalry"}AttackMult`] ?? 1}
-                />
-              );
-            })
-          )}
-
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary, marginTop: 8 }]}>BUILDING GUIDE</Text>
-          {[
-            { building: "Barracks",      icon: "shield-sword", color: colors.slots.barracks, unit: "Infantry", formula: "5 troops per level" },
-            { building: "Archery Range", icon: "bow-arrow",    color: colors.slots.archeryRange, unit: "Archers",  formula: "5 troops per level" },
-            { building: "Stables",       icon: "horse",        color: colors.slots.stables, unit: "Cavalry",  formula: "3 troops per level" },
-            { building: "Shipyard",      icon: "ferry",        color: colors.slots.shipyard, unit: "Ships", formula: "2 ships per level" },
-            { building: "Spy Guild",     icon: "incognito",    color: colors.slots.spyGuild, unit: "Spies", formula: "3 spies per level" },
-          ].map(({ building, icon, color, unit, formula }) => (
-            <View key={building} style={[styles.guideRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <View style={[styles.guideIcon, { backgroundColor: withAlpha(color, 0.12) }]}>
-                <MaterialCommunityIcons name={icon as any} size={18} color={color} />
-              </View>
-              <View style={styles.guideText}>
-                <Text style={[styles.guideName, { color: colors.foreground }]}>{building}</Text>
-                <Text style={[styles.guideFormula, { color: colors.textSecondary }]}>→ {unit} · {formula}</Text>
-              </View>
-            </View>
-          ))}
+            )}
         </ScrollView>
       )}
     </View>
@@ -254,6 +314,15 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
   summaryValue: { fontSize: 20, fontFamily: "Inter_700Bold" },
   summaryDivider: { width: 1, marginHorizontal: 4 },
+  trainingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  trainingText: { flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold" },
   infoCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, borderRadius: 8, borderWidth: 1 },
   infoText: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 16 },
   sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
@@ -262,23 +331,14 @@ const styles = StyleSheet.create({
   emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
   unitCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12, borderRadius: 10, borderWidth: 1 },
   unitIcon: { width: 52, height: 52, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  unitBody: { flex: 1, gap: 4 },
-  unitHeader: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  unitBody: { flex: 1, gap: 6 },
+  unitHeader: { gap: 2 },
   unitName: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  unitSource: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  unitSourceText: { fontSize: 9, fontFamily: "Inter_400Regular" },
-  unitDesc: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16 },
+  capText: { fontSize: 10, fontFamily: "Inter_400Regular" },
   unitStats: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   stat: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  statBonus: { fontSize: 10, fontFamily: "Inter_600SemiBold" },
-  unitCounts: { alignItems: "center", gap: 1 },
-  unitTotal: { fontSize: 22, fontFamily: "Inter_700Bold" },
-  unitOnMission: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  unitAvailable: { fontSize: 14, fontFamily: "Inter_700Bold" },
-  unitLabel: { fontSize: 8, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
-  guideRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 8, borderWidth: 1 },
-  guideIcon: { width: 36, height: 36, borderRadius: 8, alignItems: "center", justifyContent: "center" },
-  guideText: { flex: 1 },
-  guideName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
-  guideFormula: { fontSize: 11, fontFamily: "Inter_400Regular" },
+  recruitRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  recruitBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, alignItems: "center", minWidth: 56 },
+  recruitBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  recruitCost: { fontSize: 9, fontFamily: "Inter_400Regular", marginTop: 2 },
 });

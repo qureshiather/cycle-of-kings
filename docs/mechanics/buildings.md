@@ -47,6 +47,7 @@ Example bases (level 1 → 2 uses ×1.8):
 - Base minutes per building type (e.g. Farm 5m, Monument 25m).
 - Duration doubles per level step: `base × 2^(currentLevel−1)` minutes.
 - **Town Hall** speeds all builds: **5% faster per TH level above 1**, down to **55%** of raw time at high TH (multiplier floor 0.55).
+- **Construction queue:** at most **1** active build/upgrade (TH1–2), **2** (TH3–4), or **3** (TH5+) at once.
 
 ## Town Hall special rules
 
@@ -59,15 +60,16 @@ Example bases (level 1 → 2 uses ×1.8):
 | Building | Primary effect |
 |----------|----------------|
 | **Town Hall** | Gold, build speed, mission slots, pop cap component |
-| **Farm** | Food production |
+| **Farm** | Primary food production |
 | **House** | **Population cap** (+15 per level); no troop cap |
 | **Lumber Mill / Quarry / Mine** | Wood / stone / gold production |
-| **Market** | Gold; unlocks Spy Guild |
+| **Market** | Gold + imported food; unlocks Spy Guild |
+| **Tavern** | Food surplus, morale & population growth |
 | **Wall / Tower** | Static defense |
 | **Barracks / Archery / Stables** | Infantry / archers / cavalry counts & attack upgrades |
-| **Tavern / Museum / Monument** | Morale & population growth; economy score |
+| **Museum / Monument** | Morale & population growth; economy score |
 | **Spy Guild** | Spies; espionage board |
-| **Shipyard** | Ships; naval missions on the board |
+| **Shipyard** | Ships, fishing food, naval missions on the board |
 
 ### Population cap formula
 

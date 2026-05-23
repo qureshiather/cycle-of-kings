@@ -22,6 +22,10 @@ export interface Raid {
   attackerCavalry: number;
   attackerCatapults: number;
   defenderStrength: number;
+  /** Attacker attack power at battle resolution (null while marching) */
+  attackPower?: number | null;
+  defenderRewardGold: number;
+  defenderRewardFood: number;
   lootGold: number;
   lootFood: number;
   lootWood: number;
