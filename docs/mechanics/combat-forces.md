@@ -49,6 +49,7 @@ Raids compare attacker sent troops vs defender **totalDefense** (not static alon
 - Attacker picks infantry/archers/cavalry (must have at least one troop).
 - **Peaceful** kingdoms cannot raid or be raided ([world-meta.md](./world-meta.md)).
 - **Ships and spies cannot raid.**
+- After dispatch, troops **march for 2 hours** before combat resolves. Sent troops are unavailable until the raid finishes (same pool as missions).
 
 ### Combat resolution
 

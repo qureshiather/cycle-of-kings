@@ -476,6 +476,27 @@ export const GetActivitiesResponseItem = zod.object({
   "stone": zod.number().optional()
 }).optional(),
   "casualties": zod.number().optional()
+}),zod.object({
+  "raidTitle": zod.string(),
+  "role": zod.enum(['attacker', 'defender']),
+  "success": zod.boolean(),
+  "opponentTownName": zod.string(),
+  "attackerTroops": zod.object({
+  "infantry": zod.number(),
+  "archers": zod.number(),
+  "cavalry": zod.number(),
+  "mercenaries": zod.number().optional(),
+  "total": zod.number()
+}),
+  "defenderStrength": zod.number(),
+  "attackPower": zod.number(),
+  "loot": zod.object({
+  "gold": zod.number().optional(),
+  "food": zod.number().optional(),
+  "wood": zod.number().optional(),
+  "stone": zod.number().optional()
+}).optional(),
+  "casualties": zod.number().optional()
 }),zod.null()]).optional(),
   "createdAt": zod.string()
 })
@@ -495,7 +516,9 @@ export const GetTownRaidsResponseItem = zod.object({
   "attackerTownName": zod.string(),
   "defenderTownId": zod.number(),
   "defenderTownName": zod.string(),
-  "result": zod.enum(['victory', 'defeat']),
+  "status": zod.enum(['marching', 'resolved']),
+  "result": zod.enum(['victory', 'defeat']).nullish(),
+  "arrivesAt": zod.string(),
   "attackerInfantry": zod.number(),
   "attackerArchers": zod.number(),
   "attackerCavalry": zod.number(),

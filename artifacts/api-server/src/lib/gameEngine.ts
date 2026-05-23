@@ -324,6 +324,9 @@ export function getUpgradeDurationMs(
   return Math.round(raw * buildSpeedMultiplier);
 }
 
+/** PvP raid march time before combat resolves (ms). */
+export const RAID_MARCH_DURATION_MS = 2 * 60 * 60 * 1000;
+
 export interface CombatForces { infantry: number; archers: number; cavalry: number; }
 
 export function simulateCombat(attacker: CombatForces, defenderStrength: number): { victory: boolean; casualties: number; attackPower: number } {

@@ -346,7 +346,15 @@ export interface TradeDealExecuteResult {
   stone: number;
 }
 
-export type RaidResult = typeof RaidResult[keyof typeof RaidResult];
+export type RaidStatus = typeof RaidStatus[keyof typeof RaidStatus];
+
+
+export const RaidStatus = {
+  marching: 'marching',
+  resolved: 'resolved',
+} as const;
+
+export type RaidResult = typeof RaidResult[keyof typeof RaidResult] | null;
 
 
 export const RaidResult = {
@@ -360,7 +368,9 @@ export interface Raid {
   attackerTownName: string;
   defenderTownId: number;
   defenderTownName: string;
-  result: RaidResult;
+  status: RaidStatus;
+  result?: RaidResult;
+  arrivesAt: string;
   attackerInfantry: number;
   attackerArchers: number;
   attackerCavalry: number;
@@ -407,6 +417,33 @@ export interface MissionActivityMetadata {
   casualties?: number;
 }
 
+export type RaidActivityMetadataRole = typeof RaidActivityMetadataRole[keyof typeof RaidActivityMetadataRole];
+
+
+export const RaidActivityMetadataRole = {
+  attacker: 'attacker',
+  defender: 'defender',
+} as const;
+
+export type RaidActivityMetadataLoot = {
+  gold?: number;
+  food?: number;
+  wood?: number;
+  stone?: number;
+};
+
+export interface RaidActivityMetadata {
+  raidTitle: string;
+  role: RaidActivityMetadataRole;
+  success: boolean;
+  opponentTownName: string;
+  attackerTroops: MissionTroopSide;
+  defenderStrength: number;
+  attackPower: number;
+  loot?: RaidActivityMetadataLoot;
+  casualties?: number;
+}
+
 export interface Activity {
   id: number;
   townId: number;
@@ -415,7 +452,7 @@ export interface Activity {
   body: string;
   icon: string;
   iconColor: string;
-  metadata?: MissionActivityMetadata | null;
+  metadata?: MissionActivityMetadata | RaidActivityMetadata | null;
   createdAt: string;
 }
 

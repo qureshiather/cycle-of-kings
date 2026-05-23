@@ -9,11 +9,13 @@ import {
   calculateShipCount,
 } from "../lib/gameEngine.js";
 import { initSlotsForTown } from "./slots.js";
+import { resolvePendingRaidsForTown } from "./raids.js";
 
 const router = Router();
 
 router.get("/towns/:townId/army", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
+  await resolvePendingRaidsForTown(townId);
   await initSlotsForTown(townId);
   const slots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
   const composition = calculateArmyComposition(slots);

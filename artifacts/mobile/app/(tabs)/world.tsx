@@ -17,7 +17,9 @@ import {
   getGetTownQueryKey,
   getGetTownTradesQueryKey,
 } from "@workspace/api-client-react";
+import RaidActivitySummaryModal from "@/components/RaidActivitySummaryModal";
 import ModalOverlay from "@/components/ui/ModalOverlay";
+import { buildRaidSummaryFromRecord, type RaidActivityMetadata } from "@/lib/raidMeta";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
@@ -40,6 +42,15 @@ function refreshTimeLeft(refreshesAt: string): string {
   return `${mins}m until new deals`;
 }
 
+function marchTimeLeft(arrivesAt: string): string {
+  const ms = new Date(arrivesAt).getTime() - Date.now();
+  if (ms <= 0) return "Battle imminent…";
+  const mins = Math.floor(ms / 60000);
+  const hrs = Math.floor(mins / 60);
+  if (hrs > 0) return `${hrs}h ${mins % 60}m until battle`;
+  return `${mins}m until battle`;
+}
+
 export default function WorldScreen() {
   const colors = useColors();
   const { withAlpha } = useTheme();
@@ -53,10 +64,16 @@ export default function WorldScreen() {
   const [cavalry, setCavalry] = useState(0);
   const [raidError, setRaidError] = useState<string | null>(null);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [raidSummary, setRaidSummary] = useState<RaidActivityMetadata | null>(null);
 
   const { data: leaderboard, isLoading: lbLoading } = useGetLeaderboard({ query: { refetchInterval: 120_000 } as any });
   const { data: towns } = useListTowns({ query: { staleTime: 60_000 } as any });
-  const { data: raids, isLoading: raidsLoading } = useGetTownRaids(townId ?? 0, { query: { enabled: !!townId } as any });
+  const { data: raids, isLoading: raidsLoading } = useGetTownRaids(townId ?? 0, {
+    query: {
+      enabled: !!townId,
+      refetchInterval: activeTab === "raids" ? 30_000 : false,
+    } as any,
+  });
   const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: myTown } = useGetTown(townId ?? 0, { query: { enabled: !!townId } as any });
   const { data: tradeData, isLoading: tradesLoading } = useGetTownTrades(townId ?? 0, {
@@ -77,14 +94,13 @@ export default function WorldScreen() {
     launchRaid.mutate(
       { data: { attackerTownId: townId, defenderTownId: selectedTarget.id, infantry, archers, cavalry, catapults: 0 } },
       {
-        onSuccess: (result) => {
-          Haptics.notificationAsync(
-            result.result === "victory" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Error,
-          );
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           setSelectedTarget(null);
           setInfantry(0);
           setArchers(0);
           setCavalry(0);
+          setActiveTab("raids");
           qc.invalidateQueries({ queryKey: getGetTownRaidsQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
           qc.invalidateQueries({ queryKey: getGetTownQueryKey(townId) });
@@ -237,9 +253,66 @@ export default function WorldScreen() {
           ) : (
             (raids ?? []).map((raid: any) => {
               const isAttacker = raid.attackerTownId === townId;
+              const marching = raid.status === "marching";
               const victory = raid.result === "victory";
-              const resultColor = victory ? colors.food : colors.destructive;
-              return (
+              const resultColor = marching ? colors.gold : victory ? colors.food : colors.destructive;
+              const summary = !marching && townId ? buildRaidSummaryFromRecord(raid, townId) : null;
+              const cardBody = (
+                <>
+                  <View style={styles.raidHeader}>
+                    <MaterialCommunityIcons
+                      name={marching ? "map-marker-path" : victory ? "sword" : "shield-off"}
+                      size={16}
+                      color={resultColor}
+                    />
+                    <Text style={[styles.raidTitle, { color: colors.foreground }]}>
+                      {isAttacker
+                        ? marching
+                          ? `Marching on ${raid.defenderTownName}`
+                          : `Attacked ${raid.defenderTownName}`
+                        : marching
+                          ? `Incoming raid from ${raid.attackerTownName}`
+                          : `Defended vs ${raid.attackerTownName}`}
+                    </Text>
+                    <Text style={[styles.raidResult, { color: resultColor }]}>
+                      {marching ? "MARCHING" : (raid.result ?? "").toUpperCase()}
+                    </Text>
+                  </View>
+                  {marching && raid.arrivesAt && (
+                    <Text style={[styles.raidLoot, { color: colors.gold }]}>{marchTimeLeft(raid.arrivesAt)}</Text>
+                  )}
+                  {!marching && victory && isAttacker && (
+                    <Text style={[styles.raidLoot, { color: colors.gold }]}>
+                      Looted: {Math.round(raid.lootGold)}g {Math.round(raid.lootFood)}f {Math.round(raid.lootWood)}w{" "}
+                      {Math.round(raid.lootStone)}s
+                    </Text>
+                  )}
+                  {!marching && raid.attackerCasualties > 0 && isAttacker && (
+                    <Text style={[styles.raidCas, { color: colors.destructive }]}>{raid.attackerCasualties} casualties</Text>
+                  )}
+                  <Text style={[styles.raidDate, { color: colors.textSecondary }]}>
+                    {marching && raid.arrivesAt
+                      ? `Dispatched ${new Date(raid.createdAt).toLocaleDateString()}`
+                      : new Date(raid.createdAt).toLocaleDateString()}
+                  </Text>
+                  {summary && (
+                    <Text style={[styles.raidTapHint, { color: resultColor }]}>Tap for raid summary</Text>
+                  )}
+                </>
+              );
+              return summary ? (
+                <TouchableOpacity
+                  key={raid.id}
+                  style={[
+                    styles.raidCard,
+                    { backgroundColor: colors.surface, borderColor: resultColor + "33", borderLeftColor: resultColor, borderLeftWidth: 3 },
+                  ]}
+                  onPress={() => setRaidSummary(summary)}
+                  activeOpacity={0.75}
+                >
+                  {cardBody}
+                </TouchableOpacity>
+              ) : (
                 <View
                   key={raid.id}
                   style={[
@@ -247,25 +320,7 @@ export default function WorldScreen() {
                     { backgroundColor: colors.surface, borderColor: resultColor + "33", borderLeftColor: resultColor, borderLeftWidth: 3 },
                   ]}
                 >
-                  <View style={styles.raidHeader}>
-                    <MaterialCommunityIcons name={victory ? "sword" : "shield-off"} size={16} color={resultColor} />
-                    <Text style={[styles.raidTitle, { color: colors.foreground }]}>
-                      {isAttacker ? `Attacked ${raid.defenderTownName}` : `Defended vs ${raid.attackerTownName}`}
-                    </Text>
-                    <Text style={[styles.raidResult, { color: resultColor }]}>{raid.result.toUpperCase()}</Text>
-                  </View>
-                  {victory && isAttacker && (
-                    <Text style={[styles.raidLoot, { color: colors.gold }]}>
-                      Looted: {Math.round(raid.lootGold)}g {Math.round(raid.lootFood)}f {Math.round(raid.lootWood)}w{" "}
-                      {Math.round(raid.lootStone)}s
-                    </Text>
-                  )}
-                  {raid.attackerCasualties > 0 && isAttacker && (
-                    <Text style={[styles.raidCas, { color: colors.destructive }]}>{raid.attackerCasualties} casualties</Text>
-                  )}
-                  <Text style={[styles.raidDate, { color: colors.textSecondary }]}>
-                    {new Date(raid.createdAt).toLocaleDateString()}
-                  </Text>
+                  {cardBody}
                 </View>
               );
             })
@@ -385,13 +440,19 @@ export default function WorldScreen() {
         </ScrollView>
       )}
 
+      <RaidActivitySummaryModal
+        visible={!!raidSummary}
+        metadata={raidSummary}
+        onClose={() => setRaidSummary(null)}
+      />
+
       <Modal visible={!!selectedTarget} transparent animationType="slide" onRequestClose={() => setSelectedTarget(null)}>
         <ModalOverlay onPress={() => setSelectedTarget(null)}>
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
             <View style={[styles.raidSheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
               <Text style={[styles.raidSheetTitle, { color: colors.foreground }]}>Raid {selectedTarget?.name}</Text>
               <Text style={[styles.raidSheetDesc, { color: colors.textSecondary }]}>
-                Deployed troops can't defend. Victory grants 30% of their resources.
+                Troops march for 2 hours before battle. Deployed troops can't defend. Victory grants 30% of their resources.
               </Text>
 
               {(
@@ -439,7 +500,7 @@ export default function WorldScreen() {
               >
                 <MaterialCommunityIcons name="sword" size={16} color={colors.destructiveForeground} />
                 <Text style={[styles.launchText, { color: colors.destructiveForeground }]}>
-                  {launchRaid.isPending ? "Attacking..." : "Launch Raid"}
+                  {launchRaid.isPending ? "Dispatching..." : "Send Raid (2h march)"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -485,6 +546,7 @@ const styles = StyleSheet.create({
   raidLoot: { fontSize: 12, fontFamily: "Inter_400Regular" },
   raidCas: { fontSize: 11, fontFamily: "Inter_400Regular" },
   raidDate: { fontSize: 10, fontFamily: "Inter_400Regular" },
+  raidTapHint: { fontSize: 11, fontFamily: "Inter_600SemiBold", marginTop: 2 },
   tradeBanner: {
     flexDirection: "row",
     alignItems: "center",

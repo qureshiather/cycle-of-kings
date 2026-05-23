@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MissionActivityMetadata } from './missionActivityMetadata';
+import type { RaidActivityMetadata } from './raidActivityMetadata';
 
 export interface Activity {
   id: number;
@@ -15,6 +16,6 @@ export interface Activity {
   body: string;
   icon: string;
   iconColor: string;
-  metadata?: MissionActivityMetadata | null;
+  metadata?: MissionActivityMetadata | RaidActivityMetadata | null;
   createdAt: string;
 }

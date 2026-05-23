@@ -505,7 +505,7 @@ paths:
               $ref: "#/components/schemas/RaidOrder"
       responses:
         "201":
-          description: Raid result
+          description: Raid launched (marching) or resolved record
           content:
             application/json:
               schema:
@@ -865,16 +865,21 @@ components:
 
     Raid:
       type: object
-      required: [id, attackerTownId, attackerTownName, defenderTownId, defenderTownName, result, attackerInfantry, attackerArchers, attackerCavalry, attackerCatapults, defenderStrength, lootGold, lootFood, lootWood, lootStone, attackerCasualties, createdAt]
+      required: [id, attackerTownId, attackerTownName, defenderTownId, defenderTownName, status, attackerInfantry, attackerArchers, attackerCavalry, attackerCatapults, defenderStrength, lootGold, lootFood, lootWood, lootStone, attackerCasualties, createdAt, arrivesAt]
       properties:
         id: { type: integer }
         attackerTownId: { type: integer }
         attackerTownName: { type: string }
         defenderTownId: { type: integer }
         defenderTownName: { type: string }
+        status:
+          type: string
+          enum: [marching, resolved]
         result:
           type: string
+          nullable: true
           enum: [victory, defeat]
+        arrivesAt: { type: string }
         attackerInfantry: { type: integer }
         attackerArchers: { type: integer }
         attackerCavalry: { type: integer }
@@ -927,6 +932,29 @@ components:
             stone: { type: number }
         casualties: { type: integer }
 
+    RaidActivityMetadata:
+      type: object
+      required: [raidTitle, role, success, opponentTownName, attackerTroops, defenderStrength, attackPower]
+      properties:
+        raidTitle: { type: string }
+        role:
+          type: string
+          enum: [attacker, defender]
+        success: { type: boolean }
+        opponentTownName: { type: string }
+        attackerTroops:
+          $ref: "#/components/schemas/MissionTroopSide"
+        defenderStrength: { type: number }
+        attackPower: { type: number }
+        loot:
+          type: object
+          properties:
+            gold: { type: number }
+            food: { type: number }
+            wood: { type: number }
+            stone: { type: number }
+        casualties: { type: integer }
+
     Activity:
       type: object
       required: [id, townId, type, title, body, icon, iconColor, createdAt]
@@ -941,6 +969,7 @@ components:
         metadata:
           oneOf:
             - $ref: "#/components/schemas/MissionActivityMetadata"
+            - $ref: "#/components/schemas/RaidActivityMetadata"
             - type: "null"
         createdAt: { type: string }
 

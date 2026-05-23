@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type RaidResult = typeof RaidResult[keyof typeof RaidResult] | null;
+export type RaidStatus = typeof RaidStatus[keyof typeof RaidStatus];
 
 
-export const RaidResult = {
-  victory: 'victory',
-  defeat: 'defeat',
+export const RaidStatus = {
+  marching: 'marching',
+  resolved: 'resolved',
 } as const;

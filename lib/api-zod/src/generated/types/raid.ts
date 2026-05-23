@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RaidResult } from './raidResult';
+import type { RaidStatus } from './raidStatus';
 
 export interface Raid {
   id: number;
@@ -13,7 +14,9 @@ export interface Raid {
   attackerTownName: string;
   defenderTownId: number;
   defenderTownName: string;
-  result: RaidResult;
+  status: RaidStatus;
+  result?: RaidResult;
+  arrivesAt: string;
   attackerInfantry: number;
   attackerArchers: number;
   attackerCavalry: number;

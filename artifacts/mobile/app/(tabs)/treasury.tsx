@@ -6,6 +6,7 @@ import { useGetActivities } from "@workspace/api-client-react";
 import type { Activity } from "@workspace/api-client-react";
 import AchievementsModal from "@/components/AchievementsModal";
 import MissionActivitySummaryModal from "@/components/MissionActivitySummaryModal";
+import RaidActivitySummaryModal from "@/components/RaidActivitySummaryModal";
 import TabBadge from "@/components/TabBadge";
 import ScreenHeader from "@/components/ScreenHeader";
 import SettingsPanel from "@/components/SettingsPanel";
@@ -13,8 +14,15 @@ import { useColors } from "@/hooks/useColors";
 import { useActivityUnread } from "@/hooks/useActivityUnread";
 import { useGame } from "@/context/GameContext";
 import { parseMissionActivityMetadata, type MissionActivityMetadata } from "@/lib/missionMeta";
+import { parseRaidActivityMetadata, type RaidActivityMetadata } from "@/lib/raidMeta";
 
 const MISSION_RESULT_TYPES = new Set(["mission_success", "mission_fail"]);
+const RAID_RESULT_TYPES = new Set([
+  "raid_outgoing_win",
+  "raid_outgoing_loss",
+  "raid_incoming_win",
+  "raid_incoming_loss",
+]);
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -48,6 +56,7 @@ export default function ActivityScreen() {
   const { townId } = useGame();
   const [activeTab, setActiveTab] = useState<"activity" | "settings">("activity");
   const [missionSummary, setMissionSummary] = useState<MissionActivityMetadata | null>(null);
+  const [raidSummary, setRaidSummary] = useState<RaidActivityMetadata | null>(null);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
   const { unreadCount, markAllRead } = useActivityUnread();
 
@@ -151,7 +160,10 @@ export default function ActivityScreen() {
               const missionMeta = MISSION_RESULT_TYPES.has(item.type)
                 ? parseMissionActivityMetadata(item.metadata)
                 : null;
-              const tappable = !!missionMeta || isAchievement;
+              const raidMeta = RAID_RESULT_TYPES.has(item.type)
+                ? parseRaidActivityMetadata(item.metadata)
+                : null;
+              const tappable = !!missionMeta || !!raidMeta || isAchievement;
               const displayIcon = (item.icon || (isAchievement ? "trophy" : "bell-outline")) as any;
 
               const cardInner = (
@@ -167,7 +179,11 @@ export default function ActivityScreen() {
                     <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>{item.body}</Text>
                     {tappable && (
                       <Text style={[styles.tapHint, { color: color }]}>
-                        {isAchievement ? "Tap to view achievements" : "Tap for battle summary"}
+                        {isAchievement
+                          ? "Tap to view achievements"
+                          : raidMeta
+                            ? "Tap for raid summary"
+                            : "Tap for battle summary"}
                       </Text>
                     )}
                   </View>
@@ -199,6 +215,7 @@ export default function ActivityScreen() {
                       style={[styles.card, { backgroundColor: bg, borderColor: color + "40" }]}
                       onPress={() => {
                         if (isAchievement) setAchievementsOpen(true);
+                        else if (raidMeta) setRaidSummary(raidMeta);
                         else if (missionMeta) setMissionSummary(missionMeta);
                       }}
                       activeOpacity={0.75}
@@ -224,6 +241,11 @@ export default function ActivityScreen() {
         visible={!!missionSummary}
         metadata={missionSummary}
         onClose={() => setMissionSummary(null)}
+      />
+      <RaidActivitySummaryModal
+        visible={!!raidSummary}
+        metadata={raidSummary}
+        onClose={() => setRaidSummary(null)}
       />
       <AchievementsModal visible={achievementsOpen} onClose={() => setAchievementsOpen(false)} />
     </View>
