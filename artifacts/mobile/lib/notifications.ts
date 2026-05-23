@@ -1,18 +1,39 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 const PREFS_KEY = "notifications_enabled";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+type ExpoNotifications = typeof import("expo-notifications");
+
+let notificationsModule: ExpoNotifications | null | undefined;
+
+/** Local notifications are unavailable in Expo Go on Android (SDK 53+). */
+export function isLocalNotificationsAvailable(): boolean {
+  return !(Constants.appOwnership === "expo" && Platform.OS === "android");
+}
+
+function getNotifications(): ExpoNotifications | null {
+  if (!isLocalNotificationsAvailable()) return null;
+  if (notificationsModule !== undefined) return notificationsModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("expo-notifications") as ExpoNotifications;
+    mod.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    notificationsModule = mod;
+  } catch {
+    notificationsModule = null;
+  }
+  return notificationsModule;
+}
 
 export async function areNotificationsEnabled(): Promise<boolean> {
   const v = await AsyncStorage.getItem(PREFS_KEY);
@@ -22,12 +43,17 @@ export async function areNotificationsEnabled(): Promise<boolean> {
 export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(PREFS_KEY, enabled ? "true" : "false");
   if (!enabled) {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    const Notifications = getNotifications();
+    if (Notifications) {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    }
   }
 }
 
 export async function requestPermissionIfNeeded(): Promise<boolean> {
   if (!(await areNotificationsEnabled())) return false;
+  const Notifications = getNotifications();
+  if (!Notifications) return false;
 
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === "granted") return true;
@@ -43,6 +69,9 @@ async function scheduleIfEnabled(
   date: Date,
 ): Promise<void> {
   if (!(await areNotificationsEnabled())) return;
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+
   const granted = await requestPermissionIfNeeded();
   if (!granted) return;
 
@@ -114,6 +143,9 @@ export async function scheduleTrainingComplete(
 }
 
 export async function cancelAllForTown(townId: number): Promise<void> {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
+
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const prefix = new RegExp(`^(upgrade|training|mission|raid)-${townId}-`);
   for (const n of scheduled) {
@@ -124,5 +156,8 @@ export async function cancelAllForTown(townId: number): Promise<void> {
 }
 
 export async function cancelAllScheduled(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  const Notifications = getNotifications();
+  if (Notifications) {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  }
 }

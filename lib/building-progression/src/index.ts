@@ -199,6 +199,18 @@ export function canFirstTimeBuild(slotType: string, slots: SlotLike[]): boolean 
   return getBuildBlockReason(slotType, slots) === null;
 }
 
+/** Kingdom UI: show built plots and empty plots whose prerequisites are met. */
+export function isBuildingUnlocked(slotType: string, slots: SlotLike[]): boolean {
+  return canFirstTimeBuild(slotType, slots);
+}
+
+export function unlockedBuildingsInCategory(
+  category: BuildingCategory,
+  slots: SlotLike[],
+): SlotType[] {
+  return BUILDINGS_BY_CATEGORY[category].filter((slotType) => isBuildingUnlocked(slotType, slots));
+}
+
 export function formatRequirementHint(slotType: SlotType): string {
   return formatRequirementParts(slotType).join(" · ");
 }

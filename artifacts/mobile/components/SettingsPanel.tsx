@@ -19,7 +19,12 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
-import { areNotificationsEnabled, setNotificationsEnabled, cancelAllForTown } from "@/lib/notifications";
+import {
+  areNotificationsEnabled,
+  setNotificationsEnabled,
+  cancelAllForTown,
+  isLocalNotificationsAvailable,
+} from "@/lib/notifications";
 
 export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   const colors = useColors();
@@ -178,11 +183,14 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
           <View style={{ flex: 1 }}>
             <Text style={[styles.resetLabel, { color: colors.foreground }]}>Local notifications</Text>
             <Text style={[styles.linkDesc, { color: colors.textSecondary }]}>
-              Upgrades, missions, raids, and training
+              {isLocalNotificationsAvailable()
+                ? "Upgrades, missions, raids, and training"
+                : "Requires a development build on Android (not available in Expo Go)"}
             </Text>
           </View>
           <Switch
-            value={notifEnabled}
+            value={notifEnabled && isLocalNotificationsAvailable()}
+            disabled={!isLocalNotificationsAvailable()}
             onValueChange={(v) => {
               setNotifEnabled(v);
               void setNotificationsEnabled(v);

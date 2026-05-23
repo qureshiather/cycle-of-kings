@@ -2,11 +2,11 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   BUILDING_CATEGORY_LABELS,
   BUILDING_CATEGORY_ORDER,
-  BUILDINGS_BY_CATEGORY,
   formatRequirementHint,
   getBuildBlockReason,
   getMaxConcurrentUpgrades,
   getTownHallLevel,
+  unlockedBuildingsInCategory,
   type BuildingCategory,
   type SlotType,
 } from "@workspace/building-progression";
@@ -159,7 +159,7 @@ export default function KingdomMap({
       setCollapsedSections((prev) => {
         const next = { ...prev };
         for (const category of BUILDING_CATEGORY_ORDER) {
-          const hasActionable = BUILDINGS_BY_CATEGORY[category].some(
+          const hasActionable = unlockedBuildingsInCategory(category, slotsForRules).some(
             (slotType) => buildStateByType.get(slotType)?.actionable,
           );
           if (hasActionable) next[category] = false;
@@ -168,7 +168,7 @@ export default function KingdomMap({
       });
     }
     prevActionableRef.current = actionableCount;
-  }, [actionableCount, buildStateByType]);
+  }, [actionableCount, buildStateByType, slotsForRules]);
 
   function canAfford(slotType: string, level: number): boolean {
     return canAffordCost(getBuildingCost(slotType, level), owned);
@@ -304,7 +304,8 @@ export default function KingdomMap({
               : category === "culture"
                 ? colors.gold
                 : colors.military;
-          const categorySlots = BUILDINGS_BY_CATEGORY[category];
+          const categorySlots = unlockedBuildingsInCategory(category, slotsForRules);
+          if (categorySlots.length === 0) return null;
           const sortedSlots = [...categorySlots].sort((a, b) => {
             const rank = (slotType: string) => {
               const state = buildStateByType.get(slotType);
