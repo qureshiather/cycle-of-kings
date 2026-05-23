@@ -50,6 +50,8 @@ const ECONOMY_WEIGHTS: Record<string, number> = {
 
 /** Balance knobs — tune in one place. */
 export const FOOD_PER_CAPITA = 0.4;
+/** Ongoing food drain per recruited troop per hour (missions/raids still count). */
+export const TROOP_FOOD_UPKEEP = 0.4;
 export const POP_GROWTH_BASE = 1.5;
 export const POP_DEPOP_RATE = 0.08;
 export const POP_FLOOR = 5;
@@ -189,6 +191,10 @@ export function getUnitCaps(slots: SlotLike[]): RecruitedTroops {
   return { infantry: bLevel * 5, archers: aLevel * 5, cavalry: sLevel * 3 };
 }
 
+export function getTotalTroopCap(caps: RecruitedTroops): number {
+  return caps.infantry + caps.archers + caps.cavalry;
+}
+
 export function calculateArmyComposition(slots: SlotLike[], recruited: RecruitedTroops): ArmyComposition {
   const bLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "barracks"));
   const aLevel = effectiveSlotLevel(slots.find((s) => s.slotType === "archeryRange"));
@@ -263,6 +269,10 @@ export function calculateMorale(slots: SlotLike[]): number {
 
 export function calculateFoodUpkeepPerHour(population: number): number {
   return Math.max(0, population) * FOOD_PER_CAPITA;
+}
+
+export function calculateTroopFoodUpkeepPerHour(totalTroops: number): number {
+  return Math.max(0, totalTroops) * TROOP_FOOD_UPKEEP;
 }
 
 /** True when farms can feed people (stockpile or production beats upkeep at current pop). */
@@ -432,6 +442,7 @@ export function applyFullTick(
   },
   slots: SlotLike[],
   production: { gold: number; food: number; wood: number; stone: number },
+  totalTroops: number = 0,
 ): {
   gold: number;
   food: number;
@@ -449,8 +460,9 @@ export function applyFullTick(
     stone: town.stone + production.stone * hours,
   };
 
-  const upkeep = calculateFoodUpkeepPerHour(town.population) * hours;
-  resources.food -= upkeep;
+  const popUpkeep = calculateFoodUpkeepPerHour(town.population) * hours;
+  const troopUpkeep = calculateTroopFoodUpkeepPerHour(totalTroops) * hours;
+  resources.food -= popUpkeep + troopUpkeep;
 
   const cap = calculatePopulationCap(slots);
   const morale = calculateMorale(slots);

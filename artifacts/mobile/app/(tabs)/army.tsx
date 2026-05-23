@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -24,14 +24,17 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import ScreenHeader from "@/components/ScreenHeader";
+import ResourceCostRow from "@/components/ResourceCostRow";
 import { formatTimeRemaining } from "@/lib/buildingMeta";
+import {
+  formatUpkeepPerHour,
+  recruitCost,
+  totalTroopCap,
+  TROOP_FOOD_UPKEEP_PER_HOUR,
+  type ArmyUnitType,
+} from "@/lib/armyMeta";
 import { scheduleTrainingComplete } from "@/lib/notifications";
-
-const RECRUIT_COST = {
-  infantry: { gold: 3, food: 2 },
-  archers: { gold: 4, food: 2 },
-  cavalry: { gold: 6, food: 3 },
-} as const;
+import { canAffordCost, formatResourceRate, normalizeResources } from "@/lib/resourceMeta";
 
 const unitMeta = (palette: ColorPalette) => ({
   infantry: {
@@ -39,31 +42,23 @@ const unitMeta = (palette: ColorPalette) => ({
     color: palette.slots.barracks,
     label: "Infantry",
     building: "Barracks",
-    buildingIcon: "shield-sword",
     attackPower: 10,
-    perLevel: 5,
   },
   archers: {
     icon: "bow-arrow",
     color: palette.slots.archeryRange,
     label: "Archers",
     building: "Archery Range",
-    buildingIcon: "bow-arrow",
     attackPower: 15,
-    perLevel: 5,
   },
   cavalry: {
     icon: "horse",
     color: palette.slots.stables,
     label: "Cavalry",
     building: "Stables",
-    buildingIcon: "horse",
     attackPower: 12,
-    perLevel: 3,
   },
 });
-
-type UnitType = keyof ReturnType<typeof unitMeta>;
 
 function UnitRow({
   type,
@@ -74,8 +69,9 @@ function UnitRow({
   onRecruit,
   recruiting,
   canRecruit,
+  owned,
 }: {
-  type: UnitType;
+  type: ArmyUnitType;
   recruited: number;
   cap: number;
   onMission: number;
@@ -83,14 +79,17 @@ function UnitRow({
   onRecruit: (count: number) => void;
   recruiting: boolean;
   canRecruit: boolean;
+  owned: ReturnType<typeof normalizeResources>;
 }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const meta = unitMeta(colors)[type];
   const available = Math.max(0, recruited - onMission);
   const effectiveAttack = Math.round(meta.attackPower * attackMult * 10) / 10;
-  const cost = RECRUIT_COST[type];
   const atCap = recruited >= cap;
+  const room = Math.max(0, cap - recruited);
+  const cost1 = recruitCost(type, 1);
+  const cost5 = recruitCost(type, Math.min(5, room));
 
   return (
     <View style={[styles.unitCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -112,41 +111,67 @@ function UnitRow({
           )}
         </View>
         {!atCap && cap > 0 && (
-          <View style={styles.recruitRow}>
-            <Pressable
-              style={[
-                styles.recruitBtn,
-                {
-                  borderColor: withAlpha(meta.color, 0.4),
-                  backgroundColor: withAlpha(meta.color, 0.08),
-                  opacity: canRecruit && !recruiting ? 1 : 0.45,
-                },
-              ]}
-              disabled={!canRecruit || recruiting}
-              onPress={() => onRecruit(1)}
-            >
-              <Text style={[styles.recruitBtnText, { color: meta.color }]}>+1</Text>
-              <Text style={[styles.recruitCost, { color: colors.textMuted }]}>
-                {cost.gold}G {cost.food}F
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                styles.recruitBtn,
-                {
-                  borderColor: withAlpha(meta.color, 0.4),
-                  backgroundColor: withAlpha(meta.color, 0.08),
-                  opacity: canRecruit && !recruiting ? 1 : 0.45,
-                },
-              ]}
-              disabled={!canRecruit || recruiting}
-              onPress={() => onRecruit(5)}
-            >
-              <Text style={[styles.recruitBtnText, { color: meta.color }]}>+5</Text>
-            </Pressable>
+          <View style={styles.recruitBlock}>
+            <Text style={[styles.recruitLabel, { color: colors.textMuted }]}>Recruit cost (per troop)</Text>
+            <ResourceCostRow cost={cost1} owned={owned} compact />
+            <View style={styles.recruitRow}>
+              <Pressable
+                style={[
+                  styles.recruitBtn,
+                  {
+                    borderColor: withAlpha(meta.color, 0.4),
+                    backgroundColor: withAlpha(meta.color, 0.08),
+                    opacity: canRecruit && !recruiting ? 1 : 0.45,
+                  },
+                ]}
+                disabled={!canRecruit || recruiting}
+                onPress={() => onRecruit(1)}
+              >
+                <Text style={[styles.recruitBtnText, { color: meta.color }]}>+1</Text>
+              </Pressable>
+              {room >= 2 && (
+                <Pressable
+                  style={[
+                    styles.recruitBtn,
+                    {
+                      borderColor: withAlpha(meta.color, 0.4),
+                      backgroundColor: withAlpha(meta.color, 0.08),
+                      opacity:
+                        canRecruit && !recruiting && canAffordCost(cost5, owned) ? 1 : 0.45,
+                    },
+                  ]}
+                  disabled={!canRecruit || recruiting || !canAffordCost(cost5, owned)}
+                  onPress={() => onRecruit(Math.min(5, room))}
+                >
+                  <Text style={[styles.recruitBtnText, { color: meta.color }]}>
+                    +{Math.min(5, room)}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         )}
       </View>
+    </View>
+  );
+}
+
+function FoodLedgerRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "prod" | "cost" | "net";
+}) {
+  const colors = useColors();
+  const valueColor =
+    tone === "prod" ? colors.food : tone === "cost" ? colors.destructive : colors.foreground;
+  return (
+    <View style={styles.ledgerRow}>
+      <Text style={[styles.ledgerLabel, { color: colors.textSecondary }]}>{label}</Text>
+      <Text style={[styles.ledgerValue, { color: valueColor }]}>{value}</Text>
     </View>
   );
 }
@@ -167,12 +192,29 @@ export default function ArmyScreen() {
     : 0;
   const isTraining = trainingMs > 0;
 
+  const totalCap = army ? totalTroopCap(army) : 0;
   const totalTroops = army?.totalTroops ?? 0;
   const totalOnMission =
     (army?.onMissionInfantry ?? 0) + (army?.onMissionArchers ?? 0) + (army?.onMissionCavalry ?? 0);
+  const totalReady = Math.max(0, totalTroops - totalOnMission);
   const totalPower = army?.totalPower ?? 0;
+  const troopUpkeep =
+    army?.troopFoodUpkeepPerHour ??
+    totalTroops * TROOP_FOOD_UPKEEP_PER_HOUR;
+  const popUpkeep = town?.foodUpkeepPerHour ?? 0;
+  const foodProd = town?.foodPerHour ?? 0;
+  const netFood =
+    town?.netFoodPerHour ?? foodProd - popUpkeep - troopUpkeep;
+  const capPct = totalCap > 0 ? Math.min(1, totalTroops / totalCap) : 0;
 
-  const handleRecruit = (unit: UnitType, count: number) => {
+  const owned = normalizeResources({
+    gold: town?.gold ?? 0,
+    food: town?.food ?? 0,
+    wood: town?.wood ?? 0,
+    stone: town?.stone ?? 0,
+  });
+
+  const handleRecruit = (unit: ArmyUnitType, count: number) => {
     if (!townId) return;
     recruitArmy.mutate(
       { townId, data: { unit, count } },
@@ -180,7 +222,7 @@ export default function ArmyScreen() {
         onSuccess: (data) => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           if (data.trainingEndsAt && data.trainingUnit) {
-            const label = unitMeta(colors)[data.trainingUnit as UnitType]?.label ?? "Troops";
+            const label = unitMeta(colors)[data.trainingUnit as ArmyUnitType]?.label ?? "Troops";
             void scheduleTrainingComplete(townId, label, data.trainingEndsAt);
           }
           qc.invalidateQueries({ queryKey: getGetTownArmyQueryKey(townId) });
@@ -194,13 +236,8 @@ export default function ArmyScreen() {
     );
   };
 
-  const canAffordRecruit = (unit: UnitType, count: number) => {
-    const c = RECRUIT_COST[unit];
-    return (
-      (town?.gold ?? 0) >= c.gold * count &&
-      (town?.food ?? 0) >= c.food * count
-    );
-  };
+  const canAffordRecruit = (unit: ArmyUnitType, count: number) =>
+    canAffordCost(recruitCost(unit, count), owned);
 
   const trainingBusy = isTraining || recruitArmy.isPending;
 
@@ -217,23 +254,68 @@ export default function ArmyScreen() {
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.gold} />}
         >
-          <View style={[styles.summaryCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>TROOPS</Text>
-              <Text style={[styles.summaryValue, { color: colors.foreground }]}>{totalTroops}</Text>
+          <View style={[styles.capacityCard, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+            <View style={styles.capacityTop}>
+              <View style={styles.capacityMain}>
+                <Text style={[styles.capacityLabel, { color: colors.textSecondary }]}>ARMY CAPACITY</Text>
+                <Text style={[styles.capacityValue, { color: colors.foreground }]}>
+                  {totalTroops}
+                  <Text style={[styles.capacityDenom, { color: colors.textSecondary }]}> / {totalCap}</Text>
+                </Text>
+                <Text style={[styles.capacitySub, { color: colors.textMuted }]}>
+                  {totalReady} ready · {totalOnMission} on mission · {totalPower} power
+                </Text>
+              </View>
+              <View style={[styles.powerBadge, { backgroundColor: withAlpha(colors.gold, 0.12), borderColor: withAlpha(colors.gold, 0.35) }]}>
+                <MaterialCommunityIcons name="sword-cross" size={16} color={colors.gold} />
+                <Text style={[styles.powerBadgeText, { color: colors.gold }]}>{totalPower}</Text>
+              </View>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>OUT</Text>
-              <Text style={[styles.summaryValue, { color: totalOnMission > 0 ? colors.raid : colors.textSecondary }]}>
-                {totalOnMission}
-              </Text>
+            {totalCap > 0 && (
+              <View style={[styles.capBarTrack, { backgroundColor: withAlpha(colors.military, 0.15) }]}>
+                <View
+                  style={[
+                    styles.capBarFill,
+                    {
+                      width: `${capPct * 100}%`,
+                      backgroundColor: colors.military,
+                    },
+                  ]}
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.foodCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={styles.foodCardHeader}>
+              <MaterialCommunityIcons name="food-apple" size={16} color={colors.food} />
+              <Text style={[styles.foodCardTitle, { color: colors.foreground }]}>Food & upkeep</Text>
             </View>
-            <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>POWER</Text>
-              <Text style={[styles.summaryValue, { color: colors.gold }]}>{totalPower}</Text>
-            </View>
+            <FoodLedgerRow
+              label="Production"
+              value={`+${formatUpkeepPerHour(foodProd)}/h`}
+              tone="prod"
+            />
+            <FoodLedgerRow
+              label={`Troops (${totalTroops} × ${TROOP_FOOD_UPKEEP_PER_HOUR})`}
+              value={`−${formatUpkeepPerHour(troopUpkeep)}/h`}
+              tone="cost"
+            />
+            <FoodLedgerRow
+              label={`Population (${Math.round(town?.population ?? 0)} × 0.4)`}
+              value={`−${formatUpkeepPerHour(popUpkeep)}/h`}
+              tone="cost"
+            />
+            <View style={[styles.ledgerDivider, { backgroundColor: colors.border }]} />
+            <FoodLedgerRow
+              label="Net food"
+              value={`${netFood >= 0 ? "+" : ""}${formatResourceRate(netFood)}/h`}
+              tone="net"
+            />
+            <Text style={[styles.foodHint, { color: colors.textMuted }]}>
+              Recruiting also spends food upfront (see unit costs below). Upgrade Barracks, Archery, and Stables to raise
+              capacity.
+            </Text>
           </View>
 
           {isTraining && (
@@ -246,20 +328,11 @@ export default function ArmyScreen() {
             </View>
           )}
 
-          <View style={[styles.infoCard, { backgroundColor: colors.surfaceElevated + "aa", borderColor: colors.border }]}>
-            <MaterialCommunityIcons name="information-outline" size={14} color={colors.gold} />
-            <Text style={[styles.infoText, { color: colors.textSecondary }]}>
-              Military buildings set your troop caps. Recruit with gold and food to fill them — losses on missions and raids
-              must be replaced. Food comes from farms, market imports, tavern kitchens, shipyard fishing, World trade, and
-              mission spoils.
-            </Text>
-          </View>
-
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>RECRUIT</Text>
 
-          {(["infantry", "archers", "cavalry"] as UnitType[]).map((type) => {
+          {(["infantry", "archers", "cavalry"] as ArmyUnitType[]).map((type) => {
             const capKey = `cap${type.charAt(0).toUpperCase() + type.slice(1)}` as "capInfantry" | "capArchers" | "capCavalry";
-            const cap = (army as any)?.[capKey] ?? 0;
+            const cap = army?.[capKey] ?? 0;
             if (cap === 0) return null;
             const onMissionKey =
               type === "infantry"
@@ -277,13 +350,14 @@ export default function ArmyScreen() {
               <UnitRow
                 key={type}
                 type={type}
-                recruited={(army as any)?.[type] ?? 0}
+                recruited={army?.[type] ?? 0}
                 cap={cap}
-                onMission={(army as any)?.[onMissionKey] ?? 0}
-                attackMult={(army as any)?.[multKey] ?? 1}
+                onMission={army?.[onMissionKey] ?? 0}
+                attackMult={army?.[multKey] ?? 1}
                 onRecruit={(n) => handleRecruit(type, n)}
                 recruiting={trainingBusy}
                 canRecruit={!trainingBusy && canAffordRecruit(type, 1)}
+                owned={owned}
               />
             );
           })}
@@ -309,11 +383,33 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { padding: 12, paddingBottom: 100, gap: 10 },
-  summaryCard: { flexDirection: "row", borderRadius: 10, borderWidth: 1, padding: 14 },
-  summaryItem: { flex: 1, alignItems: "center", gap: 4 },
-  summaryLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.5 },
-  summaryValue: { fontSize: 20, fontFamily: "Inter_700Bold" },
-  summaryDivider: { width: 1, marginHorizontal: 4 },
+  capacityCard: { borderRadius: 10, borderWidth: 1, padding: 14, gap: 10 },
+  capacityTop: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  capacityMain: { flex: 1, gap: 4 },
+  capacityLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.6 },
+  capacityValue: { fontSize: 26, fontFamily: "Inter_700Bold" },
+  capacityDenom: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
+  capacitySub: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 15 },
+  powerBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  powerBadgeText: { fontSize: 14, fontFamily: "Inter_700Bold" },
+  capBarTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
+  capBarFill: { height: "100%", borderRadius: 3 },
+  foodCard: { borderRadius: 10, borderWidth: 1, padding: 12, gap: 6 },
+  foodCardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  foodCardTitle: { fontSize: 13, fontFamily: "Inter_700Bold" },
+  ledgerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ledgerLabel: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1, paddingRight: 8 },
+  ledgerValue: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
+  ledgerDivider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
+  foodHint: { fontSize: 10, fontFamily: "Inter_400Regular", lineHeight: 14, marginTop: 4 },
   trainingBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -323,9 +419,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   trainingText: { flex: 1, fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  infoCard: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 10, borderRadius: 8, borderWidth: 1 },
-  infoText: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1, lineHeight: 16 },
-  sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
+  sectionTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1, marginTop: 2 },
   emptyCard: { alignItems: "center", padding: 32, borderRadius: 10, borderWidth: 1, gap: 10 },
   emptyTitle: { fontSize: 16, fontFamily: "Inter_700Bold" },
   emptyDesc: { fontSize: 13, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
@@ -337,8 +431,16 @@ const styles = StyleSheet.create({
   capText: { fontSize: 10, fontFamily: "Inter_400Regular" },
   unitStats: { flexDirection: "row", gap: 10, flexWrap: "wrap" },
   stat: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
-  recruitRow: { flexDirection: "row", gap: 8, marginTop: 4 },
-  recruitBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, alignItems: "center", minWidth: 56 },
+  recruitBlock: { gap: 6, marginTop: 2 },
+  recruitLabel: { fontSize: 9, fontFamily: "Inter_600SemiBold", letterSpacing: 0.3 },
+  recruitRow: { flexDirection: "row", gap: 8 },
+  recruitBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    minWidth: 64,
+  },
   recruitBtnText: { fontSize: 13, fontFamily: "Inter_700Bold" },
-  recruitCost: { fontSize: 9, fontFamily: "Inter_400Regular", marginTop: 2 },
 });

@@ -10,6 +10,7 @@ All values reflect current server rules (`gameEngine.ts`, `building-progression`
 | Demolish refund | **75%** of level cost |
 | Base production (each resource) | **5/h** |
 | Food per citizen | **0.4/h** |
+| Food per recruited troop | **0.4/h** |
 | Pop growth base | **1.5/h** |
 | Pop starvation rate | **8%/h** of current pop (min 1 per tick) |
 | Pop floor (with TH) | **5** |
@@ -68,7 +69,7 @@ Town Hall also grants **+3 gold/h per TH level** (bonus stack).
 ```
 cap = 20 + houseLevel×15 + townHallLevel×5     (TH ≥ 1 else cap 0)
 
-upkeep/h = population × 0.4
+upkeep/h = population × 0.4 + totalTroops × 0.4
 
 growth/h = 1.5 + tavern×0.5 + museum×1 + monument×2 + morale×0.02
   (only if fed: stockpile > 0 OR production > upkeep)

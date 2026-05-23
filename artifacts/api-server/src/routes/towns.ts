@@ -8,7 +8,7 @@ import {
   getCurrentSeasonInfo, calculateProduction, calculateEconomyScore,
   calculateStaticDefense, calculateTotalDefense,
   applyFullTick, calculatePopulationCap, calculatePopulationGrowthPerHour,
-  calculateFoodUpkeepPerHour, calculateMorale, canPopulationGrow,
+  calculateFoodUpkeepPerHour, calculateTroopFoodUpkeepPerHour, calculateMorale, canPopulationGrow,
 } from "../lib/gameEngine.js";
 import { getRealmEventModifiers } from "../lib/realmEvents.js";
 import { performKingdomReset } from "../lib/kingdomReset.js";
@@ -63,15 +63,16 @@ async function getAndTickTown(townId: number): Promise<{ data: Record<string, un
   const { season } = getCurrentSeasonInfo();
   const realmMods = getRealmEventModifiers();
   const production = calculateProduction(freshSlots, season, realmMods);
-  const ticked = applyFullTick(town, freshSlots, production);
-  const economyScore = calculateEconomyScore(freshSlots);
   const comp = calculateArmyComposition(freshSlots, recruited);
+  const ticked = applyFullTick(town, freshSlots, production, comp.totalTroops);
+  const economyScore = calculateEconomyScore(freshSlots);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
   const totalDefense = calculateTotalDefense(freshSlots, recruited, onMission);
   const populationCap = calculatePopulationCap(freshSlots);
   const morale = calculateMorale(freshSlots);
   const foodUpkeepPerHour = calculateFoodUpkeepPerHour(ticked.population);
+  const troopFoodUpkeepPerHour = calculateTroopFoodUpkeepPerHour(comp.totalTroops);
   const populationPerHour = calculatePopulationGrowthPerHour(
     freshSlots,
     morale,
@@ -105,6 +106,7 @@ async function getAndTickTown(townId: number): Promise<{ data: Record<string, un
       populationCap,
       morale,
       foodUpkeepPerHour,
+      troopFoodUpkeepPerHour,
       populationPerHour,
       populationGrowing,
     },
@@ -142,7 +144,9 @@ router.get("/towns/:townId", async (req, res) => {
   const { production, ...town } = data as typeof data & {
     production: { gold: number; food: number; wood: number; stone: number };
   };
-  const netFoodPerHour = production.food - (town.foodUpkeepPerHour as number);
+  const popUpkeep = (town.foodUpkeepPerHour as number) ?? 0;
+  const troopUpkeep = (town.troopFoodUpkeepPerHour as number) ?? 0;
+  const netFoodPerHour = production.food - popUpkeep - troopUpkeep;
   res.json({
     ...town,
     goldPerHour: production.gold,
@@ -153,7 +157,8 @@ router.get("/towns/:townId", async (req, res) => {
     population: town.population ?? 0,
     populationCap: town.populationCap ?? 0,
     populationPerHour: town.populationPerHour ?? 0,
-    foodUpkeepPerHour: town.foodUpkeepPerHour ?? 0,
+    foodUpkeepPerHour: popUpkeep,
+    troopFoodUpkeepPerHour: troopUpkeep,
     morale: town.morale ?? 0,
     populationGrowing: town.populationGrowing ?? false,
     lastTickAt: town.lastTickAt instanceof Date ? town.lastTickAt.toISOString() : town.lastTickAt,

@@ -18,7 +18,7 @@ There is no separate “offline calculator” on the client; the server state is
 | Resource | Main sources | Main sinks |
 |----------|--------------|------------|
 | **Gold** | Mine, Market, Town Hall, missions, spies, raids, trade (receive) | Builds/upgrades, mercenaries, trade (pay) |
-| **Food** | Farm, Market, Tavern, Shipyard, base production, missions, spies, trade, raid defense bounties | **Population upkeep** (ongoing), **army recruiting**, builds (none currently) |
+| **Food** | Farm, Market, Tavern, Shipyard, base production, missions, spies, trade, raid defense bounties | **Population upkeep** (ongoing), **troop upkeep** (0.4/h per recruited troop), **army recruiting** (upfront gold+food), builds (none currently) |
 | **Wood** | Lumber Mill, base, missions, naval loot | Builds/upgrades |
 | **Stone** | Quarry, base, missions | Builds/upgrades |
 
@@ -58,8 +58,8 @@ Most military buildings do not add hourly production (they affect troops, missio
 ## Gross vs net food (UI)
 
 - **Gross food/h** = production from farms and modifiers (what farms “make”).
-- **Upkeep** = `0.4 × population` food/h.
-- **Net food/h** = gross − upkeep (shown on Kingdom header and Kingdom Map).
+- **Upkeep** = `0.4 × population` + `0.4 × recruited troops` food/h.
+- **Net food/h** = gross − upkeep (shown on Kingdom header, Army tab, and Kingdom Map).
 
 Positive net food does not guarantee growth forever (stockpile can still hit zero between ticks), but it means farms outpace mouths on average.
 

@@ -4,7 +4,9 @@
 
 **Barracks / Archery / Stables** set **troop caps** (5/5/3 per building level). You **recruit** with gold and food into those caps; one training queue at a time.
 
-Recruit costs per troop: Infantry **3G + 2F**, Archers **4G + 2F**, Cavalry **6G + 3F**. Plan food income from farms plus Market/Tavern/Shipyard production, World **Trade** (hourly board includes a grain deal), and mission or raid loot — see [core-loop-and-resources.md](./core-loop-and-resources.md).
+Recruit costs per troop: Infantry **3G + 2F**, Archers **4G + 2F**, Cavalry **6G + 3F**. Each recruited troop also costs **0.4 food/h** upkeep (same rate as population). Plan food income from farms plus Market/Tavern/Shipyard production, World **Trade** (hourly board includes a grain deal), and mission or raid loot — see [core-loop-and-resources.md](./core-loop-and-resources.md).
+
+**Total troop cap** = sum of Barracks (5/level), Archery (5/level), and Stables (3/level) caps. The Army tab shows `recruited / totalCap`.
 
 **Casualties** on missions and raids **reduce recruited counts** until you recruit again. Ships and spies still come from Shipyard / Spy Guild levels.
 

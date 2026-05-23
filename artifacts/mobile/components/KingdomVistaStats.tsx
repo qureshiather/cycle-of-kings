@@ -71,9 +71,10 @@ export default function KingdomVistaStats({ townId }: { townId: number }) {
   const pop = Math.round(town.population ?? 0);
   const popCap = Math.round(town.populationCap ?? 0);
   const popGrowth = Math.round((town.populationPerHour ?? 0) * 10) / 10;
-  const foodUpkeep = Math.round((town.foodUpkeepPerHour ?? 0) * 10) / 10;
+  const popUpkeep = Math.round((town.foodUpkeepPerHour ?? 0) * 10) / 10;
+  const troopUpkeep = Math.round((town.troopFoodUpkeepPerHour ?? 0) * 10) / 10;
   const foodProd = Math.round((town.foodPerHour ?? 0) * 10) / 10;
-  const netFood = Math.round((town.netFoodPerHour ?? foodProd - foodUpkeep) * 10) / 10;
+  const netFood = Math.round((town.netFoodPerHour ?? foodProd - popUpkeep - troopUpkeep) * 10) / 10;
   const walls = Math.round(town.staticDefense ?? 0);
   const totalDef = Math.round(town.totalDefense ?? 0);
   const garrison = Math.max(0, totalDef - walls);
@@ -105,7 +106,7 @@ export default function KingdomVistaStats({ townId }: { townId: number }) {
         iconColor={netFood >= 0 ? colors.food : colors.destructive}
         label="Food"
         value={`${netFood >= 0 ? "+" : ""}${netFood}/h`}
-        sub={`+${foodProd}/h prod · −${foodUpkeep}/h upkeep`}
+        sub={`+${foodProd}/h prod · −${popUpkeep}/h pop${troopUpkeep > 0 ? ` · −${troopUpkeep}/h troops` : ""}`}
         colors={colors}
         withAlpha={withAlpha}
       />

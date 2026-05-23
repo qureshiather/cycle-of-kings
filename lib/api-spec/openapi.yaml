@@ -645,6 +645,7 @@ components:
         populationCap: { type: number }
         populationPerHour: { type: number }
         foodUpkeepPerHour: { type: number }
+        troopFoodUpkeepPerHour: { type: number }
         morale: { type: number }
         lastTickAt: { type: string }
         cycleReset: { type: boolean, description: True when this response follows a per-cycle kingdom wipe }
@@ -704,7 +705,7 @@ components:
 
     Army:
       type: object
-      required: [townId, infantry, archers, cavalry, capInfantry, capArchers, capCavalry, ships, spies, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionSpies, onMissionShips, availableInfantry, availableArchers, availableCavalry, availableSpies, availableShips, totalTroops, totalPower, capacity]
+      required: [townId, infantry, archers, cavalry, capInfantry, capArchers, capCavalry, ships, spies, onMissionInfantry, onMissionArchers, onMissionCavalry, onMissionSpies, onMissionShips, availableInfantry, availableArchers, availableCavalry, availableSpies, availableShips, totalTroops, totalPower, totalCap, troopFoodUpkeepPerHour, capacity]
       properties:
         townId: { type: integer }
         infantry: { type: integer, description: Recruited infantry count }
@@ -733,7 +734,9 @@ components:
         cavalryAttackMult: { type: number }
         totalTroops: { type: integer }
         totalPower: { type: integer }
-        capacity: { type: integer }
+        totalCap: { type: integer, description: Sum of barracks/archery/stables recruit caps }
+        troopFoodUpkeepPerHour: { type: number, description: Ongoing food cost for recruited troops (0.4 per troop per hour) }
+        capacity: { type: integer, description: Legacy population-density field (house-based); not troop cap }
 
     MissionCard:
       type: object

@@ -99,6 +99,7 @@ export const GetTownResponse = zod.object({
   "populationCap": zod.number(),
   "populationPerHour": zod.number(),
   "foodUpkeepPerHour": zod.number(),
+  "troopFoodUpkeepPerHour": zod.number().optional(),
   "morale": zod.number(),
   "lastTickAt": zod.string(),
   "cycleReset": zod.boolean().describe('True when this response follows a per-cycle kingdom wipe')
@@ -206,7 +207,9 @@ export const GetTownArmyResponse = zod.object({
   "cavalryAttackMult": zod.number().optional(),
   "totalTroops": zod.number(),
   "totalPower": zod.number(),
-  "capacity": zod.number()
+  "totalCap": zod.number().describe('Sum of barracks\/archery\/stables recruit caps'),
+  "troopFoodUpkeepPerHour": zod.number().describe('Ongoing food cost for recruited troops (0.4 per troop per hour)'),
+  "capacity": zod.number().describe('Legacy population-density field (house-based); not troop cap')
 })
 
 
@@ -254,7 +257,9 @@ export const RecruitArmyResponse = zod.object({
   "cavalryAttackMult": zod.number().optional(),
   "totalTroops": zod.number(),
   "totalPower": zod.number(),
-  "capacity": zod.number()
+  "totalCap": zod.number().describe('Sum of barracks\/archery\/stables recruit caps'),
+  "troopFoodUpkeepPerHour": zod.number().describe('Ongoing food cost for recruited troops (0.4 per troop per hour)'),
+  "capacity": zod.number().describe('Legacy population-density field (house-based); not troop cap')
 })
 
 

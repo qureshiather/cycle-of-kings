@@ -92,13 +92,13 @@ async function getTickedTown(townId: number) {
   }
 
   const freshSlots = await db.select().from(buildingSlotsTable).where(eq(buildingSlotsTable.townId, townId));
+  const { army } = await loadArmyContext(townId);
+  const recruited = recruitedFromRow(army);
   const { season } = getCurrentSeasonInfo();
   const realmMods = getRealmEventModifiers();
   const production = calculateProduction(freshSlots, season, realmMods);
-  const ticked = applyFullTick(town, freshSlots, production);
-
-  const { army } = await loadArmyContext(townId);
-  const recruited = recruitedFromRow(army);
+  const comp = calculateArmyComposition(freshSlots, recruited);
+  const ticked = applyFullTick(town, freshSlots, production, comp.totalTroops);
   const onMission = {
     onMissionInfantry: army.onMissionInfantry,
     onMissionArchers: army.onMissionArchers,
@@ -108,7 +108,6 @@ async function getTickedTown(townId: number) {
   };
 
   const economyScore = calculateEconomyScore(freshSlots);
-  const comp = calculateArmyComposition(freshSlots, recruited);
   const armyScore = comp.totalPower;
   const staticDefense = calculateStaticDefense(freshSlots);
   const totalDefense = calculateTotalDefense(freshSlots, recruited, onMission);

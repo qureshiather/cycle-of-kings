@@ -55,6 +55,7 @@ export interface Town {
   populationCap: number;
   populationPerHour: number;
   foodUpkeepPerHour: number;
+  troopFoodUpkeepPerHour?: number;
   morale: number;
   lastTickAt: string;
   /** True when this response follows a per-cycle kingdom wipe */
@@ -166,6 +167,11 @@ export interface Army {
   cavalryAttackMult?: number;
   totalTroops: number;
   totalPower: number;
+  /** Sum of barracks/archery/stables recruit caps */
+  totalCap: number;
+  /** Ongoing food cost for recruited troops (0.4 per troop per hour) */
+  troopFoodUpkeepPerHour: number;
+  /** Legacy population-density field (house-based); not troop cap */
   capacity: number;
 }
 

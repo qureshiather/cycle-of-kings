@@ -4,8 +4,10 @@ import type { Army } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   getUnitCaps,
+  getTotalTroopCap,
   calculateArmyComposition,
   calculateArmyCapacity,
+  calculateTroopFoodUpkeepPerHour,
   calculateSpyCount,
   calculateShipCount,
   type RecruitedTroops,
@@ -124,6 +126,8 @@ export function buildArmyResponse(
     cavalryAttackMult: composition.cavalryAttackMult,
     totalTroops: composition.totalTroops,
     totalPower: composition.totalPower,
+    totalCap: getTotalTroopCap(caps),
+    troopFoodUpkeepPerHour: calculateTroopFoodUpkeepPerHour(composition.totalTroops),
     capacity,
   };
 }
