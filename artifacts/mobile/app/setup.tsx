@@ -1,6 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { Redirect, router } from "expo-router";
 import React, { useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,8 +8,8 @@ import { useCreatePlayer } from "@workspace/api-client-react";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
-import { getOrCreateDeviceId } from "@/lib/deviceId";
 import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
+import { useAuth } from "@/context/AuthContext";
 
 function formatConnectError(err: unknown): string {
   const msg =
@@ -36,12 +36,15 @@ export default function SetupScreen() {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
+  const { session, isLoading: authLoading } = useAuth();
   const { setPlayer } = useGame();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const createPlayer = useCreatePlayer();
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+
+  if (!authLoading && !session) return <Redirect href="/login" />;
 
   async function handleStart() {
     const trimmed = name.trim();
@@ -50,20 +53,17 @@ export default function SetupScreen() {
     setError("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    let deviceId: string;
-    try {
-      deviceId = await getOrCreateDeviceId();
-    } catch {
-      setError("Could not save device identity. Try again.");
+    if (!session) {
+      setError("Sign in first to create your kingdom.");
       return;
     }
 
     createPlayer.mutate(
-      { data: { deviceId, name: trimmed } },
+      { data: { name: trimmed } },
       {
         onSuccess: (player) => {
           setPlayer((player as any).id, (player as any).townId, (player as any).name);
-          router.replace("/(tabs)/index" as any);
+          router.replace("/(tabs)");
         },
         onError: (err: unknown) => {
           setError(formatConnectError(err));
@@ -105,7 +105,9 @@ export default function SetupScreen() {
               returnKeyType="go"
             />
           </View>
-          <Text style={[styles.inputHint, { color: colors.textSecondary }]}>Must be unique — no two rulers share the same name</Text>
+          <Text style={[styles.inputHint, { color: colors.textSecondary }]}>
+            Choose your ruler name — linked to your account
+          </Text>
           {!!error && (
             <View style={[styles.errorBox, { backgroundColor: withAlpha(colors.destructive, 0.1), borderColor: withAlpha(colors.destructive, 0.28) }]}>
               <MaterialCommunityIcons name="alert-circle-outline" size={14} color={colors.destructive} />

@@ -8,7 +8,7 @@
 
 export interface Player {
   id: number;
-  deviceId: string;
+  authUserId: string;
   name: string;
   townId: number;
   trophyPoints?: number;

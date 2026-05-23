@@ -42,11 +42,32 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /players/me:
+    get:
+      operationId: getCurrentPlayer
+      tags: [players]
+      summary: Get the authenticated player's profile and kingdom
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Player
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+        "401":
+          description: Unauthorized
+        "404":
+          description: No player linked to this account
+
   /players:
     post:
       operationId: createPlayer
       tags: [players]
-      summary: Create or find a player by device ID
+      summary: Create or find a player for the authenticated Supabase user
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -60,6 +81,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Player"
+        "401":
+          description: Unauthorized
 
   /players/{playerId}:
     get:
@@ -583,6 +606,12 @@ paths:
                 $ref: "#/components/schemas/GameState"
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -592,10 +621,10 @@ components:
 
     Player:
       type: object
-      required: [id, deviceId, name, townId, createdAt]
+      required: [id, authUserId, name, townId, createdAt]
       properties:
         id: { type: integer }
-        deviceId: { type: string }
+        authUserId: { type: string, format: uuid }
         name: { type: string }
         townId: { type: integer }
         trophyPoints: { type: integer }
@@ -603,9 +632,8 @@ components:
 
     PlayerInput:
       type: object
-      required: [deviceId, name]
+      required: [name]
       properties:
-        deviceId: { type: string }
         name: { type: string }
 
     Trophy:

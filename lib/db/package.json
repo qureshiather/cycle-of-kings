@@ -10,7 +10,8 @@
   "scripts": {
     "typecheck": "tsc -b",
     "push": "drizzle-kit push --config ./drizzle.config.ts",
-    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts"
+    "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
+    "apply:supabase-auth": "node ./scripts/apply-supabase-auth-schema.mjs"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",

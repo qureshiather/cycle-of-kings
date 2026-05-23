@@ -33,7 +33,7 @@ Health: `GET http://localhost:8080/api/healthz`
 | Core math (production, combat, seasons) | `artifacts/api-server/src/lib/gameEngine.ts` |
 | Kingdom / buildings UI | `artifacts/mobile/components/KingdomMap.tsx`, `artifacts/mobile/lib/buildingMeta.ts` |
 | World / raids / peaceful / leaderboard | `artifacts/mobile/app/(tabs)/world.tsx`, `artifacts/api-server/src/routes/towns.ts`, `leaderboard.ts`, `raids.ts` |
-| Player session (no auth) | `artifacts/mobile/context/GameContext.tsx`, `artifacts/mobile/lib/deviceId.ts` |
+| Player session + Supabase auth | `artifacts/mobile/context/AuthContext.tsx`, `GameContext.tsx`, `lib/supabase.ts` |
 | Android API URL | `artifacts/mobile/lib/resolveApiBaseUrl.ts`, `EXPO_PUBLIC_API_URL` in `.env` |
 
 ## Package map
@@ -60,11 +60,11 @@ lib/
 | World | `app/(tabs)/world.tsx` | Leaderboard, raids, settings (peaceful mode) |
 | Treasury | `app/(tabs)/treasury.tsx` | Season + production breakdown |
 
-Setup flow: `app/setup.tsx` → creates player via API, stores IDs in AsyncStorage.
+Setup flow: `app/login.tsx` (Supabase) → `app/setup.tsx` if no kingdom → API links player to `auth_user_id`.
 
 ## Auth model
 
-**No login.** A device UUID (`deviceId`) identifies the player. `GameContext` persists `playerId`, `townId`, `playerName` in AsyncStorage.
+**Supabase Auth** (email/password). JWT sent as `Authorization: Bearer` on API calls (`setAuthTokenGetter` in root layout). Players are keyed by Supabase user id (`players.auth_user_id`). `GET /api/players/me` restores kingdom after sign-in. `GameContext` caches `playerId` / `townId` locally.
 
 ## Common commands
 
@@ -73,7 +73,8 @@ Setup flow: `app/setup.tsx` → creates player via API, stores IDs in AsyncStora
 | `pnpm dev` | API + mobile in parallel |
 | `pnpm typecheck` | All packages |
 | `pnpm codegen` | Regenerate client + zod from OpenAPI |
-| `pnpm db:push` | Apply Drizzle schema to Postgres |
+| `pnpm db:push` | Apply Drizzle schema to Postgres (needs an interactive terminal) |
+| `pnpm db:apply-supabase-auth` | Non-interactive SQL for `auth_user_id` / nullable `device_id` when `db:push` prompts |
 | `pnpm --filter @workspace/api-server run dev` | API only |
 | `pnpm --filter @workspace/mobile run dev` | Expo only |
 

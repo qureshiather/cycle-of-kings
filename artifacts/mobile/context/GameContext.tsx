@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 
 interface GameContextType {
   playerId: number | null;
@@ -9,6 +9,7 @@ interface GameContextType {
   isSetupRequired: boolean;
   setPlayer: (playerId: number, townId: number, name: string) => Promise<void>;
   clearPlayer: () => Promise<void>;
+  setPlayerLoading: (loading: boolean) => void;
 }
 
 const GameContext = createContext<GameContextType>({
@@ -19,6 +20,7 @@ const GameContext = createContext<GameContextType>({
   isSetupRequired: false,
   setPlayer: async () => {},
   clearPlayer: async () => {},
+  setPlayerLoading: () => {},
 });
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -27,22 +29,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    AsyncStorage.multiGet(["playerId", "townId", "playerName"]).then(values => {
-      const pId = values[0]?.[1];
-      const tId = values[1]?.[1];
-      const pName = values[2]?.[1];
-      if (pId && tId) {
-        setPlayerId(parseInt(pId));
-        setTownId(parseInt(tId));
-        setPlayerName(pName ?? null);
-      }
-      setIsLoading(false);
-    }).catch(() => setIsLoading(false));
-  }, []);
-
   const setPlayer = useCallback(async (pId: number, tId: number, name: string) => {
-    await AsyncStorage.multiSet([["playerId", String(pId)], ["townId", String(tId)], ["playerName", name]]);
+    await AsyncStorage.multiSet([
+      ["playerId", String(pId)],
+      ["townId", String(tId)],
+      ["playerName", name],
+    ]);
     setPlayerId(pId);
     setTownId(tId);
     setPlayerName(name);
@@ -55,12 +47,23 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setPlayerName(null);
   }, []);
 
+  const setPlayerLoading = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+  }, []);
+
   return (
-    <GameContext.Provider value={{
-      playerId, townId, playerName, isLoading,
-      isSetupRequired: !isLoading && playerId === null,
-      setPlayer, clearPlayer,
-    }}>
+    <GameContext.Provider
+      value={{
+        playerId,
+        townId,
+        playerName,
+        isLoading,
+        isSetupRequired: !isLoading && playerId === null,
+        setPlayer,
+        clearPlayer,
+        setPlayerLoading,
+      }}
+    >
       {children}
     </GameContext.Provider>
   );

@@ -17,6 +17,8 @@ import {
 import BuildingProgressionModal from "@/components/BuildingProgressionModal";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { router } from "expo-router";
+import { useAuth } from "@/context/AuthContext";
 import { useGame } from "@/context/GameContext";
 import { useColorSchemePreference, type ColorSchemePreference } from "@/context/ColorSchemeContext";
 import {
@@ -29,7 +31,8 @@ import {
 export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievements: () => void }) {
   const colors = useColors();
   const { withAlpha } = useTheme();
-  const { townId } = useGame();
+  const { townId, clearPlayer } = useGame();
+  const { signOut } = useAuth();
   const qc = useQueryClient();
   const { preference: schemePref, setPreference: setScheme } = useColorSchemePreference();
 
@@ -77,6 +80,27 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
         },
       ],
     );
+  };
+
+  const handleSignOut = () => {
+    Alert.alert("Sign out?", "You can sign back in with the same email to restore your kingdom.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          void (async () => {
+            try {
+              await signOut();
+              await clearPlayer();
+              router.replace("/login");
+            } catch (e: unknown) {
+              Alert.alert("Sign out failed", (e as { message?: string })?.message ?? "Try again.");
+            }
+          })();
+        },
+      },
+    ]);
   };
 
   const handleReset = () => {
@@ -275,6 +299,23 @@ export default function SettingsPanel({ onOpenAchievements }: { onOpenAchievemen
               )}
             </TouchableOpacity>
           )}
+        </View>
+      </View>
+
+      <View style={[styles.settingsCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View style={styles.settingsHeader}>
+          <MaterialCommunityIcons name="account-arrow-right-outline" size={16} color={colors.textSecondary} />
+          <Text style={[styles.settingsTitle, { color: colors.foreground }]}>Account</Text>
+        </View>
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <View style={styles.resetSection}>
+          <TouchableOpacity
+            style={[styles.resetBtn, { borderColor: colors.border, backgroundColor: colors.muted }]}
+            onPress={handleSignOut}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.resetBtnText, { color: colors.foreground }]}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
       </View>
 

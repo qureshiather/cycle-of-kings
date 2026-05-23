@@ -11,7 +11,7 @@ export interface HealthStatus {
 
 export interface Player {
   id: number;
-  deviceId: string;
+  authUserId: string;
   name: string;
   townId: number;
   trophyPoints?: number;
@@ -19,7 +19,6 @@ export interface Player {
 }
 
 export interface PlayerInput {
-  deviceId: string;
   name: string;
 }
 

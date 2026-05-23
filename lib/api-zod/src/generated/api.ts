@@ -17,16 +17,28 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
- * @summary Create or find a player by device ID
+ * @summary Get the authenticated player's profile and kingdom
+ */
+export const GetCurrentPlayerResponse = zod.object({
+  "id": zod.number(),
+  "authUserId": zod.string().uuid(),
+  "name": zod.string(),
+  "townId": zod.number(),
+  "trophyPoints": zod.number().optional(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Create or find a player for the authenticated Supabase user
  */
 export const CreatePlayerBody = zod.object({
-  "deviceId": zod.string(),
   "name": zod.string()
 })
 
 export const CreatePlayerResponse = zod.object({
   "id": zod.number(),
-  "deviceId": zod.string(),
+  "authUserId": zod.string().uuid(),
   "name": zod.string(),
   "townId": zod.number(),
   "trophyPoints": zod.number().optional(),
@@ -43,7 +55,7 @@ export const GetPlayerParams = zod.object({
 
 export const GetPlayerResponse = zod.object({
   "id": zod.number(),
-  "deviceId": zod.string(),
+  "authUserId": zod.string().uuid(),
   "name": zod.string(),
   "townId": zod.number(),
   "trophyPoints": zod.number().optional(),

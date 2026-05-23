@@ -10,6 +10,7 @@ import TabBadge from "@/components/TabBadge";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { ActivityUnreadProvider, useActivityUnread } from "@/context/ActivityUnreadContext";
+import { useAuth } from "@/context/AuthContext";
 import { useGame } from "@/context/GameContext";
 import { countActionableBuilds } from "@/lib/buildableSlots";
 
@@ -155,10 +156,11 @@ function ClassicTabLayout() {
 }
 
 export default function TabLayout() {
-  const { isLoading, isSetupRequired } = useGame();
+  const { session, isLoading: authLoading } = useAuth();
+  const { isLoading: playerLoading, isSetupRequired } = useGame();
   const colors = useColors();
 
-  if (isLoading) {
+  if (authLoading || playerLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator color={colors.gold} />
@@ -166,6 +168,7 @@ export default function TabLayout() {
     );
   }
 
+  if (!session) return <Redirect href="/login" />;
   if (isSetupRequired) return <Redirect href="/setup" />;
 
   return (

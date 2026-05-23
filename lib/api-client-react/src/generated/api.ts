@@ -139,6 +139,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
 
 
+export const getGetCurrentPlayerUrl = () => {
+
+
+
+
+  return `/api/players/me`
+}
+
+/**
+ * @summary Get the authenticated player's profile and kingdom
+ */
+export const getCurrentPlayer = async ( options?: RequestInit): Promise<Player> => {
+
+  return customFetch<Player>(getGetCurrentPlayerUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCurrentPlayerQueryKey = () => {
+    return [
+    `/api/players/me`
+    ] as const;
+    }
+
+
+export const getGetCurrentPlayerQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentPlayer>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlayer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentPlayerQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentPlayer>>> = ({ signal }) => getCurrentPlayer({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlayer>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCurrentPlayerQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentPlayer>>>
+export type GetCurrentPlayerQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get the authenticated player's profile and kingdom
+ */
+
+export function useGetCurrentPlayer<TData = Awaited<ReturnType<typeof getCurrentPlayer>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCurrentPlayer>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCurrentPlayerQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
 export const getCreatePlayerUrl = () => {
 
 
@@ -148,7 +225,7 @@ export const getCreatePlayerUrl = () => {
 }
 
 /**
- * @summary Create or find a player by device ID
+ * @summary Create or find a player for the authenticated Supabase user
  */
 export const createPlayer = async (playerInput: PlayerInput, options?: RequestInit): Promise<Player> => {
 
@@ -165,7 +242,7 @@ export const createPlayer = async (playerInput: PlayerInput, options?: RequestIn
 
 
 
-export const getCreatePlayerMutationOptions = <TError = ErrorType<unknown>,
+export const getCreatePlayerMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError,{data: BodyType<PlayerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError,{data: BodyType<PlayerInput>}, TContext> => {
 
@@ -194,12 +271,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreatePlayerMutationResult = NonNullable<Awaited<ReturnType<typeof createPlayer>>>
     export type CreatePlayerMutationBody = BodyType<PlayerInput>
-    export type CreatePlayerMutationError = ErrorType<unknown>
+    export type CreatePlayerMutationError = ErrorType<void>
 
     /**
- * @summary Create or find a player by device ID
+ * @summary Create or find a player for the authenticated Supabase user
  */
-export const useCreatePlayer = <TError = ErrorType<unknown>,
+export const useCreatePlayer = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlayer>>, TError,{data: BodyType<PlayerInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createPlayer>>,

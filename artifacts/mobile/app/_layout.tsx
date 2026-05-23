@@ -1,3 +1,4 @@
+import "@/lib/polyfills";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -12,9 +13,12 @@ import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { setBaseUrl } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import SessionSync from "@/components/SessionSync";
+import { AuthProvider } from "@/context/AuthContext";
 import { GameProvider } from "@/context/GameContext";
+import { supabase } from "@/lib/supabase";
 import { ColorSchemeProvider } from "@/context/ColorSchemeContext";
 import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
 import { requestPermissionIfNeeded } from "@/lib/notifications";
@@ -38,6 +42,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="setup" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -58,6 +63,14 @@ export default function RootLayout() {
     void requestPermissionIfNeeded();
   }, []);
 
+  useEffect(() => {
+    setAuthTokenGetter(async () => {
+      if (!supabase) return null;
+      const { data } = await supabase.auth.getSession();
+      return data.session?.access_token ?? null;
+    });
+  }, []);
+
   if (!fontsLoaded && !fontError) return null;
 
   return (
@@ -67,9 +80,12 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <ColorSchemeProvider>
-                <GameProvider>
-                  <RootLayoutNav />
-                </GameProvider>
+                <AuthProvider>
+                  <GameProvider>
+                    <SessionSync />
+                    <RootLayoutNav />
+                  </GameProvider>
+                </AuthProvider>
               </ColorSchemeProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

@@ -7,6 +7,5 @@
  */
 
 export interface PlayerInput {
-  deviceId: string;
   name: string;
 }

@@ -18,7 +18,8 @@
     "codegen": "turbo run codegen && turbo run typecheck --filter=@workspace/api-client-react --filter=@workspace/api-zod",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:push": "turbo run push --filter=@workspace/db"
+    "db:push": "turbo run push --filter=@workspace/db",
+    "db:apply-supabase-auth": "pnpm --filter @workspace/db run apply:supabase-auth"
   },
   "devDependencies": {
     "dotenv": "^16.4.7",
