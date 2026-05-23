@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
 import { useGame } from "@/context/GameContext";
 import { resolveApiBaseUrl } from "@/lib/resolveApiBaseUrl";
+import { MAX_RULER_NAME_LENGTH, MIN_RULER_NAME_LENGTH } from "@/lib/playerName";
 import { useAuth } from "@/context/AuthContext";
 
 function formatConnectError(err: unknown): string {
@@ -36,8 +37,8 @@ export default function SetupScreen() {
   const colors = useColors();
   const { withAlpha } = useTheme();
   const insets = useSafeAreaInsets();
-  const { session, isLoading: authLoading } = useAuth();
-  const { setPlayer } = useGame();
+  const { session, isLoading: authLoading, signOut } = useAuth();
+  const { setPlayer, clearPlayer } = useGame();
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const createPlayer = useCreatePlayer();
@@ -46,10 +47,26 @@ export default function SetupScreen() {
 
   if (!authLoading && !session) return <Redirect href="/login" />;
 
+  async function handleSignOut() {
+    try {
+      await signOut();
+      await clearPlayer();
+      router.replace("/login");
+    } catch {
+      setError("Could not sign out. Try again.");
+    }
+  }
+
   async function handleStart() {
     const trimmed = name.trim();
-    if (trimmed.length < 2) { setError("Name must be at least 2 characters"); return; }
-    if (trimmed.length > 24) { setError("Name must be 24 characters or less"); return; }
+    if (trimmed.length < MIN_RULER_NAME_LENGTH) {
+      setError(`Name must be at least ${MIN_RULER_NAME_LENGTH} characters`);
+      return;
+    }
+    if (trimmed.length > MAX_RULER_NAME_LENGTH) {
+      setError(`Name must be ${MAX_RULER_NAME_LENGTH} characters or less`);
+      return;
+    }
     setError("");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
@@ -98,7 +115,7 @@ export default function SetupScreen() {
               placeholderTextColor={colors.textSecondary}
               value={name}
               onChangeText={t => { setName(t); setError(""); }}
-              maxLength={24}
+              maxLength={MAX_RULER_NAME_LENGTH}
               autoFocus
               autoCapitalize="words"
               onSubmitEditing={handleStart}
@@ -106,7 +123,7 @@ export default function SetupScreen() {
             />
           </View>
           <Text style={[styles.inputHint, { color: colors.textSecondary }]}>
-            Choose your ruler name — linked to your account
+            {MIN_RULER_NAME_LENGTH}–{MAX_RULER_NAME_LENGTH} characters — linked to your account
           </Text>
           {!!error && (
             <View style={[styles.errorBox, { backgroundColor: withAlpha(colors.destructive, 0.1), borderColor: withAlpha(colors.destructive, 0.28) }]}>
@@ -130,20 +147,16 @@ export default function SetupScreen() {
               </>
             )}
           </TouchableOpacity>
-        </View>
 
-        <View style={[styles.featureList, { borderTopColor: colors.border }]}>
-          {[
-            { icon: "home-city",   text: "Build your kingdom across 12 strategic building slots" },
-            { icon: "sword-cross", text: "Armies grow from your military buildings" },
-            { icon: "earth",       text: "Raid other kingdoms and dominate the leaderboard" },
-            { icon: "trophy",      text: "Earn achievements each cycle — keep your hall of fame" },
-          ].map(({ icon, text }) => (
-            <View key={icon} style={styles.feature}>
-              <MaterialCommunityIcons name={icon as any} size={15} color={colors.gold} />
-              <Text style={[styles.featureText, { color: colors.textSecondary }]}>{text}</Text>
-            </View>
-          ))}
+          <TouchableOpacity
+            style={[styles.signOutBtn, { borderColor: colors.border }]}
+            onPress={handleSignOut}
+            disabled={createPlayer.isPending}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="logout" size={18} color={colors.textSecondary} />
+            <Text style={[styles.signOutText, { color: colors.textSecondary }]}>Sign Out</Text>
+          </TouchableOpacity>
         </View>
 
       </View>
@@ -153,7 +166,7 @@ export default function SetupScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inner: { flex: 1, paddingHorizontal: 28, justifyContent: "space-between" },
+  inner: { flex: 1, paddingHorizontal: 28, justifyContent: "center", gap: 32 },
   heroSection: { alignItems: "center", gap: 14 },
   crownRing: { width: 96, height: 96, borderRadius: 48, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 34, fontFamily: "Inter_700Bold", letterSpacing: 1 },
@@ -167,7 +180,15 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
   button: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 4 },
   buttonText: { fontSize: 16, fontFamily: "Inter_700Bold" },
-  featureList: { gap: 10, borderTopWidth: 1, paddingTop: 20 },
-  feature: { flexDirection: "row", alignItems: "center", gap: 10 },
-  featureText: { fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+  signOutBtn: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+  signOutText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
 });

@@ -9,6 +9,9 @@ import { toPlayerJson } from "../lib/playerResponse.js";
 
 const router = Router();
 
+const MIN_RULER_NAME_LENGTH = 2;
+const MAX_RULER_NAME_LENGTH = 14;
+
 async function townIdForPlayer(playerId: number): Promise<number | null> {
   const towns = await db.select().from(townsTable).where(eq(townsTable.playerId, playerId)).limit(1);
   return towns[0]?.id ?? null;
@@ -28,6 +31,11 @@ router.post("/players", requireAuth, async (req, res) => {
   if (!name?.trim()) return void res.status(400).json({ error: "name required" });
 
   const trimmedName = name.trim();
+  if (trimmedName.length < MIN_RULER_NAME_LENGTH || trimmedName.length > MAX_RULER_NAME_LENGTH) {
+    return void res.status(400).json({
+      error: `Name must be ${MIN_RULER_NAME_LENGTH}–${MAX_RULER_NAME_LENGTH} characters`,
+    });
+  }
 
   const existing = await db.select().from(playersTable).where(eq(playersTable.authUserId, authUserId)).limit(1);
   if (existing.length > 0) {

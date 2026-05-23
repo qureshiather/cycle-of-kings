@@ -32,8 +32,13 @@ export const GetCurrentPlayerResponse = zod.object({
 /**
  * @summary Create or find a player for the authenticated Supabase user
  */
+export const createPlayerBodyNameMin = 2;
+export const createPlayerBodyNameMax = 14;
+
+
+
 export const CreatePlayerBody = zod.object({
-  "name": zod.string()
+  "name": zod.string().min(createPlayerBodyNameMin).max(createPlayerBodyNameMax)
 })
 
 export const CreatePlayerResponse = zod.object({

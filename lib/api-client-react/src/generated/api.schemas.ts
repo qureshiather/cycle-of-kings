@@ -19,6 +19,10 @@ export interface Player {
 }
 
 export interface PlayerInput {
+  /**
+     * @minLength 2
+     * @maxLength 14
+     */
   name: string;
 }
 

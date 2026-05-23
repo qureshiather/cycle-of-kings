@@ -20,6 +20,7 @@ import SeasonHeaderPill from "@/components/SeasonHeaderPill";
 import SeasonCalendarModal from "@/components/SeasonCalendarModal";
 import CycleResetModal from "@/components/CycleResetModal";
 import { cancelAllForTown } from "@/lib/notifications";
+import { formatKingdomHeaderTitle } from "@/lib/playerName";
 
 export default function KingdomScreen() {
   const colors = useColors();
@@ -63,7 +64,7 @@ export default function KingdomScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader
         icon="castle"
-        title={playerName ? `${playerName}'s Town` : "Your Town"}
+        title={formatKingdomHeaderTitle(playerName)}
         trailing={
           <View style={styles.headerActions}>
             {townId ? (
