@@ -2,9 +2,7 @@ import { Router } from "express";
 import { getCurrentSeasonInfo, getSeasonModifiers, getSeasonName } from "../lib/gameEngine.js";
 import {
   getActiveRealmEvent,
-  getUpcomingRealmEvent,
   getRealmEventModifiers,
-  getCycleEventSchedule,
 } from "../lib/realmEvents.js";
 
 const router = Router();
@@ -28,8 +26,6 @@ router.get("/game/state", (_req, res) => {
       : null,
     realmEventActive: active != null,
     realmEventModifiers,
-    upcomingRealmEvent: getUpcomingRealmEvent(),
-    cycleEventSchedule: getCycleEventSchedule(),
     seasonModifiers,
   });
 });

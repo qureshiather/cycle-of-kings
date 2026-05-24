@@ -14,6 +14,7 @@
     "@workspace/api-zod": "workspace:*",
     "@workspace/achievements": "workspace:*",
     "@workspace/building-progression": "workspace:*",
+    "@workspace/season-objectives": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

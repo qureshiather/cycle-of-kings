@@ -27,6 +27,8 @@ tags:
     description: Rankings
   - name: game
     description: Global game state
+  - name: seasonObjectives
+    description: Per-season objective progress and rewards
 
 paths:
   /healthz:
@@ -521,6 +523,52 @@ paths:
                 items:
                   $ref: "#/components/schemas/Activity"
 
+  /towns/{townId}/season-objectives:
+    get:
+      operationId: getSeasonObjectives
+      tags: [seasonObjectives]
+      summary: Get current season objective progress for a town
+      parameters:
+        - in: path
+          name: townId
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Season objectives
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeasonObjectivesResponse"
+        "404":
+          description: Town not found
+
+  /towns/{townId}/season-objectives/{objectiveId}/claim:
+    post:
+      operationId: claimSeasonObjective
+      tags: [seasonObjectives]
+      summary: Claim reward for a completed season objective
+      parameters:
+        - in: path
+          name: townId
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: objectiveId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reward granted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SeasonObjectiveClaimResult"
+        "400":
+          description: Not complete or already claimed
+        "404":
+          description: Unknown objective or town
+
   /towns/{townId}/raids:
     get:
       operationId: getTownRaids
@@ -677,6 +725,69 @@ components:
         morale: { type: number }
         lastTickAt: { type: string }
         cycleReset: { type: boolean, description: True when this response follows a per-cycle kingdom wipe }
+        cycleRecap:
+          allOf:
+            - $ref: "#/components/schemas/CycleRecap"
+          description: Present when cycleReset is true — stats from the ending cycle
+
+    CycleRecap:
+      type: object
+      required: [endingCycleNumber, trophiesEarned, trophyPointsEarned]
+      properties:
+        endingCycleNumber: { type: integer }
+        trophiesEarned:
+          type: array
+          items: { type: string }
+        trophyPointsEarned: { type: integer }
+        leaderboardRank: { type: integer, nullable: true }
+
+    SeasonObjectivesResponse:
+      type: object
+      required: [season, cycleNumber, seasonIndex, objectives]
+      properties:
+        season: { type: string, enum: [spring, summer, autumn, winter] }
+        cycleNumber: { type: integer }
+        seasonIndex: { type: integer }
+        objectives:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonObjectiveProgress"
+
+    SeasonObjectiveProgress:
+      type: object
+      required: [id, title, description, current, target, percent, complete, claimed, reward]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        description: { type: string }
+        current: { type: number }
+        target: { type: number }
+        percent: { type: integer }
+        complete: { type: boolean }
+        claimed: { type: boolean }
+        reward:
+          $ref: "#/components/schemas/ResourceBundle"
+
+    ResourceBundle:
+      type: object
+      required: [gold, food, wood, stone]
+      properties:
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
+
+    SeasonObjectiveClaimResult:
+      type: object
+      required: [objectiveId, reward, gold, food, wood, stone]
+      properties:
+        objectiveId: { type: string }
+        reward:
+          $ref: "#/components/schemas/ResourceBundle"
+        gold: { type: number }
+        food: { type: number }
+        wood: { type: number }
+        stone: { type: number }
 
     PeacefulModeInput:
       type: object
@@ -1118,7 +1229,7 @@ components:
 
     GameState:
       type: object
-      required: [cycleNumber, season, seasonName, cycleStartedAt, nextWipeAt, currentHour, realmEvent, realmEventActive, realmEventModifiers, cycleEventSchedule]
+      required: [cycleNumber, season, seasonName, cycleStartedAt, nextWipeAt, currentHour, realmEvent, realmEventActive, realmEventModifiers]
       properties:
         cycleNumber: { type: integer }
         season:
@@ -1135,13 +1246,5 @@ components:
         realmEventActive: { type: boolean }
         realmEventModifiers:
           $ref: "#/components/schemas/ResourceModifiers"
-        upcomingRealmEvent:
-          oneOf:
-            - $ref: "#/components/schemas/ScheduledRealmEvent"
-            - type: "null"
-        cycleEventSchedule:
-          type: array
-          items:
-            $ref: "#/components/schemas/ScheduledRealmEvent"
         seasonModifiers:
           $ref: "#/components/schemas/ResourceModifiers"

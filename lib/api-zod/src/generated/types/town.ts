@@ -5,6 +5,7 @@
  * Cycle of Kings game API
  * OpenAPI spec version: 0.1.0
  */
+import type { CycleRecap } from './cycleRecap';
 
 export interface Town {
   id: number;
@@ -34,4 +35,6 @@ export interface Town {
   lastTickAt: string;
   /** True when this response follows a per-cycle kingdom wipe */
   cycleReset: boolean;
+  /** Present when cycleReset is true — stats from the ending cycle */
+  cycleRecap?: CycleRecap;
 }

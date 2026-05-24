@@ -33,7 +33,9 @@ Designed for players who want missions, building, trade — not PvP.
 See [core-loop-and-resources.md](./core-loop-and-resources.md):
 
 - **1 week** = 1 season (spring/summer/autumn/winter production modifiers).
-- **4 weeks** = 1 cycle → **kingdom wipe** at cycle boundary (buildings, troops, resources reset; peaceful mode and trophies preserved).
+- **4 weeks** = 1 cycle → **full kingdom wipe** at cycle boundary (see [progression-and-endgame.md](./progression-and-endgame.md)).
+- **Wiped:** buildings (TH→1), army, missions, spy ops, raids, resources, population.
+- **Preserved:** player account, peaceful mode, trophy history + lifetime trophy points (cosmetic only — no mechanical advantage next cycle).
 
 Trophies/achievements are tracked **per cycle** (historical cycles remain visible).
 
@@ -69,8 +71,21 @@ Re-earned each cycle; trophy records which cycles you cleared them.
 | Thriving Realm | Population ≥50 |
 | Cultural Capital | Museum and Monument both built in cycle |
 
-Full list and points in `lib/achievements` catalog; mirror in [balance-reference.md](./balance-reference.md) if expanded.
+Points per achievement: see [balance-reference.md](./balance-reference.md#achievement-points-per-cycle).
 
 ## Activity feed
 
-Server writes activities for builds, upgrades, missions, raids, trade, spy, reset, achievements. Mobile **Activity** tab shows feed; mission results can open a detail modal with troop comparison metadata.
+Server writes activities for the events below. Mobile **Activity** tab shows the feed; mission and raid results can open detail modals.
+
+| Type | Meaning |
+|------|---------|
+| `upgrade_started` / `upgrade_complete` | Building construction |
+| `building_demolished` | Demolish refund |
+| `mission_dispatched` / `mission_success` / `mission_fail` | Land/naval missions |
+| `spy_dispatched` / `spy_success` / `spy_fail` | Espionage |
+| `raid_outgoing_march` / `raid_outgoing_win` / `raid_outgoing_loss` | Outgoing raids |
+| `raid_incoming_win` / `raid_incoming_loss` | Defending raids |
+| `trade_complete` | Hourly merchant deal |
+| `achievement_unlocked` | Trophy earned this cycle |
+| `season_objective_claimed` | Season path reward claimed |
+| `cycle_reset` / `kingdom_reset` | Cycle boundary or manual reset |

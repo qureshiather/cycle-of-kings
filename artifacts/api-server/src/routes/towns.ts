@@ -12,6 +12,7 @@ import {
 } from "../lib/gameEngine.js";
 import { getRealmEventModifiers } from "../lib/realmEvents.js";
 import { performKingdomReset } from "../lib/kingdomReset.js";
+import { buildCycleRecap, type CycleRecap } from "../lib/cycleRecap.js";
 import { recruitedFromRow, loadArmyContext } from "../lib/armyService.js";
 import { calculateArmyComposition } from "../lib/gameEngine.js";
 import { checkAchievementsForTown } from "../lib/awardAchievements.js";
@@ -19,11 +20,12 @@ import { initSlotsForTown, logConstructionComplete } from "./slots.js";
 
 const router = Router();
 
-async function getAndTickTown(townId: number): Promise<{ data: Record<string, unknown>; cycleReset: boolean } | null> {
+async function getAndTickTown(townId: number): Promise<{ data: Record<string, unknown>; cycleReset: boolean; cycleRecap?: CycleRecap } | null> {
   const rows = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!rows.length) return null;
   let town = rows[0];
   let cycleReset = false;
+  let cycleRecap: CycleRecap | undefined;
 
   const { cycleNumber } = getCurrentSeasonInfo();
 
@@ -31,7 +33,9 @@ async function getAndTickTown(townId: number): Promise<{ data: Record<string, un
     await db.update(townsTable).set({ lastPlayedCycleNumber: cycleNumber }).where(eq(townsTable.id, townId));
     town = { ...town, lastPlayedCycleNumber: cycleNumber };
   } else if (cycleNumber > town.lastPlayedCycleNumber) {
-    await performKingdomReset(townId, "cycle");
+    const endingCycle = town.lastPlayedCycleNumber;
+    cycleRecap = await buildCycleRecap(townId, town.playerId, endingCycle, town.peacefulMode);
+    await performKingdomReset(townId, "cycle", cycleRecap);
     cycleReset = true;
     const refreshed = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
     if (!refreshed.length) return null;
@@ -60,9 +64,9 @@ async function getAndTickTown(townId: number): Promise<{ data: Record<string, un
     onMissionShips: army.onMissionShips,
   };
 
-  const { season } = getCurrentSeasonInfo();
+  const { season, seasonIndex } = getCurrentSeasonInfo();
   const realmMods = getRealmEventModifiers();
-  const production = calculateProduction(freshSlots, season, realmMods);
+  const production = calculateProduction(freshSlots, season, realmMods, seasonIndex);
   const comp = calculateArmyComposition(freshSlots, recruited);
   const ticked = applyFullTick(town, freshSlots, production, comp.totalTroops);
   const economyScore = calculateEconomyScore(freshSlots);
@@ -94,6 +98,7 @@ async function getAndTickTown(townId: number): Promise<{ data: Record<string, un
 
   return {
     cycleReset,
+    cycleRecap,
     data: {
       ...town,
       ...ticked,
@@ -140,7 +145,7 @@ router.get("/towns/:townId", async (req, res) => {
   const townId = parseInt(req.params["townId"] ?? "");
   const result = await getAndTickTown(townId);
   if (!result) return void res.status(404).json({ error: "Not found" });
-  const { data, cycleReset } = result;
+  const { data, cycleReset, cycleRecap } = result;
   const { production, ...town } = data as typeof data & {
     production: { gold: number; food: number; wood: number; stone: number };
   };
@@ -163,6 +168,7 @@ router.get("/towns/:townId", async (req, res) => {
     populationGrowing: town.populationGrowing ?? false,
     lastTickAt: town.lastTickAt instanceof Date ? town.lastTickAt.toISOString() : town.lastTickAt,
     cycleReset,
+    cycleRecap: cycleReset ? cycleRecap : undefined,
   });
 });
 

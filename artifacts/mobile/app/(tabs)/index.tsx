@@ -87,7 +87,7 @@ export default function KingdomScreen() {
               </Pressable>
             ) : null}
             {gameState ? (
-              <SeasonHeaderPill gameState={gameState} onPress={openSeasonCalendar} />
+              <SeasonHeaderPill gameState={gameState} townId={townId ?? undefined} onPress={openSeasonCalendar} />
             ) : null}
           </View>
         }
@@ -158,6 +158,7 @@ export default function KingdomScreen() {
       <CycleResetModal
         visible={cycleResetOpen}
         cycleNumber={gameState?.cycleNumber}
+        cycleRecap={town?.cycleRecap}
         onDismiss={() => setCycleResetOpen(false)}
       />
     </View>

@@ -20,6 +20,7 @@ When implementation changes, update these docs in the same PR (or immediately af
 | [combat-forces.md](./combat-forces.md) | Troops, power, defense, raids, availability |
 | [missions-and-operations.md](./missions-and-operations.md) | Land/naval missions, espionage, boards, slots, loot |
 | [world-meta.md](./world-meta.md) | Trade, peaceful mode, leaderboard, cycles, reset, achievements |
+| [progression-and-endgame.md](./progression-and-endgame.md) | Season objectives, cycle tiers, full wipe policy |
 | [balance-reference.md](./balance-reference.md) | Single-page constants and formulas |
 
 ## Implementation map (for devs only)
@@ -29,6 +30,7 @@ When implementation changes, update these docs in the same PR (or immediately af
 | Balance constants | `artifacts/api-server/src/lib/gameEngine.ts` |
 | Build unlocks | `lib/building-progression/src/index.ts` |
 | Achievements | `lib/achievements/src/index.ts` |
+| Season objectives | `lib/season-objectives/src/index.ts` |
 | Routes | `artifacts/api-server/src/routes/*.ts` |
 
 Mobile display costs/copy: `artifacts/mobile/lib/buildingMeta.ts` (must match server).

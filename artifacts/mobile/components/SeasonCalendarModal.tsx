@@ -1,18 +1,27 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { GameState } from "@workspace/api-client-react";
-import React, { useEffect, useState } from "react";
 import {
+  useGetTownArmy,
+  useGetBuildingSlots,
+  useGetPlayerTrophies,
+  useGetTown,
+} from "@workspace/api-client-react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  Dimensions,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import ModalOverlay from "@/components/ui/ModalOverlay";
+import CycleGoalsPanel from "@/components/CycleGoalsPanel";
+import SeasonObjectivesPanel from "@/components/SeasonObjectivesPanel";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/hooks/useTheme";
+import { useGame } from "@/context/GameContext";
 import {
   getActiveModifiers,
   getSeasonProgress,
@@ -23,6 +32,10 @@ import {
   formatSeasonDate,
   type Season,
 } from "@/lib/seasonMeta";
+
+const SHEET_MAX_HEIGHT = Dimensions.get("window").height * 0.88;
+/** Room for header + season bonuses footer outside the scroll area. */
+const SCROLL_MAX_HEIGHT = SHEET_MAX_HEIGHT - 268;
 
 type SeasonCalendarModalProps = {
   visible: boolean;
@@ -126,9 +139,40 @@ export default function SeasonCalendarModal({
 }: SeasonCalendarModalProps) {
   const colors = useColors();
   const { withAlpha } = useTheme();
+  const { townId, playerId } = useGame();
   const season = gameState.season as Season;
+  const seasonColor = colors[season] as string;
   const [selectedSeason, setSelectedSeason] = useState<Season>(season);
   const [, setTick] = useState(0);
+
+  const { data: town } = useGetTown(townId ?? 0, { query: { enabled: visible && !!townId } as any });
+  const { data: slots = [] } = useGetBuildingSlots(townId ?? 0, {
+    query: { enabled: visible && !!townId } as any,
+  });
+  const { data: army } = useGetTownArmy(townId ?? 0, { query: { enabled: visible && !!townId } as any });
+  const { data: trophies = [] } = useGetPlayerTrophies(playerId ?? 0, {
+    query: { enabled: visible && !!playerId } as any,
+  });
+
+  const unlockedThisCycle = useMemo(
+    () => new Set(trophies.filter((t) => t.cycleNumber === gameState.cycleNumber).map((t) => t.type)),
+    [trophies, gameState.cycleNumber],
+  );
+
+  const achievementSnapshot = useMemo(() => {
+    if (!town) return null;
+    return {
+      gold: town.gold,
+      food: town.food,
+      wood: town.wood,
+      stone: town.stone,
+      peacefulMode: town.peacefulMode ?? false,
+      economyScore: town.economyScore ?? 0,
+      armyScore: army?.totalPower ?? town.armyScore ?? 0,
+      population: town.population ?? 0,
+      slots: slots.map((s) => ({ slotType: s.slotType, level: s.level })),
+    };
+  }, [town, army, slots]);
 
   useEffect(() => {
     if (visible) setSelectedSeason(season);
@@ -158,11 +202,8 @@ export default function SeasonCalendarModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <ModalOverlay onPress={onClose}>
-        <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
-          <View
-            style={[styles.sheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}
-          >
-            <View style={styles.sheetHeader}>
+        <View style={[styles.sheet, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <View style={styles.sheetHeader}>
               <View style={[styles.sheetIcon, { backgroundColor: withAlpha(colors.gold, 0.12) }]}>
                 <MaterialCommunityIcons name="calendar-month" size={26} color={colors.gold} />
               </View>
@@ -177,8 +218,8 @@ export default function SeasonCalendarModal({
             <ScrollView
               style={styles.scroll}
               contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={false}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled
             >
               <View style={[styles.currentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
                 <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>THIS WEEK</Text>
@@ -202,6 +243,24 @@ export default function SeasonCalendarModal({
                 </Text>
               </View>
 
+              {townId ? (
+                <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
+                    SEASON PATH
+                  </Text>
+                  <SeasonObjectivesPanel townId={townId} seasonColor={seasonColor} />
+                </>
+              ) : null}
+
+              {achievementSnapshot ? (
+                <>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
+                    CYCLE GOALS
+                  </Text>
+                  <CycleGoalsPanel snapshot={achievementSnapshot} unlockedThisCycle={unlockedThisCycle} />
+                </>
+              ) : null}
+
               {gameState.realmEventActive && gameState.realmEvent ? (
                 <View style={[styles.currentCard, { backgroundColor: withAlpha(colors.raid, 0.08), borderColor: withAlpha(colors.raid, 0.35) }]}>
                   <Text style={[styles.sectionLabel, { color: colors.raid }]}>REALM EVENT</Text>
@@ -211,44 +270,14 @@ export default function SeasonCalendarModal({
                     Ends {formatSeasonDate(new Date(gameState.realmEvent.endsAt).getTime())}
                   </Text>
                 </View>
-              ) : gameState.upcomingRealmEvent ? (
+              ) : (
                 <View style={[styles.currentCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>UPCOMING</Text>
-                  <Text style={[styles.currentTitle, { color: colors.foreground }]}>
-                    {gameState.upcomingRealmEvent.title}
-                  </Text>
+                  <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>REALM EVENTS</Text>
                   <Text style={[styles.currentMeta, { color: colors.textSecondary }]}>
-                    Starts {formatSeasonDate(new Date(gameState.upcomingRealmEvent.startsAt).getTime())}
+                    Calamities and blessings strike without warning — watch the season pill and Activity feed when
+                    something stirs in the realm.
                   </Text>
                 </View>
-              ) : null}
-
-              {(gameState.cycleEventSchedule?.length ?? 0) > 0 && (
-                <>
-                  <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
-                    EVENTS THIS CYCLE
-                  </Text>
-                  {gameState.cycleEventSchedule.slice(0, 8).map((ev) => {
-                    const start = new Date(ev.startsAt).getTime();
-                    const end = new Date(ev.endsAt).getTime();
-                    const now = Date.now();
-                    const live = now >= start && now < end;
-                    return (
-                      <View
-                        key={`${ev.id}-${ev.startsAt}`}
-                        style={[styles.eventRow, { backgroundColor: colors.surface, borderColor: colors.border }]}
-                      >
-                        <Text style={[styles.eventTitle, { color: live ? colors.gold : colors.foreground }]}>
-                          {ev.title}
-                          {live ? " · Active" : ""}
-                        </Text>
-                        <Text style={[styles.eventMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                          {formatSeasonDate(start)} – {formatSeasonDate(end)}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </>
               )}
 
               <Text style={[styles.sectionLabel, { color: colors.textSecondary, marginTop: 4 }]}>
@@ -353,7 +382,7 @@ export default function SeasonCalendarModal({
                   Cycle started {formatSeasonDate(cycleStart)}
                 </Text>
                 <Text style={[styles.cycleFooterText, { color: colors.gold }]}>
-                  Kingdom wipe {formatSeasonDate(cycleEnd)}
+                  Full kingdom wipe {formatSeasonDate(cycleEnd)}
                 </Text>
               </View>
             </ScrollView>
@@ -362,8 +391,7 @@ export default function SeasonCalendarModal({
               <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>SEASON BONUSES</Text>
               <SeasonBonusPanel selectedSeason={selectedSeason} isLiveSeason={selectedSeason === season} />
             </View>
-          </View>
-        </TouchableOpacity>
+        </View>
       </ModalOverlay>
     </Modal>
   );
@@ -377,22 +405,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 28,
     borderWidth: 1,
-    maxHeight: "88%",
+    maxHeight: SHEET_MAX_HEIGHT,
   },
   sheetHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
   sheetIcon: { width: 48, height: 48, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   sheetTitle: { fontSize: 17, fontFamily: "Inter_700Bold" },
   sheetSub: { fontSize: 12, fontFamily: "Inter_400Regular", marginTop: 2 },
-  scroll: { flexShrink: 1 },
-  scrollContent: { gap: 8, paddingBottom: 4 },
+  scroll: { flexGrow: 0, maxHeight: SCROLL_MAX_HEIGHT },
+  scrollContent: { gap: 8, paddingBottom: 8 },
   sectionLabel: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 0.8 },
   timelineHint: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 16, marginBottom: 4 },
   currentCard: { padding: 12, borderRadius: 12, borderWidth: 1, gap: 8 },
   currentTitle: { fontSize: 15, fontFamily: "Inter_700Bold" },
   currentMeta: { fontSize: 11, fontFamily: "Inter_400Regular" },
-  eventRow: { padding: 10, borderRadius: 8, borderWidth: 1, gap: 4 },
-  eventTitle: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  eventMeta: { fontSize: 10, fontFamily: "Inter_400Regular" },
   progressTrack: { height: 6, borderRadius: 3, overflow: "hidden" },
   progressFill: { height: "100%", borderRadius: 3 },
   cycleTrack: { height: 4, borderRadius: 2, overflow: "hidden", marginBottom: 10 },

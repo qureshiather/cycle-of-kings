@@ -119,7 +119,13 @@ export const GetTownResponse = zod.object({
   "troopFoodUpkeepPerHour": zod.number().optional(),
   "morale": zod.number(),
   "lastTickAt": zod.string(),
-  "cycleReset": zod.boolean().describe('True when this response follows a per-cycle kingdom wipe')
+  "cycleReset": zod.boolean().describe('True when this response follows a per-cycle kingdom wipe'),
+  "cycleRecap": zod.object({
+  "endingCycleNumber": zod.number(),
+  "trophiesEarned": zod.array(zod.string()),
+  "trophyPointsEarned": zod.number(),
+  "leaderboardRank": zod.number().nullish()
+}).optional().describe('Present when cycleReset is true — stats from the ending cycle')
 })
 
 
@@ -587,6 +593,59 @@ export const GetActivitiesResponse = zod.array(GetActivitiesResponseItem)
 
 
 /**
+ * @summary Get current season objective progress for a town
+ */
+export const GetSeasonObjectivesParams = zod.object({
+  "townId": zod.coerce.number()
+})
+
+export const GetSeasonObjectivesResponse = zod.object({
+  "season": zod.enum(['spring', 'summer', 'autumn', 'winter']),
+  "cycleNumber": zod.number(),
+  "seasonIndex": zod.number(),
+  "objectives": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "current": zod.number(),
+  "target": zod.number(),
+  "percent": zod.number(),
+  "complete": zod.boolean(),
+  "claimed": zod.boolean(),
+  "reward": zod.object({
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
+})
+}))
+})
+
+
+/**
+ * @summary Claim reward for a completed season objective
+ */
+export const ClaimSeasonObjectiveParams = zod.object({
+  "townId": zod.coerce.number(),
+  "objectiveId": zod.coerce.string()
+})
+
+export const ClaimSeasonObjectiveResponse = zod.object({
+  "objectiveId": zod.string(),
+  "reward": zod.object({
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
+}),
+  "gold": zod.number(),
+  "food": zod.number(),
+  "wood": zod.number(),
+  "stone": zod.number()
+})
+
+
+/**
  * @summary Get raid history (as attacker and defender)
  */
 export const GetTownRaidsParams = zod.object({
@@ -689,20 +748,6 @@ export const GetGameStateResponse = zod.object({
   "wood": zod.number(),
   "stone": zod.number()
 }),
-  "upcomingRealmEvent": zod.union([zod.object({
-  "id": zod.string(),
-  "title": zod.string(),
-  "flavor": zod.string(),
-  "startsAt": zod.string(),
-  "endsAt": zod.string()
-}),zod.null()]).optional(),
-  "cycleEventSchedule": zod.array(zod.object({
-  "id": zod.string(),
-  "title": zod.string(),
-  "flavor": zod.string(),
-  "startsAt": zod.string(),
-  "endsAt": zod.string()
-})),
   "seasonModifiers": zod.object({
   "gold": zod.number(),
   "food": zod.number(),

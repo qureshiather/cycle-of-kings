@@ -11,6 +11,7 @@ import tradeRouter from "./trade.js";
 import leaderboardRouter from "./leaderboard.js";
 import gameRouter from "./game.js";
 import activitiesRouter from "./activities.js";
+import seasonObjectivesRouter from "./seasonObjectives.js";
 
 const router: IRouter = Router();
 
@@ -25,6 +26,7 @@ router.use(raidsRouter);
 router.use(tradeRouter);
 router.use(leaderboardRouter);
 router.use(gameRouter);
+router.use(seasonObjectivesRouter);
 router.use(activitiesRouter);
 
 export default router;

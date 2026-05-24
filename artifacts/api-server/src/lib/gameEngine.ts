@@ -100,6 +100,13 @@ export function getSeasonName(season: Season): string {
   return season.charAt(0).toUpperCase() + season.slice(1);
 }
 
+/** Week 4 of each cycle (Winter): +5% production finale boost. */
+export const CYCLE_FINALE_PRODUCTION_MULT = 1.05;
+
+export function getCycleFinaleProductionMultiplier(seasonIndex: number): number {
+  return seasonIndex === 3 ? CYCLE_FINALE_PRODUCTION_MULT : 1;
+}
+
 function seededRandom(seed: number): () => number {
   let s = seed;
   return function () {
@@ -137,13 +144,17 @@ export function calculateProduction(
   slots: SlotLike[],
   season: Season,
   realmMods: { gold: number; food: number; wood: number; stone: number } = { gold: 1, food: 1, wood: 1, stone: 1 },
+  seasonIndex?: number,
 ): { gold: number; food: number; wood: number; stone: number } {
   const seasonMods = getSeasonModifiers(season);
+  const finaleMult = getCycleFinaleProductionMultiplier(
+    seasonIndex ?? (["spring", "summer", "autumn", "winter"] as Season[]).indexOf(season),
+  );
   const mods = {
-    gold: seasonMods.gold * realmMods.gold,
-    food: seasonMods.food * realmMods.food,
-    wood: seasonMods.wood * realmMods.wood,
-    stone: seasonMods.stone * realmMods.stone,
+    gold: seasonMods.gold * realmMods.gold * finaleMult,
+    food: seasonMods.food * realmMods.food * finaleMult,
+    wood: seasonMods.wood * realmMods.wood * finaleMult,
+    stone: seasonMods.stone * realmMods.stone * finaleMult,
   };
   let gold = BASE_PRODUCTION.gold * mods.gold;
   let food = BASE_PRODUCTION.food * mods.food;

@@ -14,6 +14,7 @@ This file is a **short index** for implementation. Do not contradict `docs/mecha
 | Army, raids | [combat-forces.md](../mechanics/combat-forces.md) | `gameEngine.ts`, `raids.ts`, `army.ts` |
 | Missions, navy, spies | [missions-and-operations.md](../mechanics/missions-and-operations.md) | `missions.ts`, `spy.ts` |
 | Trade, peaceful, meta | [world-meta.md](../mechanics/world-meta.md) | `trade.ts`, `towns.ts`, `leaderboard.ts` |
+| Progression / endgame | [progression-and-endgame.md](../mechanics/progression-and-endgame.md) | `season-objectives`, `kingdomReset.ts` |
 | All constants | [balance-reference.md](../mechanics/balance-reference.md) | `gameEngine.ts` |
 
 ## Agent rules (unchanged)
@@ -27,8 +28,8 @@ This file is a **short index** for implementation. Do not contradict `docs/mecha
 ## Quick facts (easy to get wrong)
 
 - **Food is not a build cost** — only population upkeep and economy pressure.
-- **House → population cap**, not troop cap. Troops = sum of military building levels.
-- **Net food** = gross production − `0.4 × population`.
+- **House → population cap**, not troop cap. Troop **caps** = Barracks×5 + Archery×5 + Stables×3 per level; troops are **recruited** into those caps.
+- **Net food** = gross production − `0.4 × population` − `0.4 × recruited troops`.
 - **Naval / spies** = missions only, not raids.
 - **Peaceful** is permanent; excludes leaderboard and raids.
 - Mission + spy boards refresh every **30m**, not hourly.

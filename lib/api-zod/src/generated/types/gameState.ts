@@ -8,7 +8,6 @@
 import type { GameStateSeason } from './gameStateSeason';
 import type { RealmEvent } from './realmEvent';
 import type { ResourceModifiers } from './resourceModifiers';
-import type { ScheduledRealmEvent } from './scheduledRealmEvent';
 
 export interface GameState {
   cycleNumber: number;
@@ -20,7 +19,5 @@ export interface GameState {
   realmEvent: RealmEvent | null;
   realmEventActive: boolean;
   realmEventModifiers: ResourceModifiers;
-  upcomingRealmEvent?: ScheduledRealmEvent | null;
-  cycleEventSchedule: ScheduledRealmEvent[];
   seasonModifiers?: ResourceModifiers;
 }

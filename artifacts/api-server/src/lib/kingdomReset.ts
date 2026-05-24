@@ -11,12 +11,14 @@ import {
 import { eq, or } from "drizzle-orm";
 import { getCurrentSeasonInfo } from "./gameEngine.js";
 import { initSlotsForTown } from "./slotsInit.js";
+import { formatCycleRecapBody, type CycleRecap } from "./cycleRecap.js";
 
 export type KingdomResetReason = "manual" | "cycle";
 
 export async function performKingdomReset(
   townId: number,
   reason: KingdomResetReason,
+  recap?: CycleRecap,
 ): Promise<void> {
   const [town] = await db.select().from(townsTable).where(eq(townsTable.id, townId)).limit(1);
   if (!town) return;
@@ -60,14 +62,16 @@ export async function performKingdomReset(
   }).where(eq(townsTable.id, townId));
 
   const isCycle = reason === "cycle";
+  const recapBody = isCycle && recap ? formatCycleRecapBody(recap) : undefined;
   await db.insert(activitiesTable).values({
     townId,
     type: isCycle ? "cycle_reset" : "kingdom_reset",
     title: isCycle ? "New Cycle Begins" : "Kingdom Reset",
     body: isCycle
-      ? `Cycle ${cycleNumber} has begun. Your kingdom was reset for a fresh season of conquest.`
+      ? recapBody ?? `Cycle ${cycleNumber} has begun. Your kingdom was reset for a fresh season of conquest.`
       : "All buildings demolished. Your kingdom starts fresh.",
     icon: isCycle ? "calendar-refresh" : "restore",
     iconColor: isCycle ? "#d4a520" : "#cc4040",
+    metadata: isCycle && recap ? JSON.stringify(recap) : null,
   });
 }

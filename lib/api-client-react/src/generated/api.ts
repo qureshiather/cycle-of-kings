@@ -38,6 +38,8 @@ import type {
   RaidOrder,
   RecruitArmyInput,
   ResetResult,
+  SeasonObjectiveClaimResult,
+  SeasonObjectivesResponse,
   SpyCard,
   SpyDispatch,
   SpyOperation,
@@ -1786,6 +1788,155 @@ export function useGetActivities<TData = Awaited<ReturnType<typeof getActivities
 
 
 
+
+export const getGetSeasonObjectivesUrl = (townId: number,) => {
+
+
+
+
+  return `/api/towns/${townId}/season-objectives`
+}
+
+/**
+ * @summary Get current season objective progress for a town
+ */
+export const getSeasonObjectives = async (townId: number, options?: RequestInit): Promise<SeasonObjectivesResponse> => {
+
+  return customFetch<SeasonObjectivesResponse>(getGetSeasonObjectivesUrl(townId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSeasonObjectivesQueryKey = (townId: number,) => {
+    return [
+    `/api/towns/${townId}/season-objectives`
+    ] as const;
+    }
+
+
+export const getGetSeasonObjectivesQueryOptions = <TData = Awaited<ReturnType<typeof getSeasonObjectives>>, TError = ErrorType<void>>(townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSeasonObjectives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSeasonObjectivesQueryKey(townId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSeasonObjectives>>> = ({ signal }) => getSeasonObjectives(townId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(townId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSeasonObjectives>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSeasonObjectivesQueryResult = NonNullable<Awaited<ReturnType<typeof getSeasonObjectives>>>
+export type GetSeasonObjectivesQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get current season objective progress for a town
+ */
+
+export function useGetSeasonObjectives<TData = Awaited<ReturnType<typeof getSeasonObjectives>>, TError = ErrorType<void>>(
+ townId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSeasonObjectives>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSeasonObjectivesQueryOptions(townId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getClaimSeasonObjectiveUrl = (townId: number,
+    objectiveId: string,) => {
+
+
+
+
+  return `/api/towns/${townId}/season-objectives/${objectiveId}/claim`
+}
+
+/**
+ * @summary Claim reward for a completed season objective
+ */
+export const claimSeasonObjective = async (townId: number,
+    objectiveId: string, options?: RequestInit): Promise<SeasonObjectiveClaimResult> => {
+
+  return customFetch<SeasonObjectiveClaimResult>(getClaimSeasonObjectiveUrl(townId,objectiveId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getClaimSeasonObjectiveMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimSeasonObjective>>, TError,{townId: number;objectiveId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof claimSeasonObjective>>, TError,{townId: number;objectiveId: string}, TContext> => {
+
+const mutationKey = ['claimSeasonObjective'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof claimSeasonObjective>>, {townId: number;objectiveId: string}> = (props) => {
+          const {townId,objectiveId} = props ?? {};
+
+          return  claimSeasonObjective(townId,objectiveId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClaimSeasonObjectiveMutationResult = NonNullable<Awaited<ReturnType<typeof claimSeasonObjective>>>
+
+    export type ClaimSeasonObjectiveMutationError = ErrorType<void>
+
+    /**
+ * @summary Claim reward for a completed season objective
+ */
+export const useClaimSeasonObjective = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof claimSeasonObjective>>, TError,{townId: number;objectiveId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof claimSeasonObjective>>,
+        TError,
+        {townId: number;objectiveId: string},
+        TContext
+      > => {
+      return useMutation(getClaimSeasonObjectiveMutationOptions(options));
+    }
 
 export const getGetTownRaidsUrl = (townId: number,) => {
 

@@ -25,6 +25,8 @@ All values reflect current server rules (`gameEngine.ts`, `building-progression`
 | Concurrent builds/upgrades | **1** (TH1–2), **2** (TH3–4), **3** (TH5+) |
 | Realm events per week | **3** (18–36h each) |
 | Recruit cost per troop | Inf **3G+2F**, Arch **4G+2F**, Cav **6G+3F** |
+| Recruit train time (per troop) | Inf **~96s**, Arch **~120s**, Cav **~144s** (batch 1–5, one queue) |
+| Cycle finale production (week 4) | **+5%** all production (stacks with season + realm events) |
 
 ## Season modifiers
 
@@ -34,6 +36,45 @@ All values reflect current server rules (`gameEngine.ts`, `building-progression`
 | Summer | 1.2 | 1.1 | 1.0 | 1.0 |
 | Autumn | 1.0 | 0.9 | 1.3 | 1.1 |
 | Winter | 0.9 | 0.7 | 0.8 | 0.9 |
+
+## Realm event catalog
+
+~3 events per week, 18–36h each. Modifiers stack with season production.
+
+| Event | Gold | Food | Wood | Stone |
+|-------|------|------|------|-------|
+| Drought | 1.0 | 0.75 | 1.0 | 1.0 |
+| Harvest Festival | 1.15 | 1.2 | 1.0 | 1.0 |
+| Bandit Uprising | 0.85 | 1.0 | 0.9 | 1.0 |
+| Royal Tax | 0.8 | 1.0 | 1.0 | 1.0 |
+| Merchant Caravan | 1.2 | 1.0 | 1.0 | 1.0 |
+| Blight | 1.0 | 0.85 | 0.9 | 1.0 |
+| Wolf Moon | 1.0 | 0.9 | 1.0 | 1.0 |
+| Stone Vein | 1.0 | 1.0 | 1.0 | 1.25 |
+| Ironwood Grove | 1.0 | 1.0 | 1.25 | 1.0 |
+| Dragon Sighted | 0.95 | 0.9 | 0.95 | 1.0 |
+| Pilgrim Blessing | 1.1 | 1.05 | 1.0 | 1.0 |
+| Fey Mist | 1.05 | 1.0 | 1.05 | 1.0 |
+
+## Achievement points (per cycle)
+
+| Id | Points |
+|----|--------|
+| master_builder | 50 |
+| skyline | 40 |
+| grand_treasury | 35 |
+| economic_power | 25 |
+| military_might | 25 |
+| mission_victory | 15 |
+| raid_conqueror | 20 |
+| peaceful_realm | 10 |
+| shadow_network | 20 |
+| treasure_hoard | 30 |
+| admiral | 20 |
+| thriving_realm | 25 |
+| cultural_capital | 30 |
+
+**Max per cycle:** 350 points (13 achievements). Lifetime `trophyPoints` on player profile accumulates across cycles.
 
 ## Production per building level
 

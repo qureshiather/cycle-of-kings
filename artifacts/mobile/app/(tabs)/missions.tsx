@@ -203,8 +203,7 @@ export default function MissionsScreen() {
     [missionCards],
   );
 
-  const barracksReady =
-    isSlotOperational(barracksSlot) || (army?.capInfantry ?? 0) > 0 || landCards.length > 0;
+  const barracksReady = isSlotOperational(barracksSlot);
 
   const availableInfantry = army?.availableInfantry ?? 0;
   const availableArchers = army?.availableArchers ?? 0;
@@ -247,6 +246,7 @@ export default function MissionsScreen() {
 
   const openMission = (card: MissionCard) => {
     if (atMissionLimit) return;
+    if (card.type !== "naval" && !barracksReady) return;
     setSelected(card);
     setInfantry(0);
     setArchers(0);
@@ -303,9 +303,11 @@ export default function MissionsScreen() {
     );
   };
 
-  const renderMissionCard = (card: MissionCard) => {
+  const renderMissionCard = (card: MissionCard, opts?: { landLocked?: boolean }) => {
     const diff = diffColor(card.difficulty, colors);
     const accent = card.type === "naval" ? colors.slots.shipyard : diff;
+    const landLocked = opts?.landLocked ?? false;
+    const disabled = atMissionLimit || landLocked;
     return (
       <TouchableOpacity
         key={card.id}
@@ -316,11 +318,11 @@ export default function MissionsScreen() {
             borderColor: colors.border,
             borderLeftColor: accent,
             borderLeftWidth: 3,
-            opacity: atMissionLimit ? 0.5 : 1,
+            opacity: disabled ? 0.5 : 1,
           },
         ]}
         onPress={() => openMission(card)}
-        disabled={atMissionLimit}
+        disabled={disabled}
       >
         <View style={styles.cardTop}>
           <View style={styles.cardLeft}>
@@ -389,14 +391,20 @@ export default function MissionsScreen() {
     );
   };
 
-  const renderCardList = (cards: MissionCard[], emptyIcon: string, emptyTitle: string, emptyBody: string) => {
+  const renderCardList = (
+    cards: MissionCard[],
+    emptyIcon: string,
+    emptyTitle: string,
+    emptyBody: string,
+    opts?: { landLocked?: boolean },
+  ) => {
     if (cardsLoading) {
       return <ActivityIndicator color={colors.gold} style={{ marginTop: 24 }} />;
     }
     if (cards.length === 0) {
       return <EmptyTabPanel icon={emptyIcon} title={emptyTitle} body={emptyBody} colors={colors} />;
     }
-    return cards.map(renderMissionCard);
+    return cards.map((card) => renderMissionCard(card, opts));
   };
 
   return (
@@ -414,7 +422,11 @@ export default function MissionsScreen() {
           return (
             <TouchableOpacity
               key={tab.id}
-              style={[styles.tab, activeTab === tab.id && { borderBottomColor: colors.gold, borderBottomWidth: 2 }]}
+              style={[
+                styles.tab,
+                activeTab === tab.id && { borderBottomColor: colors.gold, borderBottomWidth: 2 },
+                tab.id === "land" && !barracksReady && { opacity: 0.45 },
+              ]}
               onPress={() => setActiveTab(tab.id)}
             >
               <MaterialCommunityIcons
@@ -591,6 +603,7 @@ export default function MissionsScreen() {
                   "sword",
                   "No land missions",
                   "This rotation has no explore, patrol, or raid cards. The board refreshes every 30 minutes.",
+                  { landLocked: !barracksReady },
                 )}
               </>
             )}

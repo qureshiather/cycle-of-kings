@@ -102,6 +102,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/season-objectives':
+        specifier: workspace:*
+        version: link:../../lib/season-objectives
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
@@ -537,6 +540,12 @@ importers:
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
+
+  lib/season-objectives:
+    dependencies:
+      '@workspace/achievements':
+        specifier: workspace:*
+        version: link:../achievements
 
   scripts:
     devDependencies:

@@ -89,10 +89,12 @@ morale = min(100, tavern×4 + museum×6 + monument×10)
 
 Affects population growth rate and spy success slightly.
 
-### Troops (automatic, not recruited)
+### Military caps (recruit-to-fill)
 
-| Building | Troops per level |
-|----------|------------------|
+Barracks, Archery Range, and Stables set **troop caps**; you recruit into those caps on the Army tab (gold + food upfront, one training queue). See [combat-forces.md](./combat-forces.md).
+
+| Building | Cap per level |
+|----------|---------------|
 | Barracks | 5 infantry |
 | Archery Range | 5 archers |
 | Stables | 3 cavalry |

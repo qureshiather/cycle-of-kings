@@ -35,6 +35,13 @@ export interface Trophy {
   earnedAt: string;
 }
 
+export interface CycleRecap {
+  endingCycleNumber: number;
+  trophiesEarned: string[];
+  trophyPointsEarned: number;
+  leaderboardRank?: number | null;
+}
+
 export interface Town {
   id: number;
   playerId: number;
@@ -63,6 +70,53 @@ export interface Town {
   lastTickAt: string;
   /** True when this response follows a per-cycle kingdom wipe */
   cycleReset: boolean;
+  /** Present when cycleReset is true — stats from the ending cycle */
+  cycleRecap?: CycleRecap;
+}
+
+export type SeasonObjectivesResponseSeason = typeof SeasonObjectivesResponseSeason[keyof typeof SeasonObjectivesResponseSeason];
+
+
+export const SeasonObjectivesResponseSeason = {
+  spring: 'spring',
+  summer: 'summer',
+  autumn: 'autumn',
+  winter: 'winter',
+} as const;
+
+export interface ResourceBundle {
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
+}
+
+export interface SeasonObjectiveProgress {
+  id: string;
+  title: string;
+  description: string;
+  current: number;
+  target: number;
+  percent: number;
+  complete: boolean;
+  claimed: boolean;
+  reward: ResourceBundle;
+}
+
+export interface SeasonObjectivesResponse {
+  season: SeasonObjectivesResponseSeason;
+  cycleNumber: number;
+  seasonIndex: number;
+  objectives: SeasonObjectiveProgress[];
+}
+
+export interface SeasonObjectiveClaimResult {
+  objectiveId: string;
+  reward: ResourceBundle;
+  gold: number;
+  food: number;
+  wood: number;
+  stone: number;
 }
 
 export interface PeacefulModeInput {
@@ -580,8 +634,6 @@ export interface GameState {
   realmEvent: RealmEvent | null;
   realmEventActive: boolean;
   realmEventModifiers: ResourceModifiers;
-  upcomingRealmEvent?: ScheduledRealmEvent | null;
-  cycleEventSchedule: ScheduledRealmEvent[];
   seasonModifiers?: ResourceModifiers;
 }
 

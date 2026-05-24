@@ -15,7 +15,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
-  Animated,
   Modal,
   Pressable,
   RefreshControl,
@@ -42,6 +41,7 @@ import {
   getSlotColor,
   SLOT_ICONS,
   SLOT_NAMES,
+  formatCost,
   formatTimeRemaining,
   type ResourceAmounts,
 } from "@/lib/buildingMeta";
@@ -76,6 +76,13 @@ function useTimeRemaining(active: boolean, endsAt?: string | null): number {
   }, [active, endsAt]);
 
   return msLeft;
+}
+
+function constructionQueueHint(townHallLevel: number, maxConcurrent: number): string | null {
+  if (maxConcurrent >= 3) return null;
+  if (townHallLevel < 3) return "Upgrade Town Hall to level 3 for 2 builds at once.";
+  if (townHallLevel < 5) return "Upgrade Town Hall to level 5 for 3 builds at once.";
+  return null;
 }
 
 export default function KingdomMap({
@@ -296,6 +303,35 @@ export default function KingdomMap({
           ) : undefined
         }
       >
+        <View
+          style={[
+            styles.queueBanner,
+            {
+              backgroundColor: queueFull ? withAlpha(colors.warning, 0.1) : colors.surface,
+              borderColor: queueFull ? withAlpha(colors.warning, 0.4) : colors.border,
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name="hammer-wrench"
+            size={16}
+            color={queueFull ? colors.warning : colors.gold}
+          />
+          <View style={styles.queueBannerBody}>
+            <Text style={[styles.queueBannerTitle, { color: colors.foreground }]}>
+              Construction queue · {upgradingCount}/{maxConcurrent}
+            </Text>
+            <Text style={[styles.queueBannerSub, { color: colors.textSecondary }]}>
+              {queueFull
+                ? "Queue full — finish a build before starting another."
+                : upgradingCount > 0
+                  ? `${maxConcurrent - upgradingCount} slot${maxConcurrent - upgradingCount === 1 ? "" : "s"} free`
+                  : constructionQueueHint(thLevel, maxConcurrent) ??
+                    "Build or upgrade one structure per slot."}
+            </Text>
+          </View>
+        </View>
+
         {BUILDING_CATEGORY_ORDER.map((category) => {
           const isCollapsed = collapsedSections[category];
           const sectionColor =
@@ -388,11 +424,10 @@ export default function KingdomMap({
                     upgradeEndsAt={slot.upgradeEndsAt}
                     lockReason={lockReason}
                     canAffordBuild={canAffordBuild}
-                    highlight={highlight}
+                    buildCostHint={highlight ? formatCost(slotType, 1) : undefined}
+                    queueFull={queueFull}
                     onPress={() => {
-                      Haptics.impactAsync(
-                        highlight ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
-                      );
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                       setSelectedSlotType(slotType);
                     }}
                     colors={colors}
@@ -591,7 +626,8 @@ function BuildingCard({
   upgradeEndsAt,
   lockReason,
   canAffordBuild,
-  highlight,
+  buildCostHint,
+  queueFull,
   onPress,
   colors,
 }: {
@@ -606,28 +642,14 @@ function BuildingCard({
   upgradeEndsAt?: string | null;
   lockReason: string | null;
   canAffordBuild: boolean;
-  highlight?: boolean;
+  buildCostHint?: string;
+  queueFull?: boolean;
   onPress: () => void;
   colors: ReturnType<typeof useColors>;
 }) {
   const { withAlpha } = useTheme();
-  const pulse = useRef(new Animated.Value(1)).current;
   const timeLeft = useTimeRemaining(upgrading, upgradeEndsAt);
-
-  useEffect(() => {
-    if (!highlight) {
-      pulse.setValue(1);
-      return;
-    }
-    const anim = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.5, duration: 850, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 850, useNativeDriver: true }),
-      ]),
-    );
-    anim.start();
-    return () => anim.stop();
-  }, [highlight, pulse]);
+  const canBuildNow = ready && canAffordBuild && !queueFull;
 
   const accentColor = upgrading
     ? colors.warning
@@ -645,11 +667,15 @@ function BuildingCard({
     ? formatTimeRemaining(timeLeft)
     : built
       ? `Lv ${displayLevel}`
-      : ready
-        ? canAffordBuild
-          ? "BUILD"
-          : "READY"
-        : "LOCKED";
+      : locked
+        ? "Locked"
+        : canBuildNow
+          ? "Ready"
+          : ready && queueFull
+            ? "Queue full"
+            : ready
+              ? "Need res."
+              : "Locked";
 
   return (
     <TouchableOpacity
@@ -657,41 +683,23 @@ function BuildingCard({
       activeOpacity={0.8}
       style={[
         styles.card,
-        highlight && styles.cardHighlight,
         {
-          backgroundColor: highlight
-            ? withAlpha(colors.gold, 0.12)
-            : built
-              ? colors.surfaceElevated
-              : ready
-                ? withAlpha(colors.gold, 0.04)
-                : colors.surface,
-          borderColor: highlight
-            ? colors.gold
-            : built
-              ? withAlpha(color, 0.45)
-              : ready
-                ? withAlpha(canAffordBuild ? colors.gold : colors.border, canAffordBuild ? 0.5 : 1)
-                : colors.border,
-          borderStyle: ready && !built ? "dashed" : "solid",
-          borderWidth: highlight ? 2 : 1,
+          backgroundColor: built
+            ? colors.surfaceElevated
+            : canBuildNow
+              ? withAlpha(colors.gold, 0.06)
+              : colors.surface,
+          borderColor: built
+            ? withAlpha(color, 0.45)
+            : canBuildNow
+              ? withAlpha(colors.gold, 0.55)
+              : colors.border,
+          borderStyle: ready && !built && !canBuildNow ? "dashed" : "solid",
           opacity: locked ? 0.65 : 1,
         },
       ]}
     >
-      {highlight && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.cardGlow,
-            {
-              borderColor: colors.gold,
-              opacity: pulse,
-            },
-          ]}
-        />
-      )}
-      <View style={[styles.cardAccent, { backgroundColor: accentColor, width: highlight ? 5 : 4 }]} />
+      <View style={[styles.cardAccent, { backgroundColor: accentColor }]} />
       <View style={[styles.cardIcon, { backgroundColor: withAlpha(color, built || ready ? 0.14 : 0.06) }]}>
         {locked ? (
           <MaterialCommunityIcons name="lock" size={20} color={colors.textMuted} />
@@ -713,31 +721,45 @@ function BuildingCard({
           <Text
             style={[
               styles.cardMeta,
-              { color: highlight ? colors.gold : canAffordBuild ? colors.foreground : colors.textSecondary },
+              {
+                color: canBuildNow
+                  ? colors.gold
+                  : ready && queueFull
+                    ? colors.warning
+                    : canAffordBuild
+                      ? colors.foreground
+                      : colors.textSecondary,
+              },
             ]}
             numberOfLines={2}
           >
             {locked
               ? lockReason
-              : highlight
-                ? "Ready now — tap to build"
-                : canAffordBuild
-                  ? "Ready — tap to build"
-                  : "Needs resources"}
+              : canBuildNow
+                ? buildCostHint ?? "Tap to build"
+                : ready && queueFull
+                  ? "Construction queue is full"
+                  : ready
+                    ? buildCostHint ?? "Not enough resources"
+                    : lockReason}
           </Text>
         )}
       </View>
-      <View
-        style={[
-          styles.statusPill,
-          {
-            backgroundColor: withAlpha(accentColor, 0.15),
-            borderColor: withAlpha(accentColor, 0.4),
-          },
-        ]}
-      >
-        <Text style={[styles.statusPillText, { color: accentColor }]}>{statusLabel}</Text>
-      </View>
+      {canBuildNow ? (
+        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.gold} />
+      ) : (
+        <View
+          style={[
+            styles.statusPill,
+            {
+              backgroundColor: withAlpha(accentColor, 0.12),
+              borderColor: withAlpha(accentColor, 0.35),
+            },
+          ]}
+        >
+          <Text style={[styles.statusPillText, { color: accentColor }]}>{statusLabel}</Text>
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -811,6 +833,18 @@ function ActionButton({
 const styles = StyleSheet.create({
   loading: { paddingVertical: 48, alignItems: "center" },
   scroll: { paddingHorizontal: 12, paddingBottom: 120, paddingTop: 4, gap: 12 },
+  queueBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 4,
+  },
+  queueBannerBody: { flex: 1, gap: 2 },
+  queueBannerTitle: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  queueBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", lineHeight: 15 },
   section: { gap: 8, marginBottom: 16 },
   sectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 },
   sectionTitle: { fontSize: 12, fontFamily: "Inter_700Bold", letterSpacing: 0.6, textTransform: "uppercase" },
@@ -826,18 +860,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 10,
     overflow: "hidden",
-  },
-  cardHighlight: {
-    shadowColor: "#d4a520",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  cardGlow: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 10,
-    borderWidth: 2,
   },
   cardAccent: { position: "absolute", left: 0, top: 0, bottom: 0, width: 4 },
   cardIcon: {

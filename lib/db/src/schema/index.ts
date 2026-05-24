@@ -9,3 +9,4 @@ export * from "./tradeDealCompletions";
 export * from "./raids";
 export * from "./trophies";
 export * from "./activities";
+export * from "./seasonObjectiveClaims";

@@ -58,7 +58,7 @@ lib/
 | Army | `app/(tabs)/army.tsx` | Recruit / view troops |
 | Missions | `app/(tabs)/missions.tsx` | Hourly mission cards |
 | World | `app/(tabs)/world.tsx` | Leaderboard, raids, settings (peaceful mode) |
-| Treasury | `app/(tabs)/treasury.tsx` | Season + production breakdown |
+| Activity | `app/(tabs)/treasury.tsx` | Activity feed, achievements, settings (peaceful mode) |
 
 Setup flow: `app/login.tsx` (Supabase) → `app/setup.tsx` if no kingdom → API links player to `auth_user_id`.
 

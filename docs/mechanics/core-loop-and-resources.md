@@ -55,6 +55,8 @@ Most military buildings do not add hourly production (they affect troops, missio
 
 **Calendar:** One real-world week = one season. Four seasons = one **cycle** (~4 weeks), then a seasonal wipe boundary (`nextWipeAt` on game state).
 
+**Cycle finale (week 4 / Winter):** +5% production on top of season and realm-event modifiers. See [progression-and-endgame.md](./progression-and-endgame.md).
+
 ## Gross vs net food (UI)
 
 - **Gross food/h** = production from farms and modifiers (what farms “make”).
@@ -65,7 +67,7 @@ Positive net food does not guarantee growth forever (stockpile can still hit zer
 
 ## Realm events (cycle calendar)
 
-**~3 events per week** (~12 per 28-day cycle), each lasting **18–36 hours**. Timing is deterministic per cycle (same for all players). Between events, only **season** modifiers apply.
+**~3 events per week** (~12 per 28-day cycle), each lasting **18–36 hours**. Timing is deterministic per cycle (same for all players). **Events are not previewed** — they appear in the season calendar and kingdom header only while active. Between events, only **season** modifiers apply.
 
 Events can be weather, omens, visitors, or calamities — each applies production multipliers (gold/food/wood/stone). See [balance-reference.md](./balance-reference.md) for the catalog.
 
